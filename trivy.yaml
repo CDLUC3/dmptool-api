@@ -1,0 +1,8 @@
+vulnerability:
+  ignore-unfixed: true          # Automatically ignore CVEs that don't have a fix yet
+
+scan:
+  # We
+  skip-dirs:
+    - "node_modules/jest"
+    - "node_modules/glob"

@@ -1,0 +1,46 @@
+# NOTE::
+# The services, settings and environment setup in this compose file is for DEVELOPMENT ONLY!
+#
+# It is intended to run the Apollo server in an "offline" mode. All data will be mocked.
+#
+networks:
+  dmptool-apollo-server-dmptool-network:
+    external: true
+
+services:
+  rest-api:
+    container_name: rest-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4060:4060"
+    networks:
+      - dmptool-apollo-server-dmptool-network
+    expose:
+      - 4060
+    env_file:
+      - .env
+    environment:
+      - "AWS_ACCESS_KEY_ID=DUMMYIDEXAMPLE"
+      - "AWS_SECRET_ACCESS_KEY=DUMMYEXAMPLEKEY"
+      - "REGION=us-west-2"
+      - "ENV=dev"
+      - "NODE_ENV=development"
+      - "PORT=4060"
+
+      - "RDS_HOST=apollo-mysql"
+      - "RDS_PORT=3306"
+      - "RDS_DATABASE=dmptool"
+
+      - "DYNAMODB_ENDPOINT=http://localstack:4566"
+      - "DYNAMODB_TABLE_NAME=localDMPTable"
+      - "MAX_ATTEMPTS=3"
+
+      - "EZID_BASE_URL=https://doi.org"
+
+      # Using the Apollo server network's LocalStack endpoint
+      - "SSM_ENDPOINT=http://localstack:4566"
+
+    volumes:
+      - ".:/app"
