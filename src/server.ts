@@ -8,6 +8,9 @@ if (port) {
   // Initialize the Fastify instance
   const fastify: FastifyInstance = Fastify({ logger: true });
 
+  // TODO: Implement caching, rate limiting, static, swagger documentation, etc.
+  //       using fastify plugins
+
   // Register plugins
   await fastify.register(authPlugin);
   await fastify.register(routesPlugin, { prefix: '/api/v3' });

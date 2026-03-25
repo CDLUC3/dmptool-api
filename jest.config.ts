@@ -30,7 +30,6 @@ const config: Config = {
   // An array of regexp pattern strings used to skip coverage collection
   coveragePathIgnorePatterns: [
     "/node_modules/",
-    "/src/mocks/",
     "/src/__tests__/",
   ],
 
@@ -92,7 +91,9 @@ const config: Config = {
   // ],
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
-  // moduleNameMapper: {},
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
   // modulePathIgnorePatterns: [],
@@ -104,7 +105,7 @@ const config: Config = {
   // notifyMode: "failure-change",
 
   // A preset that is used as a base for Jest's configuration
-  preset: 'ts-jest',
+  preset: 'ts-jest/presets/default-esm',
 
   // Run tests from one or more projects
   // projects: undefined,
@@ -136,7 +137,7 @@ const config: Config = {
   // runner: "jest-runner",
 
   // The paths to modules that run some code to configure or set up the testing environment before each test
-  setupFiles: ['./src/__tests__/setup.ts'],
+  // setupFiles: ['./src/__tests__/setup.ts'],
 
   // A list of paths to modules that run some code to configure or set up the testing framework before each test
   setupFilesAfterEnv: ['jest-expect-message'],
@@ -177,7 +178,11 @@ const config: Config = {
   // testRunner: "jest-circus/runner",
 
   // A map from regular expressions to paths to transformers
-  // transform: undefined,
+  transform: {
+    '^.+\\.tsx?$': ['ts-jest', { useESM: true }],
+  },
+  // Key to getting jest to recognize .ts files
+  extensionsToTreatAsEsm: ['.ts'],
 
   // An array of regexp pattern strings that are matched against all source file paths, matched files will skip transformation
   // transformIgnorePatterns: [
