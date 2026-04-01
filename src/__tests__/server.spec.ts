@@ -32,23 +32,17 @@ jest.mock('fastify', () => {
 describe('Server', () => {
   const originalEnv = process.env;
   const originalExit = process.exit;
-  const originalConsoleError = console.error;
-  const originalConsoleLog = console.log;
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     process.exit = jest.fn() as any;
-    console.error = jest.fn();
-    console.log = jest.fn();
   });
 
   afterEach(() => {
     process.env = originalEnv;
     process.exit = originalExit;
-    console.error = originalConsoleError;
-    console.log = originalConsoleLog;
     jest.resetModules();
   });
 
@@ -57,7 +51,7 @@ describe('Server', () => {
 
     await import('../server.js');
 
-    expect(mockListen).toHaveBeenCalledWith({ port: 4060 }, expect.any(Function));
+    expect(mockListen).toHaveBeenCalledWith({ port: 4060 });
   });
 
   it('should initialize server with custom port when APP_PORT is set', async () => {
@@ -65,7 +59,7 @@ describe('Server', () => {
 
     await import('../server.js');
 
-    expect(mockListen).toHaveBeenCalledWith({port: 8080}, expect.any(Function));
+    expect(mockListen).toHaveBeenCalledWith({port: 8080});
   });
 
   it('should register authPlugin', async () => {
@@ -86,20 +80,20 @@ describe('Server', () => {
     expect(mockRegister).toHaveBeenCalledWith(routesPlugin, { prefix: '/api/v3' });
   });
 
-  it('should log error and call console.log when plugin registration fails', async () => {
+  it('should log error and call fastify.log when plugin registration fails', async () => {
     process.env.APP_PORT = '4060';
     const testError = new Error('Plugin registration failed');
-    mockReady.mockImplementation((callback) => { throw testError });
+    mockReady.mockImplementation(() => { throw testError });
 
     await import('../server.js');
 
-    expect(console.log).toHaveBeenCalledWith(testError);
+    expect(mockFastify.log).toHaveBeenCalledWith(testError);
   });
 
   it('should log error and exit when server fails to start', async () => {
     process.env.APP_PORT = '4060';
     const testError = new Error('Server start failed');
-    mockListen.mockImplementation((options, callback) => { throw testError });
+    mockListen.mockImplementation(() => { throw testError });
 
     await import('../server.js');
 
@@ -107,12 +101,12 @@ describe('Server', () => {
     expect(process.exit).toHaveBeenCalledWith(1);
   });
 
-  it('should log error to console when APP_PORT is not a valid number', async () => {
+  it('should log error to fastify.log when APP_PORT is not a valid number', async () => {
     process.env.APP_PORT = '0';
 
     await import('../server.js');
 
-    expect(console.error).toHaveBeenCalledWith('APP_PORT is not defined!');
+    expect(mockFastify.log.error).toHaveBeenCalledWith('APP_PORT is not defined!');
     expect(mockListen).not.toHaveBeenCalled();
   });
 

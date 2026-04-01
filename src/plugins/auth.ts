@@ -8,6 +8,7 @@ import type {
 import dotenv from 'dotenv';
 import fastifyJwt from '@fastify/jwt';
 import fastifyCookie from '@fastify/cookie';
+import { toErrorMessage } from '@dmptool/utils';
 
 dotenv.config();
 
@@ -38,7 +39,7 @@ export const authPlugin = fp(async function (fastify: FastifyInstance): Promise<
   fastify.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
       await request.jwtVerify();
-    } catch (error) {
+    } catch (error: Error | unknown) {
       const fastifyError = error as FastifyError;
 
       // If no token was provided, silently set the user to an empty object
@@ -46,7 +47,9 @@ export const authPlugin = fp(async function (fastify: FastifyInstance): Promise<
         request.user = {};
       } else {
         if (process.env.NODE_ENV !== 'test') {
-          console.log('Optional JWT verification failed:', error);
+          fastify.log.error(
+            `Optional JWT verification failed: ${toErrorMessage(error)}`
+          );
         }
 
         return reply.status(401).send({
@@ -54,7 +57,6 @@ export const authPlugin = fp(async function (fastify: FastifyInstance): Promise<
           message: fastifyError.message || 'Authorization token verification failed'
         });
       }
-
     }
   });
 });
