@@ -5,6 +5,9 @@
 - Added new routes for CRUD operations on a DMP
 - Added new `utils.ts` file with helper functions
 - Added new `types.ts` file with type definitions
+- Enabled use of the jest `setup` file
+- Updated `.env.example` with new ENV variables
+- Updated README documentation
 
 ## 2026-04-01
 - Update to use `fastify.log` instead of `console.log`
