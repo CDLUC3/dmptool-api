@@ -5,12 +5,9 @@ import type {
   FastifyReply,
   FastifyRequest,
 } from 'fastify';
-import dotenv from 'dotenv';
 import fastifyJwt from '@fastify/jwt';
 import fastifyCookie from '@fastify/cookie';
 import { toErrorMessage } from '@dmptool/utils';
-
-dotenv.config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 const JWT_COOKIE_NAME = 'dmspt';
@@ -22,9 +19,12 @@ const JWT_COOKIE_NAME = 'dmspt';
  * @param {FastifyInstance} fastify Encapsulated Fastify Instance
  */
 
-export const authPlugin = fp(async function (fastify: FastifyInstance): Promise<void> {
+export const authPlugin = fp(async function (
+  fastify: FastifyInstance
+): Promise<void> {
   await fastify.register(fastifyCookie);
 
+  // TODO: Update this to accept a cookie OR through the Bearer Auth Token
   await fastify.register(fastifyJwt, {
     secret: JWT_SECRET,
     cookie: {

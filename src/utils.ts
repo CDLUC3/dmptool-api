@@ -1,0 +1,22 @@
+import { ConfigurationOptionsType } from "./configuration.js";
+
+/**
+ * Checks whether the given identifier is a DMP ID (DOI or a URL under the configured domain).
+ *
+ * @param options The configuration options.
+ * @param id The identifier to check.
+ * @returns True if the identifier is a DMP ID, false otherwise.
+ */
+export const isDmpId = (
+  options: ConfigurationOptionsType,
+  id: string,
+): boolean => {
+  const prefixes = [
+    `${options.dmpIdBaseUrl.replace(/https?:\/\//, '')}/${options.dmpIdShoulder}`,
+    `${options.domainName}/projects`,
+    `doi:${options.dmpIdShoulder}`,
+    options.dmpIdShoulder
+  ].map((prefix: string): string => encodeURIComponent(prefix));
+
+  return prefixes.some((prefix: string): boolean => id.startsWith(prefix));
+};

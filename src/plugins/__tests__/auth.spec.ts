@@ -12,8 +12,6 @@ describe('authPlugin', () => {
     fastify.get('/test', async (request) => {
       return { user: request.user };
     });
-
-    await fastify.ready();
   });
 
   afterEach(async () => {
