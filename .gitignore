@@ -26,3 +26,6 @@ coverage/
 # temp directory
 .temp
 .tmp
+
+# local Docker
+docker/

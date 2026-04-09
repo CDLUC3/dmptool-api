@@ -20,3 +20,19 @@ export const isDmpId = (
 
   return prefixes.some((prefix: string): boolean => id.startsWith(prefix));
 };
+
+/**
+ * Safely convert a string to an integer
+ *
+ * @param val the string
+ * @returns the integer or undefined if it was not a valid integer
+ */
+export const stringToInteger = (
+  val: string | undefined
+): number | undefined => {
+  if (!val) return undefined;
+
+  const parsed: number = val ? parseInt(val, 10) : NaN;
+
+  return Number.isInteger(parsed) ? parsed : undefined;
+}

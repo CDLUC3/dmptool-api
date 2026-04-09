@@ -1,5 +1,8 @@
-import {isDmpId} from '../utils.js';
-import {ConfigurationOptionsType} from '../configuration.js';
+import { ConfigurationOptionsType } from '../configuration.js';
+import {
+  isDmpId,
+  stringToInteger
+} from '../utils.js';
 
 describe('isDmpId', () => {
   const mockOptions: ConfigurationOptionsType = {
@@ -105,5 +108,46 @@ describe('isDmpId', () => {
       const id = encodeURIComponent('DOI:10.12345') + '/test';
       expect(isDmpId(mockOptions, id)).toBe(false);
     });
+  });
+});
+
+describe('stringToInteger', () => {
+
+  test('should return the integer when given a valid numeric string', () => {
+    expect(stringToInteger('3306')).toBe(3306);
+    expect(stringToInteger('0')).toBe(0);
+    expect(stringToInteger('-50')).toBe(-50);
+  });
+
+  test('should return undefined for non-numeric strings', () => {
+    expect(stringToInteger('localhost')).toBeUndefined();
+    expect(stringToInteger('abc123')).toBeUndefined(); // parseInt might get '123', but isInteger catches partials
+  });
+
+  test('should return undefined for empty strings or whitespace', () => {
+    expect(stringToInteger('')).toBeUndefined();
+    expect(stringToInteger('   ')).toBeUndefined();
+  });
+
+  test('should return undefined for decimal strings', () => {
+    // Depending on your needs, parseInt('10.5') returns 10.
+    // If you want STRICT integers, you might need to check the original string.
+    // As written, parseInt('10.5') returns 10, which IS an integer.
+    expect(stringToInteger('10.5')).toBe(10);
+  });
+
+  test('should handle null or undefined gracefully', () => {
+    // @ts-ignore: testing runtime safety for non-TS consumers
+    expect(stringToInteger(null)).toBeUndefined();
+    // @ts-ignore
+    expect(stringToInteger(undefined)).toBeUndefined();
+  });
+
+  test('should handle very large numbers', () => {
+    expect(stringToInteger('9007199254740991')).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  test('should handle an undefined val', () => {
+    expect(stringToInteger(undefined)).toBe(undefined);
   });
 });
