@@ -1,12 +1,13 @@
-import {isDmpId} from '../utils.js';
-import {ConfigurationOptionsType} from '../configuration.js';
+import { describe, expect, it } from '@jest/globals';
+import { isDmpId } from '../utils.js';
+import { ConfigurationOptions } from '../types.js';
 
 describe('isDmpId', () => {
-  const mockOptions: ConfigurationOptionsType = {
+  const mockOptions: ConfigurationOptions = {
     dmpIdBaseUrl: 'https://doi.org',
     dmpIdShoulder: '10.12345',
     domainName: 'example.com',
-  } as ConfigurationOptionsType;
+  } as ConfigurationOptions;
 
   describe('should return true for valid DMP IDs', () => {
     it('should match when ID starts with encoded base URL and shoulder', () => {

@@ -4,7 +4,7 @@ import { routesPlugin } from './plugins/routes.js';
 import { toErrorMessage } from "@dmptool/utils";
 import { configurationOptions } from './configuration.js';
 import { configPlugin } from "./plugins/config.js";
-import { rateLimitPlugin } from "./plugins/rate-limit.js";
+import { rateLimitPlugin } from "./plugins/rateLimit.js";
 import { swaggerPlugin } from "./plugins/swagger.js";
 import { linksetPlugin } from "./plugins/linkset.js";
 import { serializationPlugin } from "./plugins/serialization.js";
@@ -18,7 +18,9 @@ const fastify: FastifyInstance = Fastify({
       strictSchema: false, // This allows 'default' inside subschemas
     }
   },
-  logger: true
+  logger: true,
+  // Convert the specified size in MB to MiB
+  bodyLimit: Number(configurationOptions.payloadSizeLimit * 0.953674)
 });
 
 /**
@@ -58,14 +60,12 @@ const start = async (
 
     fastify.log.info(`Server listening on ${address}`);
   } catch (err) {
+
+console.log('ERROR', err);
+
     fastify.log.error(toErrorMessage(err));
     process.exit(1);
   }
 };
 
-if (configurationOptions.jwtSecret !== undefined) {
-  await start(configurationOptions);
-} else {
-  fastify.log.error('JWT_SECRET is not set');
-  process.exit(1);
-}
+await start(configurationOptions);

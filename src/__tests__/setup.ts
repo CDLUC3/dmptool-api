@@ -1,43 +1,28 @@
 import { jest } from '@jest/globals';
-
-// Setup any global variables or mocks here
-process.env.NODE_ENV = 'test'
-process.env.DEPLOYMENT_ENT = 'tst'
-
-process.env.LOG_LEVEL = 'error'
-
-process.env.API_PATH_PREFIX = '/api/test/v3'
-
-process.env.APP_PORT = '4060';
-process.env.UI_PORT = '3000'
-
-process.env.DOMAIN_NAME = 'localhost:4060';
-
-process.env.JWT_SECRET = 'test-secret';
-
-process.env.DMP_ID_BASE = 'https://doi.org'
-process.env.DMP_ID_SHOULDER = '00.00000/A1'
-
-jest.mock('dotenv');
+import { LogLevel } from "fastify";
 
 // Mock the configuration.ts (so it doesn't pick up the dotenv file)
-jest.mock('../configuration.ts', () => ({
+// ESM requires us to use jest.unstable_mockModule
+jest.unstable_mockModule('../configuration.ts', () => ({
   configurationOptions: {
-    nodeEnv: process.env.NODE_ENV,
-    deploymentEnt: process.env.DEPLOYMENT_ENT,
-    logLevel: process.env.LOG_LEVEL,
+    nodeEnv: 'test',
+    deploymentEnt: 'tst',
+    logLevel: 'info' as LogLevel,
 
-    pathPrefix: process.env.API_PATH_PREFIX,
+    pathPrefix: '/api/test/v3',
 
-    port: process.env.APP_PORT,
-    uiPort: process.env.UI_PORT,
+    port: 4060,
+    uiPort: 3000,
 
-    domainName: process.env.DOMAIN_NAME,
-    domainWithProtocol: `http://${process.env.DOMAIN_NAME}`,
+    domainName: 'localhost:4060',
+    domainWithProtocol: `http://localhost:4060`,
 
-    jwtSecret: process.env.JWT_SECRET,
+    jwtSecret: 'test-secret',
+    jwtCookieName: 'test-cookie',
 
-    dmpIdBaseUrl: process.env.DMP_ID_BASE,
-    dmpIdShoulder: process.env.DMP_ID_SHOULDER,
-  }
+    dmpIdBaseUrl: 'https://doi.org',
+    dmpIdShoulder: '00.00000/A1',
+
+    payloadSizeLimit: 1,
+  },
 }));

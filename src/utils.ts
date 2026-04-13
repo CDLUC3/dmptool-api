@@ -1,4 +1,4 @@
-import { ConfigurationOptionsType } from "./configuration.js";
+import { ConfigurationOptions } from "./types.js";
 
 /**
  * Checks whether the given identifier is a DMP ID (DOI or a URL under the configured domain).
@@ -8,7 +8,7 @@ import { ConfigurationOptionsType } from "./configuration.js";
  * @returns True if the identifier is a DMP ID, false otherwise.
  */
 export const isDmpId = (
-  options: ConfigurationOptionsType,
+  options: ConfigurationOptions,
   id: string,
 ): boolean => {
   const prefixes = [

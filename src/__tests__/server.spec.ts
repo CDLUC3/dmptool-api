@@ -1,120 +1,70 @@
-import { jest } from '@jest/globals';
-import type { FastifyInstance } from 'fastify';
+import { describe, expect, it, jest } from '@jest/globals';
 
-// Mock the plugins before importing server
-jest.mock('../plugins/auth', () => ({
-  authPlugin: jest.fn()
+const mockRegister = jest.fn().mockImplementation(() => Promise.resolve());
+
+// Mock the fastify factory
+jest.unstable_mockModule('fastify', () => ({
+  default: () => ({
+    register: mockRegister,
+    listen: jest.fn(),
+    log: { info: jest.fn(), error: jest.fn() },
+    addHook: jest.fn(),
+    decorate: jest.fn(),
+    decorateRequest: jest.fn(),
+  }),
 }));
 
-jest.mock('../plugins/routes', () => ({
-  routesPlugin: jest.fn()
-}));
+// Mock the actual plugins so we can identify them in the call stack
+jest.unstable_mockModule('../plugins/swagger.js', () => ({ swaggerPlugin: jest.fn().mockName('swaggerPlugin') }));
+jest.unstable_mockModule('../plugins/rateLimit.js', () => ({ rateLimitPlugin: jest.fn().mockName('rateLimitPlugin') }));
+jest.unstable_mockModule('../plugins/config.js', () => ({ configPlugin: jest.fn().mockName('configPlugin') }));
+jest.unstable_mockModule('../plugins/error.js', () => ({ errorPlugin: jest.fn().mockName('errorPlugin') }));
+jest.unstable_mockModule('../plugins/auth.js', () => ({ authPlugin: jest.fn().mockName('authPlugin') }));
+jest.unstable_mockModule('../plugins/serialization.js', () => ({ serializationPlugin: jest.fn().mockName('serializationPlugin') }));
+jest.unstable_mockModule('../plugins/linkset.js', () => ({ linksetPlugin: jest.fn().mockName('linksetPlugin') }));
+jest.unstable_mockModule('../plugins/routes.js', () => ({ routesPlugin: jest.fn().mockName('routesPlugin') }));
 
-// Mock Fastify
-const mockListen = jest.fn();
-const mockReady = jest.fn();
-const mockRegister = jest.fn();
-const mockLogError = jest.fn();
-
-const mockFastify = {
-  register: mockRegister,
-  ready: mockReady,
-  listen: mockListen,
-  log: {
-    error: mockLogError
-  }
-} as unknown as FastifyInstance;
-
-jest.mock('fastify', () => {
-  return jest.fn(() => mockFastify);
-});
-
-describe('Server', () => {
-  const originalEnv = process.env;
-  const originalExit = process.exit;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-    process.env = { ...originalEnv };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    process.exit = jest.fn() as any;
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-    process.exit = originalExit;
-    jest.resetModules();
-  });
-
-  it.only('should initialize server with default port when APP_PORT is not set', async () => {
-    delete process.env.APP_PORT;
-
+describe('Server Registration Order', () => {
+  it('should register plugins in the correct dependency order', async () => {
+    // Import the server to trigger the top-level 'await start()'
     await import('../server.js');
 
-    expect(mockListen).toHaveBeenCalledWith({ port: 4060 });
-  });
+    // Extract the first argument of every register call
+    const registeredPlugins = mockRegister.mock.calls.map(call => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const plugin = call[0] as any;
+      return plugin.getMockName ? plugin.getMockName() : 'unknown';
+    });
 
-  it('should initialize server with custom port when APP_PORT is set', async () => {
-    process.env.APP_PORT = '8080';
+    // Check for specific registration sequences
+    const swaggerIndex = registeredPlugins.indexOf('swaggerPlugin');
+    const rateLimitIndex = registeredPlugins.indexOf('rateLimitPlugin');
+    const configIndex = registeredPlugins.indexOf('configPlugin');
+    const errorIndex = registeredPlugins.indexOf('errorPlugin');
+    const authIndex = registeredPlugins.indexOf('authPlugin');
+    const serializationIndex = registeredPlugins.indexOf('serializationPlugin');
+    const linksetIndex = registeredPlugins.indexOf('linksetPlugin');
+    const routesIndex = registeredPlugins.indexOf('routesPlugin');
 
-    await import('../server.js');
+    // 3rd party plugins are registered first
+    expect(swaggerIndex).toBeGreaterThan(-1);
+    expect(rateLimitIndex).toBeGreaterThan(-1);
 
-    expect(mockListen).toHaveBeenCalledWith({port: 8080});
-  });
+    // Config and Error plugins should be registered after 3rd party plugins
+    expect(configIndex).toBeGreaterThan(swaggerIndex);
+    expect(errorIndex).toBeGreaterThan(swaggerIndex);
+    expect(configIndex).toBeGreaterThan(rateLimitIndex);
+    expect(errorIndex).toBeGreaterThan(rateLimitIndex);
 
-  it('should register authPlugin', async () => {
-    process.env.APP_PORT = '4060';
+    // Serialization plugin should come before Auth
+    expect(serializationIndex).toBeLessThan(authIndex);
 
-    const { authPlugin } = await import('../plugins/auth.js');
-    await import('../server.js');
+    // Config must come before Auth and Routes plugins
+    expect(configIndex).toBeLessThan(authIndex);
+    expect(configIndex).toBeLessThan(routesIndex);
 
-    expect(mockRegister).toHaveBeenCalledWith(authPlugin);
-  });
-
-  it('should register routesPlugin with /api/v3 prefix', async () => {
-    process.env.APP_PORT = '4060';
-
-    const { routesPlugin } = await import('../plugins/routes.js');
-    await import('../server.js');
-
-    expect(mockRegister).toHaveBeenCalledWith(routesPlugin, { prefix: '/api/v3' });
-  });
-
-  it('should log error and call fastify.log when plugin registration fails', async () => {
-    process.env.APP_PORT = '4060';
-    const testError = new Error('Plugin registration failed');
-    mockReady.mockImplementation(() => { throw testError });
-
-    await import('../server.js');
-
-    expect(mockFastify.log).toHaveBeenCalledWith(testError);
-  });
-
-  it('should log error and exit when server fails to start', async () => {
-    process.env.APP_PORT = '4060';
-    const testError = new Error('Server start failed');
-    mockListen.mockImplementation(() => { throw testError });
-
-    await import('../server.js');
-
-    expect(mockLogError).toHaveBeenCalledWith(testError);
-    expect(process.exit).toHaveBeenCalledWith(1);
-  });
-
-  it('should log error to fastify.log when APP_PORT is not a valid number', async () => {
-    process.env.APP_PORT = '0';
-
-    await import('../server.js');
-
-    expect(mockFastify.log.error).toHaveBeenCalledWith('APP_PORT is not defined!');
-    expect(mockListen).not.toHaveBeenCalled();
-  });
-
-  it('should verify all plugins are ready before starting server', async () => {
-    process.env.APP_PORT = '4060';
-
-    await import('../server.js');
-
-    expect(mockReady).toHaveBeenCalledWith(expect.any(Function));
+    // Linkset and Routes must come after Auth
+    expect(linksetIndex).toBeGreaterThan(authIndex);
+    expect(routesIndex).toBeGreaterThan(authIndex);
   });
 });

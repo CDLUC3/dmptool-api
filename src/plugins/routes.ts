@@ -9,7 +9,7 @@ import {
   GET_DMPS_OPTIONS,
   POST_DMP_OPTIONS,
   PUT_DMP_OPTIONS,
-} from "../serializer.js";
+} from "../routeOptions.js";
 import { isDmpId } from "../utils.js";
 import { convertMySQLDateTimeToRFC3339 } from "@dmptool/utils";
 
@@ -104,6 +104,7 @@ export const routesPlugin = async function (
       // TODO: Query for DMPs matching the filters provided (use the Accept
       //       header to determine whether we should return the RDA Common Standard
       //       or the full DMP with DMP Tool extensions)
+      //       Only return "public" DMPs if the user is not authenticated
       //       --
       //       FOR NOW - just return a mock DMP based on the Accept header
       reply.code(200).send({ total_count: 1, items: [{ dmp: TEST_DMP }]})
@@ -162,6 +163,7 @@ export const routesPlugin = async function (
       // TODO: Fetch the DMP from the DynamoDB table (use the Accept header to
       //       determine whether we should return the RDA Common Standard or
       //       the full DMP with DMP Tool extensions)
+      //       Only return "public" DMPs if the user is not authenticated
       //       --
       //       FOR NOW - just return a mock DMP based on the Accept header
 
@@ -190,17 +192,6 @@ export const routesPlugin = async function (
       let modCheck = request.headers['if-unmodified-since'] as string;
       const id: string = params ? encodeURIComponent(params.id) : '';
 
-      // Reject the request immediately if no modified date was supplied
-      if (!modCheck) {
-        return reply.code(400).send({
-          status_code: '400',
-          error_code: 'bad_request',
-          message: 'Missing required header: If-Unmodified-Since'
-        });
-      }
-      // Convert the modified date in the header to RFC3339 format
-      modCheck = convertMySQLDateTimeToRFC3339(modCheck) as string;
-
       // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
       if (!id || !isDmpId(request.dmptoolConfig, id)) {
         return reply.code(400).send({
@@ -217,7 +208,8 @@ export const routesPlugin = async function (
       //       --
       //       FOR NOW - just return a mock DMP based on the Accept header
 
-      // Convert the modified date in the DMP to RFC3339 format
+      // Convert the If-Unmodified-Since date in the header and the DMP modified date to RFC3339 format
+      modCheck = convertMySQLDateTimeToRFC3339(modCheck) as string;
       const modified = convertMySQLDateTimeToRFC3339(TEST_DMP.modified) as string;
 
       // Check the `If-Unmodified-Since` header and return a 409 Conflict if the
@@ -255,23 +247,14 @@ export const routesPlugin = async function (
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       let modCheck = request.headers['if-unmodified-since'] as string;
-      // Reject the request immediately if no modified date was supplied
-      if (!modCheck) {
-        return reply.code(400).send({
-          status_code: '400',
-          error_code: 'bad_request',
-          message: 'Missing required header: If-Unmodified-Since'
-        })
-      }
-      // Convert the modified date in the header to RFC3339 format
-      modCheck = convertMySQLDateTimeToRFC3339(modCheck) as string;
 
       // TODO: Fetch the DMP from the DynamoDB table, check authorization and
       //       then delete if authorized
       //       --
       //       FOR NOW - just return a mock success code
 
-      // Convert the modified date in the DMP to RFC3339 format
+      // Convert the If-Unmodified-Since date in the header and the DMP modified date to RFC3339 format
+      modCheck = convertMySQLDateTimeToRFC3339(modCheck) as string;
       const modified = convertMySQLDateTimeToRFC3339(TEST_DMP.modified) as string;
 
       // Check the `If-Unmodified-Since` header and return a 409 Conflict if the
