@@ -27,5 +27,5 @@ coverage/
 .temp
 .tmp
 
-# local Docker
+# local Docker files
 docker/

@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
 import { serializationPlugin } from '../serialization.js';
 import { configPlugin } from "../config.js";

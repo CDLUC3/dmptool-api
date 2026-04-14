@@ -5,13 +5,56 @@ import {
   DMP_TOOL_CONTENT_TYPE,
   RDA_COMMON_STANDARD_CONTENT_TYPE,
   negotiatedDmpResponseContent
-} from "../serializer.js";
+} from "../routeOptions.js";
 
 export const serializationPlugin = fp(async function (
   fastify: FastifyInstance
 ): Promise<void> {
-  const supportedAcceptHeaders = [DMP_TOOL_CONTENT_TYPE, RDA_COMMON_STANDARD_CONTENT_TYPE];
+  const supportedAcceptHeaders = [
+    DMP_TOOL_CONTENT_TYPE,
+    RDA_COMMON_STANDARD_CONTENT_TYPE,
+    'application/json',
+  ];
 
+  // Validate the incoming Accept header
+  fastify.addHook('onRequest', async (
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): Promise<unknown> => {
+    const rawAcceptHeader = request.headers['accept'];
+
+    // Check if the header is missing OR is the wildcard */*.
+    // If so default to RDA_COMMON_STANDARD
+    if (!rawAcceptHeader || rawAcceptHeader === '*/*') {
+      reply.type(RDA_COMMON_STANDARD_CONTENT_TYPE);
+      return;
+    }
+
+    // Use the Negotiator to parse through the accept headers
+    const negotiator = new Negotiator({
+      supportedValues: supportedAcceptHeaders,
+      cache: new Map()
+    });
+    const acceptHeader: string | null = negotiator.negotiate(request.headers['accept'] || '');
+
+    // If it returned null, then an Accept header we don't support was provided
+    if (!acceptHeader) {
+      return reply.status(406).send({
+        status_code: 406,
+        error_code: 'not_acceptable',
+        message: 'The server does not support any of the requested content types.'
+      });
+    } else {
+      // If the target type is DMP Tool, set the Content-Type header to DMP Tool
+      // Otherwise, set the Content-Type header to RDA Common Standard
+      const targetType: string = acceptHeader === DMP_TOOL_CONTENT_TYPE
+        ? acceptHeader
+        : RDA_COMMON_STANDARD_CONTENT_TYPE;
+      reply.type(targetType);
+    }
+  });
+
+  // Serialize the outgoing payload and set the Content-Type header
   fastify.addHook('onSend', async (
     request: FastifyRequest,
     reply: FastifyReply,
@@ -19,16 +62,8 @@ export const serializationPlugin = fp(async function (
   ): Promise<unknown> => {
     // If the payload is a DMP
     if (payload && typeof payload === 'string' && payload.startsWith('{"dmp":')) {
-      const negotiator = new Negotiator({
-        supportedValues: supportedAcceptHeaders,
-        cache: new Map()
-      });
-
-      const acceptHeader: string | null = negotiator.negotiate(request.headers['accept'] || '');
-      const targetType: string = acceptHeader || RDA_COMMON_STANDARD_CONTENT_TYPE;
-
-      // Set the Content-Type header to the negotiated value (default to RDA)
-      reply.type(targetType);
+      let targetType: string = reply.getHeader('content-type')?.toString() ?? RDA_COMMON_STANDARD_CONTENT_TYPE;
+      targetType = targetType.split(';').map(t => t.trim())[0];
 
       // Load the schema for the content type
       const schema = negotiatedDmpResponseContent[targetType as keyof typeof negotiatedDmpResponseContent];

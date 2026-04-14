@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
 import { linksetPlugin } from '../linkset.js';
 import { configPlugin } from "../config.js";
@@ -27,9 +28,9 @@ describe('routesPlugin', () => {
       expect(response.headers['content-type']).toEqual(expectedHdr);
       const json = JSON.parse(response.body);
       const expected = {
-        anchor: `http://${process.env.DOMAIN_NAME}/.well-known/api-catalog`,
+        anchor: `http://localhost:4060/.well-known/api-catalog`,
         item: [
-          {href: `http://${process.env.DOMAIN_NAME}/api/v3`},
+          {href: `http://localhost:4060/api/v3`},
         ]
       };
       expect(json.linkset[0]).toEqual(expected);

@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
 import { routesPlugin } from '../routes.js';
 import { configPlugin } from "../config.js";
@@ -7,7 +8,7 @@ import { DMPToolDMPType } from "@dmptool/types";
 import {
   DMP_TOOL_CONTENT_TYPE,
   RDA_COMMON_STANDARD_CONTENT_TYPE
-} from "../../serializer.js";
+} from "../../routeOptions.js";
 
 describe('routesPlugin', () => {
   let fastify: FastifyInstance;
@@ -91,7 +92,7 @@ describe('routesPlugin', () => {
 
       expect(response.statusCode).toBe(200);
       const contentType: string | undefined = response.headers['content-type'];
-      expect(contentType).toEqual(RDA_COMMON_STANDARD_CONTENT_TYPE);
+      expect(contentType).toEqual(`${RDA_COMMON_STANDARD_CONTENT_TYPE}; charset=utf-8`);
       const dmp: DMPToolDMPType = response.json();
       expect(dmp.dmp).toHaveProperty('dmp_id');
       expect(dmp.dmp).not.toHaveProperty('privacy');
@@ -106,7 +107,7 @@ describe('routesPlugin', () => {
 
       expect(response.statusCode).toBe(200);
       const contentType: string | undefined = response.headers['content-type'];
-      expect(contentType).toEqual(DMP_TOOL_CONTENT_TYPE);
+      expect(contentType).toEqual(`${DMP_TOOL_CONTENT_TYPE}; charset=utf-8`);
       const dmp: DMPToolDMPType = response.json();
       expect(dmp.dmp).toHaveProperty('dmp_id');
       expect(dmp.dmp).toHaveProperty('privacy');

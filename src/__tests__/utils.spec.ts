@@ -1,15 +1,13 @@
-import { ConfigurationOptionsType } from '../configuration.js';
-import {
-  isDmpId,
-  stringToInteger
-} from '../utils.js';
+import { describe, expect, it } from '@jest/globals';
+import { isDmpId, stringToInteger } from '../utils.js';
+import { ConfigurationOptions } from '../types.js';
 
 describe('isDmpId', () => {
-  const mockOptions: ConfigurationOptionsType = {
+  const mockOptions: ConfigurationOptions = {
     dmpIdBaseUrl: 'https://doi.org',
     dmpIdShoulder: '10.12345',
     domainName: 'example.com',
-  } as ConfigurationOptionsType;
+  } as ConfigurationOptions;
 
   describe('should return true for valid DMP IDs', () => {
     it('should match when ID starts with encoded base URL and shoulder', () => {
@@ -112,42 +110,41 @@ describe('isDmpId', () => {
 });
 
 describe('stringToInteger', () => {
-
-  test('should return the integer when given a valid numeric string', () => {
+  it('should return the integer when given a valid numeric string', () => {
     expect(stringToInteger('3306')).toBe(3306);
     expect(stringToInteger('0')).toBe(0);
     expect(stringToInteger('-50')).toBe(-50);
   });
 
-  test('should return undefined for non-numeric strings', () => {
+  it('should return undefined for non-numeric strings', () => {
     expect(stringToInteger('localhost')).toBeUndefined();
     expect(stringToInteger('abc123')).toBeUndefined(); // parseInt might get '123', but isInteger catches partials
   });
 
-  test('should return undefined for empty strings or whitespace', () => {
+  it('should return undefined for empty strings or whitespace', () => {
     expect(stringToInteger('')).toBeUndefined();
     expect(stringToInteger('   ')).toBeUndefined();
   });
 
-  test('should return undefined for decimal strings', () => {
+  it('should return undefined for decimal strings', () => {
     // Depending on your needs, parseInt('10.5') returns 10.
     // If you want STRICT integers, you might need to check the original string.
     // As written, parseInt('10.5') returns 10, which IS an integer.
     expect(stringToInteger('10.5')).toBe(10);
   });
 
-  test('should handle null or undefined gracefully', () => {
+  it('should handle null or undefined gracefully', () => {
     // @ts-ignore: testing runtime safety for non-TS consumers
     expect(stringToInteger(null)).toBeUndefined();
     // @ts-ignore
     expect(stringToInteger(undefined)).toBeUndefined();
   });
 
-  test('should handle very large numbers', () => {
+  it('should handle very large numbers', () => {
     expect(stringToInteger('9007199254740991')).toBe(Number.MAX_SAFE_INTEGER);
   });
 
-  test('should handle an undefined val', () => {
+  it('should handle an undefined val', () => {
     expect(stringToInteger(undefined)).toBe(undefined);
   });
 });
