@@ -1,19 +1,23 @@
+import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
 import { authPlugin } from '../auth.js';
+import { configPlugin } from "../config.js";
+import { errorPlugin } from "../error.js";
 
 describe('authPlugin', () => {
   let fastify: FastifyInstance;
 
   beforeEach(async () => {
     fastify = Fastify();
+
+    await fastify.register(configPlugin);
+    await fastify.register(errorPlugin);
     await fastify.register(authPlugin);
 
     // Add a test route to verify authentication
     fastify.get('/test', async (request) => {
       return { user: request.user };
     });
-
-    await fastify.ready();
   });
 
   afterEach(async () => {
@@ -31,7 +35,7 @@ describe('authPlugin', () => {
       method: 'GET',
       url: '/test',
       cookies: {
-        dmspt: token
+        "test-cookie": token
       }
     });
 
@@ -57,21 +61,19 @@ describe('authPlugin', () => {
       method: 'GET',
       url: '/test',
       cookies: {
-        dmspt: 'invalid.token.here'
+        "test-cookie": 'invalid.token.here'
       }
     });
 
     expect(response.statusCode).toBe(401);
     const body = JSON.parse(response.body);
-    expect(body).toHaveProperty('error', 'Unauthorized');
+    expect(body).toHaveProperty('error_code', 'authentication_required');
   });
 
-  // TODO: Fix this once we implement authentication. An expired JWT token should
-  //       not be accepted.
-  it.skip('should ignore expired JWT tokens', async () => {
+  it('should ignore expired JWT tokens', async () => {
     const token = fastify.jwt.sign(
       { userId: 1, email: 'test@example.com' },
-      { expiresIn: '0s' } // Token expires immediately
+      { expiresIn: '-1h' } // Token expires immediately
     );
 
     // Wait a bit to ensure token is expired
@@ -81,7 +83,7 @@ describe('authPlugin', () => {
       method: 'GET',
       url: '/test',
       cookies: {
-        dmspt: token
+        "test-cookie": token
       }
     });
 
@@ -102,7 +104,7 @@ describe('authPlugin', () => {
       method: 'GET',
       url: '/test',
       cookies: {
-        dmspt: token
+        "test-cookie": token
       }
     });
 
