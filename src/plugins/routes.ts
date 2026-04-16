@@ -121,7 +121,7 @@ const routesPlugin = async function (
    * Load balancer health check endpoint
    */
   fastify.get(
-    '/healthcheck',
+    '/api-healthcheck',
     async (_request: FastifyRequest, reply: FastifyReply
     ): Promise<void> => {
       reply.code(200).send({ status_code: '200', message: 'OK' });
