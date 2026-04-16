@@ -1,11 +1,8 @@
-FROM public.ecr.aws/docker/library/node:lts-slim
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash \
-    curl \
-    nodejs \
-    npm \
-  && rm -rf /var/lib/apt/lists/*
+RUN dnf update -y && \
+    dnf install -y nodejs20 npm && \
+    dnf clean all
 
 WORKDIR /app
 
@@ -14,13 +11,13 @@ WORKDIR /app
 COPY package*.json tsconfig.json .env ./
 
 # Install dependencies in /app
-RUN npm ci
+RUN npm install
 
 # Copy the rest of our Apollo Server folder into /app
-COPY ./src .
+COPY . .
 
-# Ensure port 3000 is accessible to our system
-EXPOSE 4000
+# Ensure port 4060 is accessible to our system
+EXPOSE 4060
 
 # Command to run the Next.js app in development mode
 CMD ["npm", "run", "dev"]

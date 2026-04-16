@@ -16,22 +16,27 @@ import { toErrorMessage } from '@dmptool/utils';
  * @param {FastifyInstance} fastify Encapsulated Fastify Instance
  */
 
-export const authPlugin = fp(async function (
+const authPlugin = fp(async function (
   fastify: FastifyInstance
 ): Promise<void> {
+  const defaultCaller: string = fastify.dmptoolConfig.applicationName.toLowerCase().replace(' ', '-');
+
   await fastify.register(fastifyCookie);
 
-  // If a Cookie name was defined set up the config for fastify-jwt
+  // Set up the config for fastify-jwt if a Cookie name was defined
   const cookieConfig = fastify.dmptoolConfig.jwtCookieName
   ? { cookie: { cookieName: fastify.dmptoolConfig.jwtCookieName, signed: false } }
   : { };
 
-  // If a cookie was provided, use it otherwise this will default to the
-  // Authorization header.
+  // If a cookie was provided, otherwise this will default to the Authorization header.
   await fastify.register(fastifyJwt, {
     secret: fastify.dmptoolConfig.jwtSecret,
     ...cookieConfig,
   });
+
+  // TODO: Update this to include the identity of the system sending the request
+  //       default to
+  fastify.decorateRequest('caller', defaultCaller);
 
   // For every request, verify the JWT token if it exists and then set the user
   // property on the request object. Return an error if the token is invalid.
@@ -64,4 +69,11 @@ export const authPlugin = fp(async function (
       }
     }
   });
+
+  // Simple status check to make sure the plugin is registered
+  fastify.addHook('onReady', async () => {
+    fastify.log.info('Auth Plugin has been registered.');
+  });
 });
+
+export default authPlugin;

@@ -2,7 +2,7 @@ import type {
   FastifyInstance, FastifyReply, FastifyRequest,
   HookHandlerDoneFunction
 } from 'fastify';
-import { configurationOptions } from "../configuration.js";
+import { baseConfigurationOptions } from "../configuration.js";
 
 /**
  * Plugin that registers the Swagger plugin to generate the OpenAPI specification
@@ -10,7 +10,7 @@ import { configurationOptions } from "../configuration.js";
  *
  * @param {FastifyInstance} fastify Encapsulated Fastify Instance
  */
-export const swaggerPlugin = async function (
+const swaggerPlugin = async function (
   fastify: FastifyInstance
 ): Promise<void> {
   // Register the Swagger plugin to help generate the OpenAPI specification
@@ -24,7 +24,7 @@ export const swaggerPlugin = async function (
       },
       servers: [
         {
-          url: configurationOptions.domainWithProtocol
+          url: baseConfigurationOptions.domainWithProtocol
         }
       ],
       tags: [
@@ -56,7 +56,7 @@ export const swaggerPlugin = async function (
 
   // Set up the Swagger UI
   await fastify.register(import('@fastify/swagger-ui'), {
-    routePrefix: `${configurationOptions.pathPrefix}/documentation`,
+    routePrefix: `${baseConfigurationOptions.pathPrefix}/documentation`,
     uiConfig: {
       docExpansion: 'full',
       deepLinking: false
@@ -82,5 +82,12 @@ export const swaggerPlugin = async function (
       return swaggerObject
     },
     transformSpecificationClone: true
-  })
+  });
+
+  // Simple status check to make sure the plugin is registered
+  fastify.addHook('onReady', async () => {
+    fastify.log.info('Swagger Plugin has been registered.');
+  });
 }
+
+export default swaggerPlugin;

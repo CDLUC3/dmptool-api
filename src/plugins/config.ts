@@ -1,20 +1,31 @@
 import fp from 'fastify-plugin';
-import { configurationOptions } from '../configuration.js';
+import { FastifyInstance } from "fastify";
+import { loadFullConfigurationOptions } from '../configuration.js';
 import { ConfigurationOptions } from '../types.js';
 
 /**
  * Plugin that adds the configuration options to the fastify instance
  */
-export const configPlugin = fp(async function (fastify): Promise<void> {
+const configPlugin = fp(async function (fastify: FastifyInstance): Promise<void> {
+  // Load the configuration options
+  const fullConfig: ConfigurationOptions = await loadFullConfigurationOptions(fastify);
+
   // Use decorate so it's accessible via fastify.config
   fastify.decorate(
     'dmptoolConfig',
-    { getter: (): ConfigurationOptions => configurationOptions }
+    { getter: (): ConfigurationOptions => fullConfig }
   );
 
   // Access via the request object `request.config`
   fastify.decorateRequest(
     'dmptoolConfig',
-    { getter: (): ConfigurationOptions => configurationOptions }
+    { getter: (): ConfigurationOptions => fullConfig }
   );
+
+  // Simple status check to make sure the plugin is registered
+  fastify.addHook('onReady', async () => {
+    fastify.log.info('Config Plugin has been registered.');
+  });
 });
+
+export default configPlugin;

@@ -1,4 +1,5 @@
 import type {
+  FastifyError,
   FastifyInstance,
   FastifyReply,
   FastifyRequest,
@@ -11,7 +12,24 @@ import {
   PUT_DMP_OPTIONS,
 } from "../routeOptions.js";
 import { isDmpId } from "../utils.js";
-import { convertMySQLDateTimeToRFC3339 } from "@dmptool/utils";
+import { DMPToolDMPType } from "@dmptool/types";
+import {
+  convertMySQLDateTimeToRFC3339,
+  DMP_LATEST_VERSION,
+  DMPExists, DynamoConnectionParams,
+  randomHex
+} from "@dmptool/utils";
+import { AccessiblePlan, Plan, User } from "../types.js";
+import {
+  callerHasPermission,
+  handleMissingMaDMP,
+  loadMaDMPFromDynamo,
+  loadPlan,
+  loadPlansForCaller,
+  loadPlansForUser, userHasPermission,
+} from "../models/maDMP.js";
+import { errorHandler, notFoundHandler } from "../handlers/error.js";
+import {Logger} from "pino";
 
 // TODO: Delete these mock responses once the models and business logic are in place
 const TEST_DMP = {
@@ -58,20 +76,45 @@ const TEST_DMP = {
  *
  * @param {FastifyInstance} fastify  Encapsulated Fastify Instance
  */
-export const routesPlugin = async function (
+const routesPlugin = async function (
   fastify: FastifyInstance
 ): Promise<void> {
-  // Define the 404 handler (based on the RDA Common API specification)
-  // This is defined here so that it can be used by these routes. Placing it in
-  // the errorPlugin results in conflicts with the community plugins
-  fastify.setNotFoundHandler((request, reply) => {
-    const hasDmpId: boolean = request.url.includes(fastify.dmptoolConfig.dmpIdShoulder);
-    const msg = 'Make sure the DMP id is URL encoded.'
-    reply.status(404).send({
-      status_code: '404',
-      error_code: 'not_found',
-      message: `Route ${request.method}:${request.url} not found.${hasDmpId ? ` ${msg}` : ''}`,
+  // Add the basic request information for logging purposes
+  fastify.addHook('preHandler', async (request: FastifyRequest): Promise<void> => {
+    const requestId = randomHex(16);
+
+    request.log = request.log.child({
+      app: request.dmptoolConfig.applicationName?.toLowerCase()?.replace(' ', '-'),
+      env: request.dmptoolConfig.deploymentEnv,
+      // Generate a random request ID to help us follow a request through the logs
+      requestId,
+      caller: request.caller,
+      user: request.user as User,
+      url: request.url,
     });
+
+    // Update the nested loggers that will be passed through to the @dmptool/utils
+    if (request.dmptoolConfig.dynamo) request.dmptoolConfig.dynamo.logger = request.log as Logger;
+    if (request.dmptoolConfig.rds) request.dmptoolConfig.rds.logger = request.log as Logger;
+    if (request.dmptoolConfig.ssm) request.dmptoolConfig.ssm.logger = request.log as Logger;
+  });
+
+  // Define error handlers (based on the RDA Common API specification)
+  // They are defined here so that it is specific to the prefix (e.g. `/api/v3`)
+  // Fastify has collision issues if they are defined at the top level
+  fastify.setNotFoundHandler((
+    request: FastifyRequest,
+    reply: FastifyReply,
+  ): void => {
+    notFoundHandler(request, reply, fastify.dmptoolConfig.dmpIdShoulder);
+  });
+
+  fastify.setErrorHandler((
+    error: FastifyError,
+    request: FastifyRequest,
+    reply: FastifyReply
+  ): void => {
+    errorHandler(request, reply, error);
   });
 
   /**
@@ -147,18 +190,18 @@ export const routesPlugin = async function (
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       const params = request.params as { id: string };
-      const id: string = params ? encodeURIComponent(params.id) : '';
+      const query = request.query as { version: string };
+      const id: string = params ? params.id : '';
+      const version: string = query ? query.version : '';
 
       // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
-      if (!id || !isDmpId(request.dmptoolConfig, id)) {
+      if (!id || !isDmpId(request.dmptoolConfig, encodeURIComponent(id))) {
         return reply.code(400).send({
-          status_code: '400',
+          status_code: 400,
           error_code: 'dmp_invalid',
           message: 'Invalid DMP ID'
         });
       }
-
-      // TODO: Handle the `version` in the query string to fetch historical copies
 
       // TODO: Fetch the DMP from the DynamoDB table (use the Accept header to
       //       determine whether we should return the RDA Common Standard or
@@ -169,7 +212,80 @@ export const routesPlugin = async function (
 
       // TODO: Implement authorization check if its not a public DMP
 
-      reply.code(200).send({ dmp: TEST_DMP });
+      // First: load high-level info about the DMP from the MySQL database
+      const plan: Plan | undefined = await loadPlan(request, id);
+      if (!plan) {
+        request.log.warn({ dmpId: id }, "No Plan found");
+        // We return 404 here so that we're not signaling which DMP ids are valid
+        reply.code(404).send({
+          status_code: 404,
+          error_code: "dmp_not_found",
+          message: "DMP not found"
+        });
+        return;
+      }
+
+      // Second: load the DMP ids that the user or caller has access to
+      const plans: AccessiblePlan[] = request.user
+        ? await loadPlansForUser(request)
+        : await loadPlansForCaller(request);
+
+      request.log.debug(
+        { dmpId: id, planId: plan.id, nbrAccessiblePlans: plans.length },
+        'Retrieved Plan data from RDS'
+      );
+
+      // Third: fetch the latest maDMP record for the Plan from the DynamoDB table
+      let maDMP: DMPToolDMPType | undefined = await loadMaDMPFromDynamo(
+        request,
+        plan.dmpId,
+        DMP_LATEST_VERSION
+      );
+      request.log.debug(
+        { dmpId: id, maDMPModified: maDMP?.dmp?.modified },
+        'Retrieved maDMP metadata from DynamoDB'
+      );
+
+      // Four: Determine if the maDMP was missing or is out of date or missing the narrative.
+      // If so, generate the current maDMP and update the DynamoDB record.
+      const rdsDate: string | null = convertMySQLDateTimeToRFC3339(plan?.modified);
+      if (!maDMP || rdsDate !== maDMP?.dmp?.modified || !maDMP?.dmp?.narrative) {
+        const outdated: boolean = maDMP?.dmp?.modified && rdsDate !== maDMP?.dmp?.modified
+        request.log.debug(
+          { dmpId: id },
+          `DMP metadata is ${outdated ? 'outdated' : 'missing'}`
+        );
+        maDMP = await handleMissingMaDMP(request, plan, outdated);
+      }
+
+      // If the maDMP record could not be generated or retrieved, we need to bail out
+      if (!maDMP || !maDMP.dmp) {
+        request.log.error({ dmpId: id }, "Unable to generate narrative for DMP");
+        reply.code(500).send({
+          status_code: 500,
+          error_code: "generic_error",
+          message: "Unable to process your request. Please try again later."
+        });
+        return;
+      }
+
+      // Determine if the caller has permission to view the DMP
+      const hasPermission = request.user
+        ? userHasPermission(maDMP, plans, request.user as User)
+        : callerHasPermission(maDMP, plans, request.caller || '');
+
+      if (!hasPermission) {
+        request.log.debug({ dmpId: id }, "User/Caller does not have permission to view the DMP");
+        // We return 404 here so that we're not signaling which DMP ids are valid
+        reply.code(404).send({
+          status_code: 404,
+          error_code: "dmp_not_found",
+          message: "DMP not found"
+        });
+        return;
+      }
+
+      reply.code(200).send(maDMP);
     }
   );
 
@@ -270,4 +386,11 @@ export const routesPlugin = async function (
       reply.code(204).send();
     }
   );
-}
+
+  // Simple status check to make sure the plugin is registered
+  fastify.addHook('onReady', async () => {
+    fastify.log.info('Routes have been registered.');
+  });
+};
+
+export default routesPlugin;

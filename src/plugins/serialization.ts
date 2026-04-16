@@ -1,5 +1,5 @@
 import fp from "fastify-plugin";
-import type {FastifyInstance, FastifyReply, FastifyRequest} from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { Negotiator } from '@fastify/accept-negotiator';
 import {
   DMP_TOOL_CONTENT_TYPE,
@@ -7,13 +7,16 @@ import {
   negotiatedDmpResponseContent
 } from "../routeOptions.js";
 
-export const serializationPlugin = fp(async function (
+const serializationPlugin = fp(async function (
   fastify: FastifyInstance
 ): Promise<void> {
   const supportedAcceptHeaders = [
     DMP_TOOL_CONTENT_TYPE,
     RDA_COMMON_STANDARD_CONTENT_TYPE,
     'application/json',
+    // TODO: Allow HTML as well for now for testing purposes. We may want to
+    //       remove this in the future.
+    'text/html'
   ];
 
   // Validate the incoming Accept header
@@ -77,4 +80,11 @@ export const serializationPlugin = fp(async function (
       return payload;
     }
   });
+
+  // Simple status check to make sure the plugin is registered
+  fastify.addHook('onReady', async () => {
+    fastify.log.info('Serialization Plugin has been registered.');
+  });
 });
+
+export default serializationPlugin;

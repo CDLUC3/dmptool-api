@@ -1,0 +1,2 @@
+# Prevents base image mismatches when using ES Modules (e.g. linux vs OSX)
+node_modules/

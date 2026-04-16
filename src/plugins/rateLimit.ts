@@ -6,7 +6,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
  *
  * @param {FastifyInstance} fastify Encapsulated Fastify Instance
  */
-export const rateLimitPlugin = async function (
+const rateLimitPlugin = async function (
   fastify: FastifyInstance
 ): Promise<void> {
   await fastify.register(import('@fastify/rate-limit'), {
@@ -28,4 +28,11 @@ export const rateLimitPlugin = async function (
   }, function (request: FastifyRequest, reply: FastifyReply): void {
     reply.status(404).send({ statusCode: '404', error: 'Not Found' });
   });
+
+  // Simple status check to make sure the plugin is registered
+  fastify.addHook('onReady', async () => {
+    fastify.log.info('Rate Limit Plugin has been registered.');
+  });
 }
+
+export default rateLimitPlugin;

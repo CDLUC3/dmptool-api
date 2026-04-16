@@ -4,7 +4,7 @@ import { LogLevel } from "fastify";
 // Mock the configuration.ts (so it doesn't pick up the dotenv file)
 // ESM requires us to use jest.unstable_mockModule
 jest.unstable_mockModule('../configuration.ts', () => ({
-  configurationOptions: {
+  baseConfigurationOptions: {
     nodeEnv: 'test',
     deploymentEnt: 'tst',
     logLevel: 'info' as LogLevel,
