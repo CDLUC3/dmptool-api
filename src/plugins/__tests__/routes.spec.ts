@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
-import { routesPlugin } from '../routes.js';
-import { configPlugin } from "../config.js";
-import { serializationPlugin } from "../serialization.js";
-import { errorPlugin } from "../error.js";
+import routesPlugin from '../routes.js';
+import configPlugin from "../config.js";
+import serializationPlugin from "../serialization.js";
 import { DMPToolDMPType } from "@dmptool/types";
 import {
   DMP_TOOL_CONTENT_TYPE,
@@ -25,7 +24,6 @@ describe('routesPlugin', () => {
     });
     // Register the config and headers plugins first as the routes are dependent on them
     await fastify.register(configPlugin, {});
-    await fastify.register(errorPlugin, {});
     await fastify.register(serializationPlugin, {});
 
     await fastify.register(routesPlugin, { prefix: '/api/v3' });
