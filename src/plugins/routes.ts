@@ -118,17 +118,6 @@ const routesPlugin = async function (
   });
 
   /**
-   * Load balancer health check endpoint
-   */
-  fastify.get(
-    '/api-healthcheck',
-    async (_request: FastifyRequest, reply: FastifyReply
-    ): Promise<void> => {
-      reply.code(200).send({ status_code: '200', message: 'OK' });
-    }
-  );
-
-  /**
    * Search for DMPs based on filters
    */
   fastify.get(

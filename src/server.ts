@@ -1,4 +1,4 @@
-import Fastify, { FastifyInstance } from 'fastify';
+import Fastify, { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { toErrorMessage } from "@dmptool/utils";
 import { baseConfigurationOptions } from './configuration.js';
 import authPlugin from './plugins/auth.js';
@@ -64,6 +64,17 @@ const start = async (
   config: ConfigurationOptions
 ): Promise<void> => {
   try {
+    /**
+     * Load balancer health check endpoint
+     */
+    fastify.get(
+      '/api-healthcheck',
+      async (_request: FastifyRequest, reply: FastifyReply
+      ): Promise<void> => {
+        reply.code(200).send({ status_code: '200', message: 'OK' });
+      }
+    );
+
     // Swagger is a community plugin, but it needs to be registered after our error handlers
     if (config.deploymentEnv !== 'prd') {
       await fastify.register(swaggerPlugin, {});
