@@ -12,4 +12,4 @@ RUN npm ci --omit=dev
 # Expose API port
 EXPOSE 4060
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server.js"]
