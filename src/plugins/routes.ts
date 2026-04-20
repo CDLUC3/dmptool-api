@@ -238,7 +238,13 @@ const routesPlugin = async function (
       // Four: Determine if the maDMP was missing or is out of date or missing the narrative.
       // If so, generate the current maDMP and update the DynamoDB record.
       const rdsDate: string | null = convertMySQLDateTimeToRFC3339(plan?.modified);
-      if (!maDMP || rdsDate !== maDMP?.dmp?.modified || !maDMP?.dmp?.narrative) {
+
+      request.log.debug(
+        { dmpId: id, rdsDate, maDMPModified: maDMP?.dmp?.modified, hasNarrative: !!maDMP?.dmp?.narrative },
+        'Comparing DMP metadata from RDS and DynamoDB'
+      )
+
+      if (!maDMP || !maDMP.dmp || rdsDate !== maDMP.dmp.modified || !maDMP.dmp.narrative) {
         const outdated: boolean = maDMP?.dmp?.modified && rdsDate !== maDMP?.dmp?.modified
         request.log.debug(
           { dmpId: id },
