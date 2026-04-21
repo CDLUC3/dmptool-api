@@ -5,6 +5,8 @@ import { ConfigurationOptions } from '../types.js';
 
 /**
  * Plugin that adds the configuration options to the fastify instance
+ *
+ * Using fastify-plugin to hoist this to the global scope
  */
 const configPlugin = fp(async function (fastify: FastifyInstance): Promise<void> {
   // Load the configuration options

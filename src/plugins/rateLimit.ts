@@ -1,12 +1,15 @@
+import fp from 'fastify-plugin';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 /**
  * Plugin that registers the rate limit plugin to limit the number of requests
  * per minute.
  *
+ * Using fastify-plugin to hoist this to the global scope
+ *
  * @param {FastifyInstance} fastify Encapsulated Fastify Instance
  */
-const rateLimitPlugin = async function (
+const rateLimitPlugin = fp(async function (
   fastify: FastifyInstance
 ): Promise<void> {
   await fastify.register(import('@fastify/rate-limit'), {
@@ -22,7 +25,7 @@ const rateLimitPlugin = async function (
   // Add a 404 handler that uses rate limiting to prevent bots from searching for valid routes
   fastify.setNotFoundHandler({
     preHandler: fastify.rateLimit({
-      max: 4,
+      max: 50,
       timeWindow: 500
     })
   }, function (request: FastifyRequest, reply: FastifyReply): void {
@@ -33,6 +36,6 @@ const rateLimitPlugin = async function (
   fastify.addHook('onReady', async () => {
     fastify.log.info('Rate Limit Plugin has been registered.');
   });
-}
+});
 
 export default rateLimitPlugin;

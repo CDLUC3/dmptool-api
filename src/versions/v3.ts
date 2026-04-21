@@ -13,13 +13,8 @@ import {
 } from "../routeOptions.js";
 import { isDmpId } from "../utils.js";
 import { DMPToolDMPType } from "@dmptool/types";
-import {
-  convertMySQLDateTimeToRFC3339,
-  DMP_LATEST_VERSION,
-  DMPExists, DynamoConnectionParams,
-  randomHex
-} from "@dmptool/utils";
-import { AccessiblePlan, Plan, User } from "../types.js";
+import { convertMySQLDateTimeToRFC3339, DMP_LATEST_VERSION } from "@dmptool/utils";
+import {AccessiblePlan, ConfigurationOptions, Plan, User} from "../types.js";
 import {
   callerHasPermission,
   handleMissingMaDMP,
@@ -29,7 +24,9 @@ import {
   loadPlansForUser, userHasPermission,
 } from "../models/maDMP.js";
 import { errorHandler, notFoundHandler } from "../handlers/error.js";
-import {Logger} from "pino";
+import { decorateLog } from "../handlers/logger.js";
+import v3SerializationPlugin from "./v3Serialization.js";
+import { v3SwaggerConfig, v3SwaggerUIConfig} from "./v3Swagger.js";
 
 // TODO: Delete these mock responses once the models and business logic are in place
 const TEST_DMP = {
@@ -76,27 +73,17 @@ const TEST_DMP = {
  *
  * @param {FastifyInstance} fastify  Encapsulated Fastify Instance
  */
-const routesPlugin = async function (
+const v3 = async function (
   fastify: FastifyInstance
 ): Promise<void> {
+  const config: ConfigurationOptions = fastify.dmptoolConfig;
+
+  await fastify.register(import('@fastify/swagger'), v3SwaggerConfig);
+  await fastify.register(import('@fastify/swagger-ui'), v3SwaggerUIConfig);
+
   // Add the basic request information for logging purposes
   fastify.addHook('preHandler', async (request: FastifyRequest): Promise<void> => {
-    const requestId = randomHex(16);
-
-    request.log = request.log.child({
-      app: request.dmptoolConfig.applicationName?.toLowerCase()?.replace(' ', '-'),
-      env: request.dmptoolConfig.deploymentEnv,
-      // Generate a random request ID to help us follow a request through the logs
-      requestId,
-      caller: request.caller,
-      user: request.user as User,
-      url: request.url,
-    });
-
-    // Update the nested loggers that will be passed through to the @dmptool/utils
-    if (request.dmptoolConfig.dynamo) request.dmptoolConfig.dynamo.logger = request.log as Logger;
-    if (request.dmptoolConfig.rds) request.dmptoolConfig.rds.logger = request.log as Logger;
-    if (request.dmptoolConfig.ssm) request.dmptoolConfig.ssm.logger = request.log as Logger;
+    decorateLog(request);
   });
 
   // Define error handlers (based on the RDA Common API specification)
@@ -116,6 +103,15 @@ const routesPlugin = async function (
   ): void => {
     errorHandler(request, reply, error);
   });
+
+  // Swagger is a community plugin, but it needs to be registered after our error handlers
+  if (config.deploymentEnv !== 'prd') {
+    // await fastify.register(swaggerPlugin, {});
+// console.log('SWAGGER IS:', fastify.getDecorator('swagger'));
+
+  }
+
+  fastify.register(v3SerializationPlugin, { logLevel: config.logLevel });
 
   /**
    * Search for DMPs based on filters
@@ -384,8 +380,12 @@ const routesPlugin = async function (
 
   // Simple status check to make sure the plugin is registered
   fastify.addHook('onReady', async () => {
-    fastify.log.info('Routes have been registered.');
+    fastify.log.info('V3 have been registered.');
   });
+
+  // fastify.addHook('onListen', async () => {
+  //   fastify.swagger();
+  // });
 };
 
-export default routesPlugin;
+export default v3;

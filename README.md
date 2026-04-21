@@ -666,7 +666,7 @@ JSON schema versions are supported via content type negotiation. We currently su
 - RDA Common Standard v1.2 `application/vnd.org.rd-alliance.dmp-common.v1.2+json` (DEFAULT) 
 - RDA Common Standard with DMP Tool Extensions v1.2 `application/vnd.org.dmptool.v1.2+json`.
 
-If new versions of these schemas are created and the structure of the API does not change, then we can simply add the new versions to the `src/serialization.ts` file's content negotiation logic to begin supporting the new versions. 
+If new versions of these schemas are created and the structure of the API does not change, then we can simply add the new versions to the `src/v3Serialization.ts` file's content negotiation logic to begin supporting the new versions. 
 
 Other changes that would not break the API include:
 - Adding a new endpoint

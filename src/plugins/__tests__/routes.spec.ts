@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
 import routesPlugin from '../routes.js';
 import configPlugin from "../config.js";
-import serializationPlugin from "../serialization.js";
+import serializationPlugin from "../../versions/v3Serialization.js";
 import { DMPToolDMPType } from "@dmptool/types";
 import {
   DMP_TOOL_CONTENT_TYPE,

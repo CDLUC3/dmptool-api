@@ -13,6 +13,8 @@ import { toErrorMessage } from '@dmptool/utils';
  * Plugin that decodes the JWT token if present and sets the user property on
  * the request object
  *
+ * Using fastify-plugin to hoist this to the global scope
+ *
  * @param {FastifyInstance} fastify Encapsulated Fastify Instance
  */
 

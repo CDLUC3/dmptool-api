@@ -12,6 +12,7 @@ import {
 declare module 'fastify' {
   export interface FastifyInstance {
     dmptoolConfig: ConfigurationOptions;
+    // swagger: Function;
   }
 
   export interface FastifyRequest {
@@ -37,7 +38,9 @@ export interface ConfigurationOptions {
   deploymentEnv: string;
   logLevel: LogLevel;
 
-  pathPrefix: string;
+  pathPrefixes: {
+    v3: string;
+  }
 
   port: number;
 

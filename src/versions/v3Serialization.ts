@@ -7,7 +7,7 @@ import {
   negotiatedDmpResponseContent
 } from "../routeOptions.js";
 
-const serializationPlugin = fp(async function (
+const v3SerializationPlugin = async function (
   fastify: FastifyInstance
 ): Promise<void> {
   const supportedAcceptHeaders = [
@@ -85,6 +85,6 @@ const serializationPlugin = fp(async function (
   fastify.addHook('onReady', async () => {
     fastify.log.info('Serialization Plugin has been registered.');
   });
-});
+};
 
-export default serializationPlugin;
+export default v3SerializationPlugin;
