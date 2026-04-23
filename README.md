@@ -11,6 +11,7 @@ To access the Swagger UI: `<SWAGGER ENDPOINT>`.
 
 ## Table of Contents
 - [Authentication](#authentication)
+- [Content Negotiation](#content-negotiation)
 - [Endpoints](#endpoints)
   - [Query/List DMPs](#query--search-for-dmps)
   - [Get a DMP](#get-a-specific-dmp)
@@ -30,6 +31,16 @@ To access the Swagger UI: `<SWAGGER ENDPOINT>`.
 - [License](#license)
 
 ## Authentication
+
+## Content Negotiation
+
+This API allows you to return maDMP metadata in either the RDA Common Standard format or the DMP Tool format. You can manage which format you receive through content negotiation.
+
+If you want the DMP Tool format, you must specify it explicitly in the `Accept` header with the value `application/vnd.org.dmptool.v1.2+json`.
+
+If you want the RDA Common Standard format, you can omit the `Accept` header entirely, request `application/json`, or specify `application/vnd.org.rd-alliance.dmp-common.v1.2+json`.
+
+![Content negotiation diagram](docs/content-negotiation.png)
 
 ## Endpoints
 
