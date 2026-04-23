@@ -7,6 +7,7 @@ jest.unstable_mockModule('fastify', () => ({
   default: () => ({
     register: mockRegister,
     listen: jest.fn(),
+    get: jest.fn(),
     log: { info: jest.fn(), error: jest.fn() },
     addHook: jest.fn(),
     decorate: jest.fn(),
@@ -15,17 +16,26 @@ jest.unstable_mockModule('fastify', () => ({
 }));
 
 // Mock the actual plugins so we can identify them in the call stack
-jest.unstable_mockModule('../plugins/swagger.js', () => ({ swaggerPlugin: jest.fn().mockName('swaggerPlugin') }));
-jest.unstable_mockModule('../plugins/rateLimit.js', () => ({ rateLimitPlugin: jest.fn().mockName('rateLimitPlugin') }));
-jest.unstable_mockModule('../plugins/config.js', () => ({ configPlugin: jest.fn().mockName('configPlugin') }));
-jest.unstable_mockModule('../plugins/error.js', () => ({ errorPlugin: jest.fn().mockName('errorPlugin') }));
-jest.unstable_mockModule('../plugins/auth.js', () => ({ authPlugin: jest.fn().mockName('authPlugin') }));
-jest.unstable_mockModule('../plugins/serialization.js', () => ({ serializationPlugin: jest.fn().mockName('serializationPlugin') }));
-jest.unstable_mockModule('../plugins/linkset.js', () => ({ linksetPlugin: jest.fn().mockName('linksetPlugin') }));
-jest.unstable_mockModule('../plugins/routes.js', () => ({ routesPlugin: jest.fn().mockName('routesPlugin') }));
+jest.unstable_mockModule('../plugins/healthcheck.js', () => ({ default: jest.fn().mockName('healthcheckPlugin') }));
+jest.unstable_mockModule('../plugins/config.js', () => ({ default: jest.fn().mockName('configPlugin') }));
+jest.unstable_mockModule('../plugins/auth.js', () => ({ default: jest.fn().mockName('authPlugin') }));
+jest.unstable_mockModule('../plugins/linkset.js', () => ({ default: jest.fn().mockName('linksetPlugin') }));
+jest.unstable_mockModule('../plugins/rateLimit.js', () => ({ default: jest.fn().mockName('rateLimitPlugin') }));
+
+jest.unstable_mockModule('../plugins/v3/swagger.js', () => ({ default: jest.fn().mockName('v3SwaggerPlugin') }));
+jest.unstable_mockModule('../plugins/v3/serialization.js', () => ({ default: jest.fn().mockName('v3SerializationPlugin') }));
+jest.unstable_mockModule('../plugins/v3/routes.js', () => ({ default: jest.fn().mockName('v3RoutesPlugin') }));
 
 describe('Server Registration Order', () => {
   it('should register plugins in the correct dependency order', async () => {
+    // Circuit breaker to catch server startup errors
+    //
+    // If this occurs, comment out the process.exit() call in ../server.ts and add
+    // a debugger statement to see the error
+    jest.spyOn(process, 'exit').mockImplementation((code) => {
+      throw new Error(`Process.exit was called with code ${code}`);
+    });
+
     // Import the server to trigger the top-level 'await start()'
     await import('../server.js');
 
@@ -37,34 +47,28 @@ describe('Server Registration Order', () => {
     });
 
     // Check for specific registration sequences
-    const swaggerIndex = registeredPlugins.indexOf('swaggerPlugin');
     const rateLimitIndex = registeredPlugins.indexOf('rateLimitPlugin');
+    const healthcheckIndex = registeredPlugins.indexOf('healthcheckPlugin');
     const configIndex = registeredPlugins.indexOf('configPlugin');
-    const errorIndex = registeredPlugins.indexOf('errorPlugin');
     const authIndex = registeredPlugins.indexOf('authPlugin');
-    const serializationIndex = registeredPlugins.indexOf('serializationPlugin');
     const linksetIndex = registeredPlugins.indexOf('linksetPlugin');
-    const routesIndex = registeredPlugins.indexOf('routesPlugin');
+    const v3RoutesIndex = registeredPlugins.indexOf('v3RoutesPlugin');
 
     // 3rd party plugins are registered first
-    expect(swaggerIndex).toBeGreaterThan(-1);
     expect(rateLimitIndex).toBeGreaterThan(-1);
 
-    // Config and Error plugins should be registered after 3rd party plugins
-    expect(configIndex).toBeGreaterThan(swaggerIndex);
-    expect(errorIndex).toBeGreaterThan(swaggerIndex);
-    expect(configIndex).toBeGreaterThan(rateLimitIndex);
-    expect(errorIndex).toBeGreaterThan(rateLimitIndex);
+    // Health check should come before Config
+    expect(healthcheckIndex).toBeLessThan(configIndex);
 
-    // Serialization plugin should come before Auth
-    expect(serializationIndex).toBeLessThan(authIndex);
+    // Config and Error plugins should be registered after 3rd party plugins
+    expect(configIndex).toBeGreaterThan(rateLimitIndex);
 
     // Config must come before Auth and Routes plugins
     expect(configIndex).toBeLessThan(authIndex);
-    expect(configIndex).toBeLessThan(routesIndex);
+    expect(configIndex).toBeLessThan(v3RoutesIndex);
 
-    // Linkset and Routes must come after Auth
-    expect(linksetIndex).toBeGreaterThan(authIndex);
-    expect(routesIndex).toBeGreaterThan(authIndex);
+    // Linkset and Routes must come after Config
+    expect(linksetIndex).toBeGreaterThan(configIndex);
+    expect(v3RoutesIndex).toBeGreaterThan(linksetIndex);
   });
 });

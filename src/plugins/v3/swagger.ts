@@ -1,10 +1,7 @@
 import type { FastifyReply, FastifyRequest, HookHandlerDoneFunction } from 'fastify';
-import type {JSONObject, SwaggerOptions} from '@fastify/swagger';
-import { baseConfigurationOptions } from "../configuration.js";
-import {
-  FastifySwaggerUiConfigOptions,
-  FastifySwaggerUiOptions
-} from "@fastify/swagger-ui";
+import type { SwaggerOptions } from '@fastify/swagger';
+import { baseConfigurationOptions } from "../../configuration.js";
+import { FastifySwaggerUiOptions } from "@fastify/swagger-ui";
 
 // Config for the fastify-swagger plugin which generates the OpenAPI spec
 export const v3SwaggerConfig: SwaggerOptions = {

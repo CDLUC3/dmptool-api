@@ -10,7 +10,7 @@ dotenv.config();
 const AWS_REGION: string = process.env.AWS_REGION || 'us-west-2';
 const SHOULDER: string = process.env.DMP_ID_SHOULDER || '0.00000/Z0';
 
-const API_V3_PATH_PREFIX: string = process.env.API_PATH_PREFIX || '/api/v3';
+const API_V3_PATH_PREFIX: string = process.env.API_V3_PATH_PREFIX || '/api/routes';
 const API_PORT: number = stringToInteger(process.env.API_PORT) || 4060;
 const API_DOMAIN: string = process.env.API_DOMAIN || `localhost:${API_PORT}`;
 const API_DOMAIN_WITH_PROTOCOL: string = API_DOMAIN.startsWith('http')

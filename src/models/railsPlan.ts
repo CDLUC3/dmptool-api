@@ -39,6 +39,7 @@ import {
  * 15: data_curation + investigation + project_administration + other
  */
 // Convert a Rails BitFlag Role id to a maDMP roles array
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const railsRoleToMaDMPRoles = (role: number): string[] => {
   const roles: string[] = [];
 
@@ -60,6 +61,7 @@ const railsRoleToMaDMPRoles = (role: number): string[] => {
 }
 
 // Convert from maDMP roles array to a Rails numeric BitFlag value
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const maDMPRolesToRailsRole = (roles: string[]): number => {
   let role = 0;
   if (roles.includes('https://credit.niso.org/contributor-roles/data-curation/')) {
@@ -101,6 +103,7 @@ const GET_CURRENT_PLAN_SQL = '\
   WHERE dmp_id = ?;';
 
 // SQL Query to get the current contributors and contact for the plan
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const GET_CURRENT_CONTRIBUTORS_SQL = '\
 SELECT * FROM (\
   SELECT c.id, c.name COLLATE utf8mb3_unicode_ci AS name, c.email COLLATE utf8mb3_unicode_ci AS email, \
@@ -182,6 +185,7 @@ const generateDMPId = async (
  * @param dmp The DMP to persist
  * @returns Whether the DMP was persisted successfully
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const persistMaDMPToMySQL = async (
   fastify: FastifyInstance,
   dmp: DMPToolDMPType
@@ -221,7 +225,7 @@ const executeMySQLQuery = async (
   fastifyConfig: ConfigurationOptions,
   sql: string,
   vals: string[]
-): Promise<{ results: any[], fields: any[] }> => {
+): Promise<{ results: unknown[], fields: unknown[] }> => {
   // If the logger is not provided, throw an error
   if (!logger) throw new Error('No logger provided');
 
@@ -343,6 +347,7 @@ export const updateMaDMP = async (
  */
 export const deleteMaDMP = async (
   fastify: FastifyInstance,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   dmpId: string
 ): Promise<void> => {
   // If there is no DynamoDB configuration, throw an error

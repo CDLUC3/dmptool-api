@@ -1,15 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
-import routesPlugin from '../routes.js';
-import configPlugin from "../config.js";
-import serializationPlugin from "../../versions/v3Serialization.js";
 import { DMPToolDMPType } from "@dmptool/types";
 import {
   DMP_TOOL_CONTENT_TYPE,
   RDA_COMMON_STANDARD_CONTENT_TYPE
-} from "../../routeOptions.js";
+} from "../routeSchema.js";
+import configPlugin from "../../config.js";
+import { mockMaDMPModule } from "./maDMPMocks.js";
 
-describe('routesPlugin', () => {
+mockMaDMPModule();
+
+describe('v3 routes', () => {
   let fastify: FastifyInstance;
 
   beforeEach(async () => {
@@ -24,32 +25,22 @@ describe('routesPlugin', () => {
     });
     // Register the config and headers plugins first as the routes are dependent on them
     await fastify.register(configPlugin, {});
-    await fastify.register(serializationPlugin, {});
 
-    await fastify.register(routesPlugin, { prefix: '/api/v3' });
+    // Must import the routes plugin here because the maDMP functions we need to
+    // mock are called in the routes plugin and would override the mocks otherwise
+    const v3RoutesPlugin = (await import('../routes.js')).default;
+    await fastify.register(v3RoutesPlugin, { prefix: '/api/test' });
   });
 
   afterEach(async () => {
     await fastify.close();
   });
 
-  describe('GET /healthcheck', () => {
-    it('should return 200 status code', async () => {
-      const response  = await fastify.inject({
-        method: 'GET',
-        url: '/api/v3/healthcheck',
-      });
-
-      expect(response.statusCode).toBe(200);
-      expect(response.json()).toEqual({ message: 'OK', status_code: '200' });
-    });
-  });
-
   describe('GET /dmps', () => {
     it('should return 200 status code', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: '/api/v3/dmps',
+        url: '/api/test/dmps',
       });
 
       expect(response.statusCode).toBe(200);
@@ -63,7 +54,7 @@ describe('routesPlugin', () => {
     it('should return 200 status code', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -74,7 +65,7 @@ describe('routesPlugin', () => {
     it('allows us to specify a historical version', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id?version=2020-01-01T10:11:12Z`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id?version=2020-01-01T10:11:12Z`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -85,7 +76,7 @@ describe('routesPlugin', () => {
     it('should return the DMP in RDA Common Standard format by default', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -100,7 +91,7 @@ describe('routesPlugin', () => {
       const response = await fastify.inject({
         method: 'GET',
         headers: { accept: DMP_TOOL_CONTENT_TYPE },
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       });
 
       expect(response.statusCode).toBe(200);
@@ -114,7 +105,7 @@ describe('routesPlugin', () => {
     it('should return 404 status code if the DMP ID is not URL encoded', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: `/api/v3/dmps/${fastify.dmptoolConfig.dmpIdShoulder}test-dmp-id`,
+        url: `/api/test/dmps/${fastify.dmptoolConfig.dmpIdShoulder}test-dmp-id`,
       });
 
       expect(response.statusCode).toBe(404);
@@ -128,7 +119,7 @@ describe('routesPlugin', () => {
     it('should return 400 status code if the DMP ID is not one of ours', async () => {
       const response = await fastify.inject({
         method: 'GET',
-        url: `/api/v3/dmps/${encodeURIComponent('99.99999/Z9')}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent('99.99999/Z9')}test-dmp-id`,
       });
 
       expect(response.statusCode).toBe(400);
@@ -143,7 +134,7 @@ describe('routesPlugin', () => {
     beforeEach(async () => {
       dmp = {
         dmp: {
-          title: 'Test DMP for routesPlugin',
+          title: 'Test DMP for routes',
           dmp_id: {
             identifier: 'test-routes-123',
             type: 'other'
@@ -176,7 +167,7 @@ describe('routesPlugin', () => {
     it('should return 201 status code if successful', async () => {
       const response = await fastify.inject({
         method: 'POST',
-        url: `/api/v3/dmps`,
+        url: `/api/test/dmps`,
         body: dmp
       });
 
@@ -190,7 +181,7 @@ describe('routesPlugin', () => {
     beforeEach(async () => {
       const getResp = await fastify.inject({
         method: 'GET',
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       });
       updateableDmp = getResp.json();
     });
@@ -198,7 +189,7 @@ describe('routesPlugin', () => {
     it('should return 200 status code if successful', async () => {
       const response = await fastify.inject({
         method: 'PUT',
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
         headers: { 'if-unmodified-since': updateableDmp.dmp.modified },
         body: {
           dmp: {
@@ -216,7 +207,7 @@ describe('routesPlugin', () => {
     it('should return 400 status code if the DMP ID is not one of ours', async () => {
       const response = await fastify.inject({
         method: 'PUT',
-        url: `/api/v3/dmps/${encodeURIComponent('99.99999/Z9')}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent('99.99999/Z9')}test-dmp-id`,
         headers: { 'if-unmodified-since': updateableDmp.dmp.modified },
         body: updateableDmp
       });
@@ -229,7 +220,7 @@ describe('routesPlugin', () => {
     it('should return 400 status code if no If-Unmodified-Since header was provided', async () => {
       const response = await fastify.inject({
         method: 'PUT',
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
         body: updateableDmp
       });
 
@@ -244,7 +235,7 @@ describe('routesPlugin', () => {
 
       const response = await fastify.inject({
         method: 'PUT',
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
         headers: { 'if-unmodified-since': oneDayAgo.toISOString() },
         body: updateableDmp
       });
@@ -261,7 +252,7 @@ describe('routesPlugin', () => {
     beforeEach(async () => {
       const getResp = await fastify.inject({
         method: 'GET',
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       });
       updateableDmp = getResp.json();
     });
@@ -269,7 +260,7 @@ describe('routesPlugin', () => {
     it('should return 204 status code if successful', async () => {
       const response = await fastify.inject({
         method: 'DELETE',
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
         headers: { 'if-unmodified-since': updateableDmp.dmp.modified },
       });
       expect(response.statusCode).toBe(204);
@@ -281,7 +272,7 @@ describe('routesPlugin', () => {
     it('should return 400 status code if no If-Unmodified-Since header was provided', async () => {
       const response = await fastify.inject({
         method: 'DELETE',
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
         body: updateableDmp
       });
 
@@ -296,7 +287,7 @@ describe('routesPlugin', () => {
 
       const response = await fastify.inject({
         method: 'DELETE',
-        url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
         headers: { 'if-unmodified-since': oneDayAgo.toISOString() },
         body: updateableDmp
       });

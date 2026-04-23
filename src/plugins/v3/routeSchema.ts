@@ -40,9 +40,7 @@ const errorObjectSchema = {
 }
 
 // The internal `dmp` object from the RDA Common Standard and DMP Tool JSON schemas
-const baseRDADmpProps = RDACommonStandardDMPJSONSchema.properties?.dmp || {};
 const baseRDADmpDefs = RDACommonStandardDMPJSONSchema.$defs || {};
-const baseDMPToolDmpProps = DMPToolDMPJSONSchema.properties?.dmp || {};
 const baseDMPToolDmpDefs = DMPToolDMPJSONSchema.$defs || {};
 
 // The standard error responses for the DMP Tool API
@@ -73,9 +71,7 @@ export const negotiatedDmpResponseContent = {
     type: 'object',
     properties: {
       dmp: {
-        type: 'object',
-        ...baseRDADmpProps,
-        additionalProperties: false
+        $ref: '#/$defs/DMPData'
       }
     },
     required: ['dmp'],
@@ -85,9 +81,10 @@ export const negotiatedDmpResponseContent = {
     type: 'object',
     properties: {
       dmp: {
-        type: 'object',
-        ...baseDMPToolDmpProps,
-        additionalProperties: false
+        allof: [
+          { $ref: '#/$defs/DMPData' },
+          { $ref: '#/$defs/DMPToolExtension' }
+        ]
       }
     },
     required: ['dmp'],

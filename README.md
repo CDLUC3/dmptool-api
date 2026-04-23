@@ -44,7 +44,7 @@ For the majority of endpoints, you can specify the format you would like to rece
 
 #### List/Search DMPs
 
-The `GET /api/v3/dmps` endpoint lists all DMPs or allows for creating a filtered list of DMPs.
+The `GET /api/routes/dmps` endpoint lists all DMPs or allows for creating a filtered list of DMPs.
 
 **Public access:**
 When an authorization token is NOT provided, the API will only return DMPs who's privacy setting is "public".
@@ -86,18 +86,18 @@ The `scope` argument determines what type of DMPs will appear in the results. `p
 Examples:
 ```bash
 # Query for all public DMPs modified after January 1, 2026
-curl -v "http://localhost:4060/api/v3/dmps?modified_after=2026-01-01T00:00:00"
+curl -v "http://localhost:4060/api/routes/dmps?modified_after=2026-01-01T00:00:00"
 
 # Query for all public DMPs modified after January 1, 2026 that are associated with a specific contributor and are about particle physics
-curl -v "http://localhost:4060/api/v3/dmps?modified_after=2026-01-01T00:00:00&contriutor_ids=0000-0000-0000-0000&query=particle+physics"
+curl -v "http://localhost:4060/api/routes/dmps?modified_after=2026-01-01T00:00:00&contriutor_ids=0000-0000-0000-0000&query=particle+physics"
 
 # Query for you DMPs 
-curl -v "http://localhost:4060/api/v3/dmps?scope=mine" -H "Authorization: Bearer <token>"
+curl -v "http://localhost:4060/api/routes/dmps?scope=mine" -H "Authorization: Bearer <token>"
 ```
 
 #### Get a specific DMP
 
-The `GET /api/v3/dmps/:id` endpoint returns a DMP.
+The `GET /api/routes/dmps/:id` endpoint returns a DMP.
 
 **Public access:**
 When an authorization token is NOT provided, the API will only return DMPs who's privacy setting is "public". If you request a DMP that exists but that you do not have access to, you will receive a 404 Not Found error.
@@ -112,21 +112,21 @@ You can also request historical versions of a DMP by including the `?version=202
 Examples:
 ```bash
 # Query for a public DMP and receive the RDA Common Standard format without DMP Tool extensions
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123"
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1123"
 # OR
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123" -H "Accept: application/vnd.org.rd-alliance.dmp-common.v1.2+json"
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1123" -H "Accept: application/vnd.org.rd-alliance.dmp-common.v1.2+json"
 
 # Query for a public DMP and receive the RDA Common Standard format with DMP Tool extensions
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123" -H "Accept: application/vnd.org.dmptool.v1.2+json"
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1123" -H "Accept: application/vnd.org.dmptool.v1.2+json"
 
 # Query for a private DMP you own
 # Query for you DMPs 
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1987" -H "Authorization: Bearer <token>"
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1987" -H "Authorization: Bearer <token>"
 ```
 
 #### Create a DMP
 
-The `POST /api/v3/dmps` endpoint allows you to create a DMP.
+The `POST /api/routes/dmps` endpoint allows you to create a DMP.
 
 You must provide a DMP as JSON metadata that conforms to the RDA Common Standard for maDMPs. The JSON metadata should include DMP Tool extensions if possible. 
 
@@ -136,7 +136,7 @@ You must provide a DMP as JSON metadata that conforms to the RDA Common Standard
 
 Example:
 ```bash
-curl -v "http://localhost:4060/api/v3/dmps" \
+curl -v "http://localhost:4060/api/routes/dmps" \
      -X POST
      -H "Authorization: Bearer <token>" \
      -H "Content-Type: application/vnd.org.dmptool.v1.2+json" \
@@ -173,7 +173,7 @@ Some notes about the DMP format above:
 
 #### Replace a DMP
 
-The `PUT /api/v3/dmps/:id` endpoint allows you to replace the current DMP with the metadata you provide. If you just want to update a portion of a DMP record, you should call the `GET /api/v3/dmps/:id` endpoint first to retrieve the full DMP record. Then modify it as needed and send the update JSON record to this endpoint. 
+The `PUT /api/routes/dmps/:id` endpoint allows you to replace the current DMP with the metadata you provide. If you just want to update a portion of a DMP record, you should call the `GET /api/routes/dmps/:id` endpoint first to retrieve the full DMP record. Then modify it as needed and send the update JSON record to this endpoint. 
 
 You must provide a DMP as JSON metadata that conforms to the RDA Common Standard for maDMPs. The JSON metadata should include DMP Tool extensions if possible.
 
@@ -185,7 +185,7 @@ You also need to supply the `If-Unmodified-Since` header. The value of this head
 
 Example:
 ```bash
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123" \
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1123" \
      -X PUT \
      -H "Authorization: Bearer <token>" \
      -H "If-Unmodified-Since: 2021-01-01 02:23:11Z" \
@@ -215,7 +215,7 @@ curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123" \
 
 #### Delete a DMP
 
-The `DELETE /api/v3/dmps` endpoint allows you to replace the current DMP with the metadata you provide. If you just want to update a portion of a DMP record, you should call the `GET /api/v3/dmps/:id` endpoint first to retrieve the full DMP record. Then modify it as needed and send the update JSON record to this endpoint.
+The `DELETE /api/routes/dmps` endpoint allows you to replace the current DMP with the metadata you provide. If you just want to update a portion of a DMP record, you should call the `GET /api/routes/dmps/:id` endpoint first to retrieve the full DMP record. Then modify it as needed and send the update JSON record to this endpoint.
 
 You must be either the owner/creator of the DMP or an administrator at the affiliation associated with the DMP in order to delete it. 
 
@@ -229,7 +229,7 @@ You also need to supply the `If-Unmodified-Since` header. The value of this head
 
 Example:
 ```bash
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123" \
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1123" \
      -X DELETE
      -H "Authorization: Bearer <token>" \
      -H "If-Unmodified-Since: 2021-01-01 02:23:11Z"
@@ -327,7 +327,7 @@ The example here includes ALL the properties (see below for descriptions) from t
     }
   }],
   "version": [{
-    "access_url": "https://example.com/api/v3/dmps/123456789?version=2026-01-01T10:32:45Z",
+    "access_url": "https://example.com/api/routes/dmps/123456789?version=2026-01-01T10:32:45Z",
     "version": "2026-01-01T10:32:45Z"
   }],
   "narrative": {
@@ -666,7 +666,7 @@ JSON schema versions are supported via content type negotiation. We currently su
 - RDA Common Standard v1.2 `application/vnd.org.rd-alliance.dmp-common.v1.2+json` (DEFAULT) 
 - RDA Common Standard with DMP Tool Extensions v1.2 `application/vnd.org.dmptool.v1.2+json`.
 
-If new versions of these schemas are created and the structure of the API does not change, then we can simply add the new versions to the `src/v3Serialization.ts` file's content negotiation logic to begin supporting the new versions. 
+If new versions of these schemas are created and the structure of the API does not change, then we can simply add the new versions to the `src/serialization.ts` file's content negotiation logic to begin supporting the new versions. 
 
 Other changes that would not break the API include:
 - Adding a new endpoint
@@ -682,7 +682,7 @@ Sunset: Sat, 31 Dec 2026 23:59:59 GMT
 Once the sunset date is reached, we should change the default content type and remove the old content type from the list of supported `accept` headers.
 
 #### API Versions
-We use a major-version-only scheme for versioning the API. We do this through the path (e.g. `/api/v3/dmps`).
+We use a major-version-only scheme for versioning the API. We do this through the path (e.g. `/api/routes/dmps`).
 The version number is only incremented when one of the following occurs:
 - Change to the format of an existing endpoint
 - Change to the format of the response body

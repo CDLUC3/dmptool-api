@@ -4,7 +4,7 @@ import { AccessiblePlan, ConfigurationOptions, Plan, User } from "../types.js";
 import {
   ConnectionParams,
   createDMP,
-  DMP_LATEST_VERSION, DMPExists,
+  DMP_LATEST_VERSION,
   DynamoConnectionParams,
   EnvironmentEnum,
   getDMPs,

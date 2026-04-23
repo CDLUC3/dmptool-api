@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
 import configPlugin from '../config.js';
-import { baseConfigurationOptions } from "../../configuration.js";
+import { loadFullConfigurationOptions } from "../../configuration.js";
 
 describe('configPlugin', () => {
   let fastify: FastifyInstance;
@@ -20,7 +20,10 @@ describe('configPlugin', () => {
     expect(fastify.hasDecorator('dmptoolConfig')).toBe(true);
   });
 
-  it('should add configurationOptions to the fastify instance', () => {
-    expect(fastify.dmptoolConfig).toEqual(baseConfigurationOptions);
+  it('should add configurationOptions to the fastify instance', async () => {
+    const opts = await loadFullConfigurationOptions(fastify);
+    expect(fastify.dmptoolConfig).toEqual({
+      ...opts,
+    });
   });
 });

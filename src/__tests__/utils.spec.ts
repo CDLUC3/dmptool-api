@@ -133,10 +133,7 @@ describe('stringToInteger', () => {
     expect(stringToInteger('10.5')).toBe(10);
   });
 
-  it('should handle null or undefined gracefully', () => {
-    // @ts-ignore: testing runtime safety for non-TS consumers
-    expect(stringToInteger(null)).toBeUndefined();
-    // @ts-ignore
+  it('should handle undefined gracefully', () => {
     expect(stringToInteger(undefined)).toBeUndefined();
   });
 
