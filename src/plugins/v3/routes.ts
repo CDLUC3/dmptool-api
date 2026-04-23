@@ -175,6 +175,8 @@ const v3RoutesPlugin = async function (
       const id: string = params ? params.id : '';
       const version: string = query ? query.version : '';
 
+      request.log.debug({ id, version }, 'GET /dmps/:id(.+) called.')
+
       // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
       if (!id || !isDmpId(request.dmptoolConfig, encodeURIComponent(id))) {
         return reply.code(400).send({
