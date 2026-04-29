@@ -82,6 +82,13 @@ const v3RoutesPlugin = async function (
   if (config.deploymentEnv !== 'prd') {
     await fastify.register(import('@fastify/swagger'), v3SwaggerConfig);
     await fastify.register(import('@fastify/swagger-ui'), v3SwaggerUIConfig);
+
+    // Kind of annoying, but Swagger UI returns a 404 if the trailing slash is omitted
+    fastify.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply): Promise<undefined> => {
+      if (request.url === '/api/v3/documentation') {
+        return reply.redirect('/api/v3/documentation/', 301);
+      }
+    });
   }
 
   // Add the basic request information for logging purposes

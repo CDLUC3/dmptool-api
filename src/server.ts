@@ -20,6 +20,7 @@ const fastify: FastifyInstance = Fastify({
       strictSchema: false, // This allows 'default' inside subschemas
     }
   },
+  ignoreTrailingSlash: true, // This allows both `/documentation` and `/documentation/`
   logger: {
     level: process.env.LOG_LEVEL || 'info',
     // Mask any log entries that might contain sensitive info
