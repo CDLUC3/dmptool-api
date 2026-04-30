@@ -273,7 +273,7 @@ Minimum viable DMP
 }
 ```
 
-Full RDA Common standard WITH DMP Tool specific extensions. 
+DMP Tool extensions to the RDA Common Standard. 
 The example here includes ALL the properties (see below for descriptions) from the RDA Common Standard record below along with:
 ```json
 {
@@ -379,7 +379,7 @@ Explanation:
 
 **Note:** The `narrative`, `status`, `research_facility` list, `funding_opportunity` and `funding_project` information are only accessible if the DMP's `privacy` is public OR you have access to the DMP!
 
-Full RDA Common Standard WITHOUT DMP Tool extensions.
+Full RDA Common Standard WITH DMP Tool extensions.
 
 ```json
 {
@@ -536,6 +536,90 @@ Full RDA Common Standard WITHOUT DMP Tool extensions.
         }]
       }]
     }]
+  },
+  "rda_schema_version": "1.2",
+  "provenance": "your-system-id",
+  "status": "complete",
+  "privacy": "private",
+  "featured": "no",
+  "registered": "2026-01-01T10:32:45Z",
+  "research_domain": {
+    "name": "biology",
+    "research_domain_identifier": {
+      "identifier": "https://example.com/01234567",
+      "type": "url"
+    }
+  },
+  "research_facility": [{
+    "name": "Ocean buoy 2345325",
+    "type": "field_station",
+    "research_facility_identifier": {
+      "identifier": "https://example.com/01234567",
+      "type": "url"
+    }
+  }],
+  "funding_opportunity": [{
+    "project_id": {
+      "identifier": "local-system-project-id",
+      "type": "other"
+    },
+    "funder_id": {
+      "identifier": "https://ror.org/0987654321",
+      "type": "ror"
+    },
+    "opportunity_identifier": {
+      "identifier": "https://example.com/01234567",
+      "type": "url"
+    }
+  }],
+  "funding_project": [{
+    "project_id": {
+      "identifier": "local-system-project-id",
+      "type": "other"
+    },
+    "funder_id": {
+      "identifier": "https://ror.org/0987654321",
+      "type": "ror"
+    },
+    "project_identifier": {
+      "identifier": "https://example.com/erbgierg",
+      "type": "url"
+    }
+  }],
+  "version": [{
+    "access_url": "https://example.com/api/v3/dmps/123456789?version=2026-01-01T10:32:45Z",
+    "version": "2026-01-01T10:32:45Z"
+  }],
+  "narrative": {
+    "download_url": "https://example.com/dmps/123456789/narrative",
+    "template": {
+      "id": 1234567,
+      "title": "Funder Template",
+      "description": "This is a test funder template for a DMP narrative",
+      "version": "v1",
+      "section": [{
+        "id": 9876,
+        "title": "Section one",
+        "description": "The first section of the narrative",
+        "order": 1,
+        "question": [{
+          "id": 1234,
+          "text": "Where will you deposit this output?",
+          "order": 1,
+          "answer": {
+            "id": 543,
+            "json": {
+              "type": "repositorySearch",
+              "answer": [{
+                "repositoryId": "https://example.com/repository/123456789",
+                "repositoryName": "Example Repository"
+              }],
+              "meta": { "schemaVersion": "1.0" }
+            }
+          }
+        }]
+      }]
+    }
   }
 }
 ```
