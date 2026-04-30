@@ -12,6 +12,8 @@ import v3RoutesPlugin from "./plugins/v3/routes.js";
 
 const baseConfig: ConfigurationOptions = baseConfigurationOptions;
 
+const MB_TO_BYTES = 1024 * 1024;
+
 // Initialize the Fastify instance
 const fastify: FastifyInstance = Fastify({
   ajv: {
@@ -38,7 +40,7 @@ const fastify: FastifyInstance = Fastify({
     ],
   },
   // Convert the specified size in MB to MiB
-  bodyLimit: Number(Math.floor(baseConfig.payloadSizeLimit * 0.953674))
+  bodyLimit: Number(Math.floor(baseConfig.payloadSizeLimit * MB_TO_BYTES))
 });
 
 /**

@@ -1,32 +1,44 @@
+import Ajv from 'ajv';
 import type {
   FastifyError,
   FastifyInstance,
   FastifyReply,
   FastifyRequest,
+  FastifySchema,
+  FastifySchemaValidationError
 } from 'fastify';
 import {
-  DELETE_DMP_OPTIONS,
+  DELETE_DMP_OPTIONS, DMP_TOOL_CONTENT_TYPE,
   GET_DMP_OPTIONS,
   GET_DMPS_OPTIONS,
   POST_DMP_OPTIONS,
-  PUT_DMP_OPTIONS,
+  POST_VALIDATE_OPTIONS,
+  PUT_DMP_OPTIONS, RDA_COMMON_STANDARD_CONTENT_TYPE,
 } from "./routeSchema.js";
 import { isDmpId } from "../../utils.js";
 import { DMPToolDMPType } from "@dmptool/types";
-import { convertMySQLDateTimeToRFC3339, DMP_LATEST_VERSION } from "@dmptool/utils";
+import {
+  convertMySQLDateTimeToRFC3339,
+  createDMP,
+  DMP_LATEST_VERSION
+} from "@dmptool/utils";
 import {AccessiblePlan, ConfigurationOptions, Plan, User} from "../../types.js";
 import {
   callerHasPermission,
+  generateDMPId,
   handleMissingMaDMP,
   loadMaDMPFromDynamo,
   loadPlan,
   loadPlansForCaller,
-  loadPlansForUser, userHasPermission,
+  loadPlansForUser, persistMaDMPRecord, userHasPermission,
 } from "../../models/maDMP.js";
 import { errorHandler, notFoundHandler } from "../../handlers/error.js";
 import { decorateLog } from "../../handlers/logger.js";
 import v3SerializationPlugin from "./serialization.js";
 import { v3SwaggerConfig, v3SwaggerUIConfig } from "./swagger.js";
+import { ValidationFunction } from "fastify/types/request.js";
+import { FastifyRouteSchemaDef } from "fastify/types/schema.js";
+import {getMaDMP} from "../../models/railsPlan.js";
 
 // TODO: Delete these mock responses once the models and business logic are in place
 const TEST_DMP = {
@@ -68,6 +80,12 @@ const TEST_DMP = {
   featured: 'no',
 };
 
+const ajvWithFullErrors = new Ajv({
+  allErrors: true,
+  coerceTypes: true,
+  useDefaults: true
+});
+
 /**
  * Encapsulates the routes
  *
@@ -90,6 +108,13 @@ const v3RoutesPlugin = async function (
       }
     });
   }
+
+  // Register the content types we support (`application/json` is supported by default)
+  fastify.addContentTypeParser(
+    [RDA_COMMON_STANDARD_CONTENT_TYPE, DMP_TOOL_CONTENT_TYPE],
+    { parseAs: 'string' },
+    fastify.getDefaultJsonParser('error', 'ignore')
+  );
 
   // Add the basic request information for logging purposes
   fastify.addHook('preHandler', async (request: FastifyRequest): Promise<void> => {
@@ -156,13 +181,54 @@ const v3RoutesPlugin = async function (
         }
       }
     },
-    async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      // TODO: Check for authorization and create the DMP (use the Accept header
-      //       to determine whether we should return the RDA Common Standard or
-      //       the full DMP with DMP Tool extensions)
-      //       --
-      //       FOR NOW - just return a mock DMP based on the Accept header
-      reply.code(201).send({ dmp: TEST_DMP });
+    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      // Note that Fastify will have already validated the content of the DMP JSON
+      const body = request.body as DMPToolDMPType;
+      request.log.debug({ body }, 'POST /dmps called.');
+
+      // TODO: Check for authorization
+
+      // Set the caller as the provenance or use the default caller
+      body.dmp.provenance = request.caller || request.dmptoolConfig.defaultCaller;
+
+      // Use the dmp_id as a new alternate_identifier
+      body.dmp.alternate_identifier = [{
+        identifier: body.dmp.dmp_id.identifier,
+        type: body.dmp.dmp_id.type
+      }];
+
+      // Make sure the alternate_identifier doesn't exist
+      const
+
+      // Generate a unique DMP ID
+      const dmpId: string = await generateDMPId(request);
+      body.dmp.dmp_id = {
+        identifier: dmpId,
+        type: dmpId.startsWith(request.dmptoolConfig.dmpIdBaseUrl) ? 'doi' : 'other'
+      }
+
+      // Create the DMP
+      await persistMaDMPRecord(
+        request,
+        `${config.landingPageDomain}:${config.landingPagePort}`,
+        dmpId,
+        body,
+        false,
+      );
+
+      // Fetch the newly provisioned DMP
+      const created: DMPToolDMPType | undefined = await loadMaDMPFromDynamo(
+        request,
+        dmpId,
+        DMP_LATEST_VERSION
+      );
+      if (created) return reply.code(201).send(created);
+
+      return reply.code(500).send({
+        status_code: 400,
+        error_code: 'generic_error',
+        message: 'Unable to create your DMP at this time.'
+      });
     }
   );
 
@@ -307,7 +373,7 @@ const v3RoutesPlugin = async function (
       // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
       if (!id || !isDmpId(request.dmptoolConfig, id)) {
         return reply.code(400).send({
-          status_code: '400',
+          status_code: 400,
           error_code: 'dmp_invalid',
           message: 'Invalid DMP ID'
         });
@@ -328,7 +394,7 @@ const v3RoutesPlugin = async function (
       // DMP has been `modified` since the time specified in the header
       if (modCheck !== modified) {
         return reply.code(409).send({
-          status_code: '409',
+          status_code: 409,
           error_code: 'conflict',
           message: 'The DMP has been modified since the time specified in the If-Unmodified-Since header'
         });
@@ -373,13 +439,53 @@ const v3RoutesPlugin = async function (
       // DMP has been `modified` since the time specified in the header
       if (modCheck !== modified) {
         return reply.code(409).send({
-          status_code: '409',
+          status_code: 409,
           error_code: 'conflict',
           message: 'The DMP has been modified since the time specified in the If-Unmodified-Since header'
         })
       }
 
       reply.code(204).send();
+    }
+  );
+
+  /**
+   * Validate a DMP JSON document.
+   *
+   * @param body The DMP JSON document to validate
+   * @returns A 200 OK response if the DMP is valid, otherwise a 400 Bad Request response
+   */
+  fastify.post(
+    '/dmps/validate',
+    {
+      ...POST_VALIDATE_OPTIONS,
+      logLevel: fastify.dmptoolConfig.logLevel,
+      config: {
+        rateLimit: {
+          max: 10
+        }
+      },
+      // Override the validator for just this route.
+      // This one will return ALL errors, not just the first one.
+      validatorCompiler: ({ schema }: FastifyRouteSchemaDef<NoInfer<FastifySchema>>) => {
+        const validate = ajvWithFullErrors.compile(schema) as ValidationFunction;
+        return (data: DMPToolDMPType) => {
+          const isValid: boolean = validate(data);
+          if (isValid) {
+            return { value: data };
+          }
+
+          return {
+            error: (validate.errors ?? []) as FastifySchemaValidationError[]
+          };
+        };
+      }
+    },
+    async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      reply.code(200).send({
+        status_code: 200,
+        message: 'DMP is valid'
+      });
     }
   );
 
