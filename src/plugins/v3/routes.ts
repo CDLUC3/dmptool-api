@@ -10,12 +10,14 @@ import type {
 import { ValidationFunction } from "fastify/types/request.js";
 import { FastifyRouteSchemaDef } from "fastify/types/schema.js";
 import {
-  DELETE_DMP_OPTIONS, DMP_TOOL_CONTENT_TYPE,
+  DELETE_DMP_OPTIONS,
+  DMP_TOOL_CONTENT_TYPE,
   GET_DMP_OPTIONS,
   GET_DMPS_OPTIONS,
   POST_DMP_OPTIONS,
   POST_VALIDATE_OPTIONS,
-  PUT_DMP_OPTIONS, RDA_COMMON_STANDARD_CONTENT_TYPE,
+  PUT_DMP_OPTIONS,
+  RDA_COMMON_STANDARD_CONTENT_TYPE,
 } from "./routeSchema.js";
 import { DMPToolDMPType } from "@dmptool/types";
 import { convertMySQLDateTimeToRFC3339, DMP_LATEST_VERSION } from "@dmptool/utils";
