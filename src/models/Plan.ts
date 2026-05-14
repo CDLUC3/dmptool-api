@@ -1,10 +1,22 @@
 import { FastifyRequest } from "fastify";
-import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
+import { ApolloClient } from "@apollo/client";
+import MutateOptions = ApolloClient.MutateOptions;
+import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
+import { DMPToolDMPType } from "@dmptool/types";
+import { Project, ProjectInterface } from "./Project.js";
+import { VersionedTemplate, VersionedTemplateInterface } from "./VersionedTemplate.js";
+import {
+  AlternateIdentifiersType,
+  AlternateIdentifierType,
+  ContributorsType
+} from "../types.js";
+import { ProjectMember } from "./ProjectMember.js";
 import {
   AddAlternateIdentifierDocument,
   AddPlanDocument,
   ArchivePlanDocument,
-  PlanByAlternateIdentifierDocument, PlanByDmpIdDocument,
+  PlanByAlternateIdentifierDocument,
+  PlanByDmpIdDocument,
   PlanDocument,
   PlansDocument,
   PlanStatus,
@@ -12,17 +24,8 @@ import {
   RemoveAlternateIdentifierDocument,
   UpdatePlanStatusDocument,
   UpdatePlanTitleDocument
-} from "../generated/graphql.js"
-import {Project, ProjectInterface} from "./Project.js";
-import {
-  VersionedTemplate,
-  VersionedTemplateInterface
-} from "./versionedTemplate.js";
-import { ApolloClient } from "@apollo/client";
-import MutateOptions = ApolloClient.MutateOptions;
-import { DMPToolDMPType } from "@dmptool/types";
-import {ProjectMember} from "./ProjectMember.js";
-
+} from "../generated/graphql.js";
+  
 /**
  * Represents a Data Management Plan
  */
@@ -127,10 +130,6 @@ export interface RemoveAlternateIdentifierResponse {
   removeAlternateIdentifierFromPlan: AlternateIdentifierInterface
 }
 
-type ContactType = DMPToolDMPType['dmp']['contact'];
-type ContributorType = DMPToolDMPType['dmp']['contributor'][0];
-type AlternateIdentifierType = DMPToolDMPType['dmp']['alternate_identifier'][0];
-
 /**
  * Represents a Data Management Plan
  */
@@ -163,7 +162,7 @@ export class Plan extends BaseGraphQLModel {
    * Shortcut helper function to save or update the current Plan
    *
    * @param request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async save(request: FastifyRequest): Promise<boolean> {
     return this.id ? await this.update(request) : await this.create(request);
@@ -173,7 +172,7 @@ export class Plan extends BaseGraphQLModel {
    * Create the current Plan
    *
    * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async create(request: FastifyRequest): Promise<boolean> {
     const saved: GQLResponse<AddPlanResponse> = await Plan.mutate<AddPlanResponse>(
@@ -210,7 +209,7 @@ export class Plan extends BaseGraphQLModel {
    * Update the current Plan
    *
    * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async update(request: FastifyRequest): Promise<boolean> {
     // First update the Plan title
@@ -264,7 +263,7 @@ export class Plan extends BaseGraphQLModel {
    * Delete this plan
    *
    * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async delete(request: FastifyRequest): Promise<boolean> {
     const deleted: GQLResponse<ArchivePlanResponse> = await Plan.mutate<ArchivePlanResponse>(
@@ -426,7 +425,7 @@ export class Plan extends BaseGraphQLModel {
     let newMembers: (ProjectMember | undefined)[] = [];
 
     // Find or initialize all other contributors
-    const contributors: ContributorType[] = dmp.contributor ?? [];
+    const contributors: ContributorsType = dmp.contributor ?? [];
     for (const contributor in contributors) {
       newMembers.push(
         await ProjectMember.findOrInitialize(
@@ -479,8 +478,9 @@ export class Plan extends BaseGraphQLModel {
 
     // Check for errors
     const memberErrs: string = newMembers.map((member: ProjectMember | undefined) => {
-      return ProjectMember.errorsToString(member?.errors);
+      return ProjectMember.errorsToString(member?.errors ?? {});
     }).join('; ');
+    if (memberErrs) this.errors['members'] = memberErrs;
 
     return !Plan.hasErrors(this.errors);
   }

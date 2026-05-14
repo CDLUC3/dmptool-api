@@ -1,18 +1,19 @@
 import { FastifyRequest } from "fastify";
 import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
+import { ApolloClient } from "@apollo/client";
+import MutateOptions = ApolloClient.MutateOptions;
+import { DMPToolDMPType } from "@dmptool/types";
+import { isValidDate } from "@dmptool/utils";
+import { Plan } from "./Plan.js";
+import { ProjectMember } from "./ProjectMember.js";
+import { stringToInteger } from "../utils.js";
+import { ContactType } from "../types.js";
 import {
   AddProjectDocument,
   ArchiveProjectDocument, MyProjectsDocument,
   ProjectDocument,
   UpdateProjectDocument,
 } from "../generated/graphql.js"
-import { ApolloClient } from "@apollo/client";
-import MutateOptions = ApolloClient.MutateOptions;
-import { DMPToolDMPType } from "@dmptool/types";
-import { isValidDate } from "@dmptool/utils";
-import { ProjectMember } from "./ProjectMember.js";
-import { Plan } from "./Plan.js";
-import { stringToInteger } from "../utils.js";
 
 /**
  * Represents a Research Project
@@ -108,11 +109,11 @@ export class Project extends BaseGraphQLModel {
    *
    * @param request the Fastify request
    * @param contact the primary contact on the maDMP record
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async setOwnership(
     request: FastifyRequest,
-    contact: ProjectMember
+    contact: ContactType
   ): Promise<boolean> {
     // TODO: Once we've implemented OAuth and the caller is not necessarily the owner
     //       use the designated primary contact as the primary owner of the project
@@ -123,7 +124,7 @@ export class Project extends BaseGraphQLModel {
    * Shortcut helper function to save or update the current Project
    *
    * @param request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async save(request: FastifyRequest): Promise<boolean> {
     return this.id ? await this.update(request) : await this.create(request);
@@ -133,9 +134,10 @@ export class Project extends BaseGraphQLModel {
    * Create the current Project
    *
    * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async create(request: FastifyRequest): Promise<boolean> {
+    // Create the project and let the Apollo server set default values for the majority of fields
     const saved: GQLResponse<AddProjectResponse> = await Project.mutate<AddProjectResponse>(
       request,
       {
@@ -156,8 +158,12 @@ export class Project extends BaseGraphQLModel {
     const hadErrors: boolean = Project.hasErrors(data?.errors ?? {});
     if (data && !hadErrors) {
       const primary: ProjectMember | undefined = this.primaryContact();
+
+      // We are eventually going to want to figure out how to let a system create
+      // a project on a user's behalf, so adding this stub function for now as
+      // a placeholder for where we will eventually implement that.
       if (primary && !(await this.setOwnership(request, primary))){
-        this.errors.general = "Project was created but there was an issue setting ownership to the primary contact.";
+        this.errors.general = "Project was created but we were unable to set ownership.";
       }
 
       // Sync the local object with the saved data
@@ -167,7 +173,11 @@ export class Project extends BaseGraphQLModel {
       this.modified = data.modified;
       this.modifiedById = data.modifiedById;
     }
-    return !hadErrors;
+
+    // Now that the project has been created, we need to set its other properties,
+    // the ones that Apollo sets by default, or we're not allowed to send in the
+    // mutation to create the project.
+    return hadErrors ? false : await this.update(request);
   }
 
   /**
@@ -252,7 +262,8 @@ export class Project extends BaseGraphQLModel {
   static async findOrInitialize(request: FastifyRequest, dmp: DMPToolDMPType['dmp']): Promise<Project> {
     const dmpProject: DMPToolDMPType['dmp']['project'][0] = dmp.project?.[0];
 
-    // 1st: we have a project id, see if it exists
+    // 1st: If we have a project id, see if it exists. The DMP Tool sets the
+    //      value of the project_id.identifier to match the UI path: /projects/<project_id>
     if (dmpProject?.project_id?.identifier) {
       const pathParts: string[] = dmpProject.project_id.identifier.split(/\/[a-zA-Z]+\/[0-9]+/);
       const projectId: string | undefined = pathParts.find((p: string) => p.startsWith("/projects/"))
@@ -264,7 +275,8 @@ export class Project extends BaseGraphQLModel {
       }
     }
 
-    // 2nd: Fetch the caller's projects and see if any titles match
+    // 2nd: No project id matched, so fetch the caller's projects and see if any
+    //      titles match.
     const title: string = dmpProject?.title?.trim() ?? dmp.title.trim();
     const existingProjects: Project[] = await Project.callerProjects(request);
 
@@ -281,7 +293,7 @@ export class Project extends BaseGraphQLModel {
       }
     }
 
-    // We didn't find an existing Project, so initialize one
+    // We didn't find an existing Project, so initialize a new one
     request.log.debug({ title }, `Initializing a new project`);
     return new Project({
       title: title,
@@ -293,18 +305,19 @@ export class Project extends BaseGraphQLModel {
   }
 
   /**
-   * Find the caller's projects'
+   * Find the caller's projects (right now, this is just based on the user's JWT)
+   *
    * @param request the Fastify request
    * @returns the id and title for each project
    */
   static async callerProjects(request: FastifyRequest): Promise<Project[]> {
-   const resp: GQLResponse<CallerProjectResponse> = await this.query<CallerProjectResponse>(request, {
-     query: MyProjectsDocument,
-     errorPolicy: "all"
-   });
-   return resp.data && Array.isArray(resp.data.myProjects.items)
-     ? resp.data.myProjects.items.map((item: ProjectInterface) => new Project(item))
-     : [];
+    const resp: GQLResponse<CallerProjectResponse> = await this.query<CallerProjectResponse>(request, {
+      query: MyProjectsDocument,
+      errorPolicy: "all"
+    });
+    return resp.data && Array.isArray(resp.data.myProjects.items)
+      ? resp.data.myProjects.items.map((item: ProjectInterface) => new Project(item))
+      : [];
   }
 
   /**

@@ -96,12 +96,12 @@ const graphQLPlugin = fp(async function (fastify: FastifyInstance): Promise<void
         fastify.log.error({ message, locations, path }, `[Apollo GraphQL error]: ${message}`);
       });
 
-    // Protocol errors (intentionally thrown HTTP 4xx/5xx with a GraphQL-formatted response)
+      // Protocol errors (intentionally thrown HTTP 4xx/5xx with a GraphQL-formatted response)
     } else if (CombinedProtocolErrors.is(error)) {
       const status: number | undefined = isResponseError(error) ? error.response?.status : undefined;
       handleHttpStatus(status, error, fastify);
 
-    // Network errors (Connection lost, DNS issues, or non-GraphQL-formatted errors)
+      // Network errors (Connection lost, DNS issues, or non-GraphQL-formatted errors)
     } else {
       let status: number | undefined;
 

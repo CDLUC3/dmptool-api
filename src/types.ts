@@ -6,6 +6,8 @@ import {
   DynamoConnectionParams,
   SsmConnectionParams
 } from "@dmptool/utils";
+import {BaseGraphQLModel} from "./models/BaseGQL.js";
+import {DMPToolDMPType} from "@dmptool/types";
 
 /**
  * Add our additional properties to the FastifyInstance and FastifyRequest
@@ -106,3 +108,13 @@ export interface User {
   role?: string;
   affiliationId?: string;
 }
+
+/**
+ * Shortcuts to different segments of the maDMP record
+ */
+export type ContactType = DMPToolDMPType['dmp']['contact'];
+export type ContributorsType = DMPToolDMPType['dmp']['contributor'];
+export type ContributorType = DMPToolDMPType['dmp']['contributor'][0];
+export type ProjectType = DMPToolDMPType['dmp']['project'];
+export type AlternateIdentifiersType = DMPToolDMPType['dmp']['alternate_identifier'];
+export type AlternateIdentifierType = AlternateIdentifiersType[0];

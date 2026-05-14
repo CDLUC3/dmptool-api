@@ -18,6 +18,4 @@ const config: CodegenConfig = {
   }
 }
 
-console.log(config)
-
 export default config

@@ -7,24 +7,32 @@ import type {
   FastifySchema,
   FastifySchemaValidationError
 } from 'fastify';
+import { ValidationFunction } from "fastify/types/request.js";
+import { FastifyRouteSchemaDef } from "fastify/types/schema.js";
 import {
-  DELETE_DMP_OPTIONS, DMP_TOOL_CONTENT_TYPE,
+  DELETE_DMP_OPTIONS,
+  DMP_TOOL_CONTENT_TYPE,
   GET_DMP_OPTIONS,
   GET_DMPS_OPTIONS,
   POST_DMP_OPTIONS,
   POST_VALIDATE_OPTIONS,
-  PUT_DMP_OPTIONS, RDA_COMMON_STANDARD_CONTENT_TYPE,
+  PUT_DMP_OPTIONS,
+  RDA_COMMON_STANDARD_CONTENT_TYPE,
 } from "./routeSchema.js";
-import { isDmpId } from "../../utils.js";
 import { DMPToolDMPType } from "@dmptool/types";
+import { convertMySQLDateTimeToRFC3339, DMP_LATEST_VERSION } from "@dmptool/utils";
 import {
-  ConnectionParams,
-  convertMySQLDateTimeToRFC3339,
-  DMP_LATEST_VERSION, planToDMPCommonStandard
-} from "@dmptool/utils";
-import {AlternateIdentifierInterface, Plan} from "../../models/Plan.js";
+  AccessiblePlan, AlternateIdentifierType,
+  ConfigurationOptions,
+  User
+} from "../../types.js";
+import v3SerializationPlugin from "./serialization.js";
+import { v3SwaggerConfig, v3SwaggerUIConfig } from "./swagger.js";
+import { errorHandler, notFoundHandler } from "../../handlers/error.js";
+import { decorateLog } from "../../handlers/logger.js";
+import { isDmpId } from "../../utils.js";
 import { Plan as PlanRDS } from "../../types.js";
-import { AccessiblePlan, ConfigurationOptions, User } from "../../types.js";
+
 import {
   callerHasPermission,
   handleMissingMaDMP,
@@ -34,17 +42,11 @@ import {
   loadPlansForUser,
   userHasPermission,
 } from "../../models/maDMP.js";
-import { errorHandler, notFoundHandler } from "../../handlers/error.js";
-import { decorateLog } from "../../handlers/logger.js";
-import v3SerializationPlugin from "./serialization.js";
-import { v3SwaggerConfig, v3SwaggerUIConfig } from "./swagger.js";
-import { ValidationFunction } from "fastify/types/request.js";
-import { FastifyRouteSchemaDef } from "fastify/types/schema.js";
-import {Project, ProjectInterface} from "../../models/Project.js";
-import { VersionedTemplate } from "../../models/versionedTemplate.js";
-import {getMaDMP} from "../../models/railsPlan.js";
+import { Project } from "../../models/Project.js";
+import { Plan } from "../../models/Plan.js";
+import { VersionedTemplate } from "../../models/VersionedTemplate.js";
 
-// TODO: Delete these mock responses once the models and business logic are in place
+// TODO: Delete this mock responses once the models and business logic are in place
 const TEST_DMP = {
   // These are RDA Common Standard fields and should always be returned
   title: 'Test DMP',
@@ -203,9 +205,10 @@ const v3RoutesPlugin = async function (
       // Set the caller as the provenance or use the default caller
       dmp.provenance = request.caller || request.dmptoolConfig.defaultCaller;
 
-      // Use the dmp_id as a new alternate_identifier
+      // We want to preserve any external identifiers for a new DMP, we move
+      // the specified dmp_id to the alternate_identifier array
       if (!dmp.alternate_identifier) dmp.alternate_identifier = [];
-      const hasAltId: boolean = dmp.alternate_identifier.some((id: DMPToolDMPType['dmp']['alternate_identifier'][0]): boolean => {
+      const hasAltId: boolean = dmp.alternate_identifier.some((id: AlternateIdentifierType): boolean => {
         return id.identfier === dmp.dmp_id.identifier;
       });
       if (!hasAltId){
@@ -222,12 +225,9 @@ const v3RoutesPlugin = async function (
       // Error out if we didn't find a template!
       if (!versionedTemplate) throw new Error('Unable to find a template');
 
-      // Find or initialize the plan (dmpId check, altId checks, or init)
+      // Find or initialize the plan
       const plan: Plan = await Plan.findOrInitialize(request, versionedTemplate, dmp);
       if (plan.id) {
-
-// VERIFIED BY Alternate id
-
         return reply.code(400).send({
           status_code: 400,
           error_code: 'dmp_already_exists',
@@ -235,9 +235,10 @@ const v3RoutesPlugin = async function (
         });
       }
 
-      // Initialize the project (dmpId check, altId checks, or init)
+      // Initialize the project
       const project: Project = await Project.findOrInitialize(request, dmp);
       if (!project.id) {
+        // Create or update the project
         if (!(await project.save(request))) {
           const errs: string = Project.errorsToString(project.errors);
           request.log.error({ errors: errs }, 'Unable to create new Project');
@@ -251,7 +252,7 @@ const v3RoutesPlugin = async function (
       // Set the plan's project id
       plan.projectId = project.id;
 
-      // Add the plan
+      // Create the plan
       if (!(await plan.save(request))) {
         // Fail right away, there's no point in trying to save anything else
         const errs: string = Plan.errorsToString(plan.errors);
@@ -275,6 +276,7 @@ console.log('PLAN', plan)
 
       // Save the alternate identifiers
       if (!await plan.saveAlternateIdentifiers(request, dmp.alternate_identifier)){
+        // Log any errors, the Plan.alternateIdentiers error will have been set
         request.log.error(
           { planId: plan.id, alternateIdentifiers: dmp.alternat_identifier },
           'Unable to save alternate identifiers for the new plan'

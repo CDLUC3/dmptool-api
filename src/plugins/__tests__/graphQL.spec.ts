@@ -7,24 +7,24 @@ describe('graphQLPlugin', () => {
   let fastify: FastifyInstance;
 
   beforeEach(async () => {
-	  fastify = Fastify();
-	  await fastify.register(configPlugin);
-	  await fastify.register(graphQLPlugin);
+    fastify = Fastify();
+    await fastify.register(configPlugin);
+    await fastify.register(graphQLPlugin);
 
     fastify.get('/graphql-client-check', async (request) => {
       return {
-      hasClient: Boolean(request.graphQLClient),
-      sameClientInstance: request.graphQLClient === request.graphQLClient,
+        hasClient: Boolean(request.graphQLClient),
+        sameClientInstance: request.graphQLClient === request.graphQLClient,
       };
     });
   });
 
   afterEach(async () => {
-	  await fastify.close();
+    await fastify.close();
   });
 
   it('should register the plugin and decorate the request', () => {
-	  expect(fastify.hasRequestDecorator('graphQLClient')).toBe(true);
+    expect(fastify.hasRequestDecorator('graphQLClient')).toBe(true);
   });
 
   it('should expose the Apollo client on the request object', async () => {
@@ -63,4 +63,3 @@ describe('graphQLPlugin', () => {
     await localFastify.close();
   });
 });
-

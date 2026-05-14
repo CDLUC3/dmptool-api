@@ -205,7 +205,7 @@ const persistMaDMPToMySQL = async (
   // Search for a user to become the Plan owner
 
   // Process the narrative
-    // Process the research outputs
+  // Process the research outputs
 
   // Process the related identifiers
   return false;
