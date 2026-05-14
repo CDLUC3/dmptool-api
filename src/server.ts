@@ -7,8 +7,8 @@ import authPlugin from './plugins/auth.js';
 import configPlugin from "./plugins/config.js";
 import rateLimitPlugin from "./plugins/rateLimit.js";
 import linksetPlugin from "./plugins/linkset.js";
-
 import v3RoutesPlugin from "./plugins/v3/routes.js";
+import graphQLPlugin from "./plugins/graphQL.js";
 
 const baseConfig: ConfigurationOptions = baseConfigurationOptions;
 
@@ -59,6 +59,7 @@ const start = async (
     // Register our global plugins
     await fastify.register(healthcheckPlugin);
     await fastify.register(configPlugin);
+    await fastify.register(graphQLPlugin);
     await fastify.register(authPlugin, { logLevel: config.logLevel });
     await fastify.register(linksetPlugin, {});
 
@@ -81,8 +82,7 @@ const start = async (
     fastify.log.error(toErrorMessage(err));
 
     console.log(err)
-
-    // process.exit(1);
+    process.exit(1);
   }
 };
 

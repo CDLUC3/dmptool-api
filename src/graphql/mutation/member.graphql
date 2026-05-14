@@ -1,0 +1,135 @@
+mutation AddProjectMember($input: AddProjectMemberInput!) {
+  addProjectMember(input: $input) {
+    id
+    project {
+      id
+    }
+    affiliation {
+      uri
+      name
+    }
+    givenName
+    surName
+    orcid
+    email
+    isPrimaryContact
+    memberRoles {
+      id
+      uri
+    }
+    created
+    createdById
+    modified
+    modifiedById
+    errors {
+      general
+      projectId
+      affiliationId
+      givenName
+      surName
+      orcid
+      email
+      memberRoleIds
+    }
+  }
+}
+
+mutation UpdateProjectMember($input: UpdateProjectMemberInput!) {
+  updateProjectMember(input: $input) {
+    id
+    project {
+      id
+    }
+    affiliation {
+      uri
+      name
+    }
+    givenName
+    surName
+    orcid
+    email
+    isPrimaryContact
+    memberRoles {
+      id
+      uri
+    }
+    modified
+    modifiedById
+    errors {
+      general
+      projectId
+      affiliationId
+      givenName
+      surName
+      orcid
+      email
+      memberRoleIds
+    }
+  }
+}
+
+mutation RemoveProjectMember($projectMemberId: Int!) {
+  removeProjectMember(projectMemberId: $projectMemberId) {
+    id
+    modified
+    modifiedById
+    errors {
+      general
+    }
+  }
+}
+
+mutation AddPlanMember($planId: Int!, $projectMemberId: Int!, $roleIds: [Int!]!) {
+  addPlanMember(planId: $planId, projectMemberId: $projectMemberId, roleIds: $roleIds) {
+    id
+    projectMember {
+      id
+    }
+    isPrimaryContact
+    memberRoles {
+      id
+      uri
+    }
+    created
+    createdById
+    modified
+    modifiedById
+    errors {
+      general
+      projectMemberId
+      memberRoleIds
+    }
+  }
+}
+
+mutation UpdatePlanMember($planId: Int!, $planMemberId: Int!, $memberRoleIds: [Int!], $isPrimaryContact: Boolean) {
+  updatePlanMember(planId: $planId, planMemberId: $planMemberId, memberRoleIds: $memberRoleIds, isPrimaryContact: $isPrimaryContact) {
+    id
+    projectMember {
+      id
+    }
+    isPrimaryContact
+    memberRoles {
+      id
+      uri
+    }
+    modified
+    modifiedById
+    errors {
+      general
+      projectMemberId
+      memberRoleIds
+    }
+  }
+}
+
+mutation RemovePlanMember($planMemberId: Int!) {
+  removePlanMember(planMemberId: $planMemberId) {
+    id
+    modified
+    modifiedById
+    errors {
+      general
+    }
+  }
+}

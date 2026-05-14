@@ -29,3 +29,6 @@ coverage/
 
 # local Docker files
 docker/
+
+# Generated code
+src/generated/*.ts

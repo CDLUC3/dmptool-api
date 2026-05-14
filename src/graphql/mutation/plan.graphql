@@ -1,0 +1,83 @@
+mutation AddPlan($projectId: Int!, $versionedTemplateId: Int!) {
+  addPlan(projectId: $projectId, versionedTemplateId: $versionedTemplateId) {
+    id
+    created
+    createdById
+    modified
+    modifiedById
+    dmpId
+    errors {
+      general
+      versionedTemplateId
+      projectId
+    }
+  }
+}
+
+mutation UpdatePlanStatus($planId: Int!, $status: PlanStatus!) {
+  updatePlanStatus(planId: $planId, status: $status) {
+    errors {
+      general
+      status
+    }
+    id
+    modified
+    modifiedById
+    status
+    visibility
+  }
+}
+
+mutation UpdatePlanTitle($planId: Int!, $title: String!) {
+  updatePlanTitle(planId: $planId, title: $title) {
+    errors {
+      general
+      title
+    }
+    id
+    modified
+    modifiedById
+    title
+  }
+}
+
+mutation ArchivePlan($planId: Int!) {
+  archivePlan(planId: $planId) {
+    id
+    modified
+    modifiedById
+    errors {
+      general
+    }
+  }
+}
+
+mutation AddAlternateIdentifier($planId: Int!, $alternateIdentifier: String!) {
+  addAlternateIdentifierToPlan(planId: $planId, alternateIdentifier: $alternateIdentifier) {
+    errors {
+      general
+      alternateIdentifier
+      planId
+    }
+    id
+    alternateIdentifier
+    plan {
+      id
+    }
+  }
+}
+
+mutation RemoveAlternateIdentifier($planId: Int!, $alternateIdentifier: String!) {
+  removeAlternateIdentifierFromPlan(planId: $planId, alternateIdentifier: $alternateIdentifier) {
+    errors {
+      general
+      alternateIdentifier
+      planId
+    }
+    id
+    alternateIdentifier
+    plan {
+      id
+    }
+  }
+}

@@ -1,0 +1,66 @@
+query Project($projectId: Int!) {
+  project(projectId: $projectId) {
+    id
+    created
+    createdById
+    modified
+    modifiedById
+    title
+    abstractText
+    startDate
+    endDate
+    isTestProject
+    researchDomain {
+      id
+      parentResearchDomainId
+    }
+    plans {
+      id
+      title
+    }
+    members {
+      id
+      affiliation {
+        uri
+        name
+      }
+      givenName
+      surName
+      email
+      orcid
+      isPrimaryContact
+      memberRoles {
+        id
+        uri
+      }
+    }
+    fundings {
+      id
+      affiliation {
+        uri
+        name
+      }
+      status
+      funderOpportunityNumber
+      funderProjectNumber
+      grantId
+    }
+  }
+}
+
+query MyProjects($term: String) {
+  myProjects(term: $term) {
+    items {
+      id
+      title
+      abstractText
+      endDate
+      startDate
+      researchDomain
+      created
+      createdById
+      modified
+      modifiedById
+    }
+  }
+}

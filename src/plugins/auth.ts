@@ -39,6 +39,7 @@ const authPlugin = fp(async function (
   // TODO: Update this to include the identity of the system sending the request
   //       default to
   fastify.decorateRequest('caller', defaultCaller);
+  fastify.decorateRequest('refreshToken', undefined);
 
   // For every request, verify the JWT token if it exists and then set the user
   // property on the request object. Return an error if the token is invalid.

@@ -18,19 +18,21 @@ import {
 import { isDmpId } from "../../utils.js";
 import { DMPToolDMPType } from "@dmptool/types";
 import {
+  ConnectionParams,
   convertMySQLDateTimeToRFC3339,
-  createDMP,
-  DMP_LATEST_VERSION
+  DMP_LATEST_VERSION, planToDMPCommonStandard
 } from "@dmptool/utils";
-import {AccessiblePlan, ConfigurationOptions, Plan, User} from "../../types.js";
+import {AlternateIdentifierInterface, Plan} from "../../models/Plan.js";
+import { Plan as PlanRDS } from "../../types.js";
+import { AccessiblePlan, ConfigurationOptions, User } from "../../types.js";
 import {
   callerHasPermission,
-  generateDMPId,
   handleMissingMaDMP,
   loadMaDMPFromDynamo,
   loadPlan,
   loadPlansForCaller,
-  loadPlansForUser, persistMaDMPRecord, userHasPermission,
+  loadPlansForUser,
+  userHasPermission,
 } from "../../models/maDMP.js";
 import { errorHandler, notFoundHandler } from "../../handlers/error.js";
 import { decorateLog } from "../../handlers/logger.js";
@@ -38,6 +40,8 @@ import v3SerializationPlugin from "./serialization.js";
 import { v3SwaggerConfig, v3SwaggerUIConfig } from "./swagger.js";
 import { ValidationFunction } from "fastify/types/request.js";
 import { FastifyRouteSchemaDef } from "fastify/types/schema.js";
+import {Project, ProjectInterface} from "../../models/Project.js";
+import { VersionedTemplate } from "../../models/versionedTemplate.js";
 import {getMaDMP} from "../../models/railsPlan.js";
 
 // TODO: Delete these mock responses once the models and business logic are in place
@@ -184,51 +188,126 @@ const v3RoutesPlugin = async function (
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       // Note that Fastify will have already validated the content of the DMP JSON
       const body = request.body as DMPToolDMPType;
+      const dmp: DMPToolDMPType['dmp'] = body.dmp;
       request.log.debug({ body }, 'POST /dmps called.');
 
-      // TODO: Check for authorization
-
-      // Set the caller as the provenance or use the default caller
-      body.dmp.provenance = request.caller || request.dmptoolConfig.defaultCaller;
-
-      // Use the dmp_id as a new alternate_identifier
-      body.dmp.alternate_identifier = [{
-        identifier: body.dmp.dmp_id.identifier,
-        type: body.dmp.dmp_id.type
-      }];
-
-      // Make sure the alternate_identifier doesn't exist
-      const
-
-      // Generate a unique DMP ID
-      const dmpId: string = await generateDMPId(request);
-      body.dmp.dmp_id = {
-        identifier: dmpId,
-        type: dmpId.startsWith(request.dmptoolConfig.dmpIdBaseUrl) ? 'doi' : 'other'
+      // If the dmpId in the maDMP metadata is one of ours bail out. We will assign dmpIds
+      if (dmp.dmp_id.identifier.includes(fastify.dmptoolConfig.dmpIdShoulder)) {
+        return reply.code(400).send({
+          status_code: 400,
+          error_code: 'dmp_invalid',
+          message: `The ${request.dmptoolConfig.applicationName} is responsible for assigning DMP ids.`
+        })
       }
 
-      // Create the DMP
-      await persistMaDMPRecord(
-        request,
-        `${config.landingPageDomain}:${config.landingPagePort}`,
-        dmpId,
-        body,
-        false,
-      );
+      // Set the caller as the provenance or use the default caller
+      dmp.provenance = request.caller || request.dmptoolConfig.defaultCaller;
 
-      // Fetch the newly provisioned DMP
-      const created: DMPToolDMPType | undefined = await loadMaDMPFromDynamo(
-        request,
-        dmpId,
-        DMP_LATEST_VERSION
-      );
-      if (created) return reply.code(201).send(created);
-
-      return reply.code(500).send({
-        status_code: 400,
-        error_code: 'generic_error',
-        message: 'Unable to create your DMP at this time.'
+      // Use the dmp_id as a new alternate_identifier
+      if (!dmp.alternate_identifier) dmp.alternate_identifier = [];
+      const hasAltId: boolean = dmp.alternate_identifier.some((id: DMPToolDMPType['dmp']['alternate_identifier'][0]): boolean => {
+        return id.identfier === dmp.dmp_id.identifier;
       });
+      if (!hasAltId){
+        dmp.alternate_identifier.push({
+          identifier: dmp.dmp_id.identifier,
+          type: dmp.dmp_id.type
+        });
+      }
+
+      // Fetch the specified template or the default template
+      const versionedTemplate: VersionedTemplate | undefined = dmp.narrative?.template?.id
+        ? await VersionedTemplate.findByTemplateId(request, dmp.narrative.template.id)
+        : await VersionedTemplate.findDefault(request);
+      // Error out if we didn't find a template!
+      if (!versionedTemplate) throw new Error('Unable to find a template');
+
+      // Find or initialize the plan (dmpId check, altId checks, or init)
+      const plan: Plan = await Plan.findOrInitialize(request, versionedTemplate, dmp);
+      if (plan.id) {
+
+// VERIFIED BY Alternate id
+
+        return reply.code(400).send({
+          status_code: 400,
+          error_code: 'dmp_already_exists',
+          message: 'DMP already exists'
+        });
+      }
+
+      // Initialize the project (dmpId check, altId checks, or init)
+      const project: Project = await Project.findOrInitialize(request, dmp);
+      if (!project.id) {
+        if (!(await project.save(request))) {
+          const errs: string = Project.errorsToString(project.errors);
+          request.log.error({ errors: errs }, 'Unable to create new Project');
+          return reply.code(400).send({
+            status_code: 400,
+            error_code: 'dmp_invalid',
+            message: errs
+          });
+        }
+      }
+      // Set the plan's project id
+      plan.projectId = project.id;
+
+      // Add the plan
+      if (!(await plan.save(request))) {
+        // Fail right away, there's no point in trying to save anything else
+        const errs: string = Plan.errorsToString(plan.errors);
+        request.log.error({errors: errs}, 'Unable to create new DMP');
+        return reply.code(400).send({
+          status_code: 400,
+          error_code: 'dmp_invalid',
+          message: errs
+        });
+      }
+
+console.log('PROJECT:', project);
+console.log('PROJECT MEMBERS:', project.members);
+console.log('PLAN', plan)
+
+      // Abort if the new plan was not assigned a DMP id
+      if (!plan.dmpId) {
+        request.log.error({ plan }, 'Unable to generate a new DMP id for the plan!');
+        throw new Error('Unable to assign a DMP id to the new plan');
+      }
+
+      // Save the alternate identifiers
+      if (!await plan.saveAlternateIdentifiers(request, dmp.alternate_identifier)){
+        request.log.error(
+          { planId: plan.id, alternateIdentifiers: dmp.alternat_identifier },
+          'Unable to save alternate identifiers for the new plan'
+        );
+      }
+
+      // Save the plan members
+      if (!await plan.saveMembers(request, project.members, dmp)) {
+        request.log.error(
+          { planId: plan.id, contact: dmp.contact, contributors: dmp.contributor },
+          'Unable to save members for the new plan'
+        );
+      }
+
+      // At this point, check for any errors. Return them to the caller.
+      if (Plan.hasErrors(plan.errors)) {
+        const errs: string = Plan.errorsToString(plan.errors);
+        request.log.warn({ errors: errs }, 'Unable to create new DMP');
+        return reply.code(400).send({
+          status_code: 400,
+          error_code: 'dmp_invalid',
+          message: errs
+        });
+      }
+
+      // There were no errors, so fetch the new maDMP record and return it
+      const newMaDMP: DMPToolDMPType | undefined = await loadMaDMPFromDynamo(request, plan.dmpId);
+      if (newMaDMP) {
+        return reply.code(201).send(newMaDMP);
+      } else {
+        request.log.fatal({ plan }, 'Unable to retrieve the newly created maDMP from DynamoDB');
+        throw new Error('Unable to complete your request at this time. Please try again later.');
+      }
     }
   );
 
@@ -269,7 +348,7 @@ const v3RoutesPlugin = async function (
       // TODO: Implement authorization check if its not a public DMP
 
       // First: load high-level info about the DMP from the MySQL database
-      const plan: Plan | undefined = await loadPlan(request, id);
+      const plan: PlanRDS | undefined = await loadPlan(request, id);
       if (!plan) {
         request.log.warn({ dmpId: id }, "No Plan found");
         // We return 404 here so that we're not signaling which DMP ids are valid
@@ -430,6 +509,20 @@ const v3RoutesPlugin = async function (
       //       then delete if authorized
       //       --
       //       FOR NOW - just return a mock success code
+
+      // TODO: Uncomment this logic to delete a Project after the Plan is deleted
+      // // See if the associated Project has other Plans
+      // const plans: Plan[] = await Plan.findByProjectId(request, this.project.id);
+      // if (!plans || plans.length < 1) {
+      //  // It doesn't, so let's delete the project too
+      //   const project = new Project(this.project);
+      //   const projectWasDeleted: boolean = await project.delete(request);
+      // if (!projectWasDeleted) {
+      //   // If something went wrong, add the errors to this Plan
+      //   const errs: string = Plan.errorsToString(project.errors);
+      //   this.errors.projectId = `Plan was deleted but could not delete Project: ${errs}`;
+      //   return false;
+      // }
 
       // Convert the If-Unmodified-Since date in the header and the DMP modified date to RFC3339 format
       modCheck = convertMySQLDateTimeToRFC3339(modCheck) as string;

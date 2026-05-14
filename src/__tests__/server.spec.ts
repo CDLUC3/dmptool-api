@@ -21,6 +21,7 @@ jest.unstable_mockModule('../plugins/config.js', () => ({ default: jest.fn().moc
 jest.unstable_mockModule('../plugins/auth.js', () => ({ default: jest.fn().mockName('authPlugin') }));
 jest.unstable_mockModule('../plugins/linkset.js', () => ({ default: jest.fn().mockName('linksetPlugin') }));
 jest.unstable_mockModule('../plugins/rateLimit.js', () => ({ default: jest.fn().mockName('rateLimitPlugin') }));
+jest.unstable_mockModule('../plugins/graphQL.js', () => ({ default: jest.fn().mockName('graphQLPlugin') }));
 
 jest.unstable_mockModule('../plugins/v3/swagger.js', () => ({ default: jest.fn().mockName('v3SwaggerPlugin') }));
 jest.unstable_mockModule('../plugins/v3/serialization.js', () => ({ default: jest.fn().mockName('v3SerializationPlugin') }));
@@ -52,6 +53,7 @@ describe('Server Registration Order', () => {
     const configIndex = registeredPlugins.indexOf('configPlugin');
     const authIndex = registeredPlugins.indexOf('authPlugin');
     const linksetIndex = registeredPlugins.indexOf('linksetPlugin');
+    const graphQLIndex = registeredPlugins.indexOf('graphQLPlugin');
     const v3RoutesIndex = registeredPlugins.indexOf('v3RoutesPlugin');
 
     // 3rd party plugins are registered first
@@ -67,8 +69,14 @@ describe('Server Registration Order', () => {
     expect(configIndex).toBeLessThan(authIndex);
     expect(configIndex).toBeLessThan(v3RoutesIndex);
 
-    // Linkset and Routes must come after Config
+    // Linkset, GraphQL and Routes must come after Config
     expect(linksetIndex).toBeGreaterThan(configIndex);
+    expect(graphQLIndex).toBeGreaterThan(configIndex);
     expect(v3RoutesIndex).toBeGreaterThan(linksetIndex);
+
+    // GraphQL, Rate limit and auth must come before routes
+    expect(rateLimitIndex).toBeLessThan(v3RoutesIndex);
+    expect(authIndex).toBeLessThan(v3RoutesIndex);
+    expect(graphQLIndex).toBeLessThan(v3RoutesIndex);
   });
 });

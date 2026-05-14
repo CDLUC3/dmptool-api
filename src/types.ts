@@ -1,5 +1,6 @@
 // Add our config to the FastifyInstance and FastifyRequest
 import { LogLevel } from "fastify";
+import { ApolloClient } from "@apollo/client";
 import {
   ConnectionParams,
   DynamoConnectionParams,
@@ -12,11 +13,11 @@ import {
 declare module 'fastify' {
   export interface FastifyInstance {
     dmptoolConfig: ConfigurationOptions;
-    // swagger: Function;
   }
 
   export interface FastifyRequest {
     dmptoolConfig: ConfigurationOptions;
+    graphQLClient?: ApolloClient;
     caller?: string;
   }
 }
@@ -28,6 +29,13 @@ export interface ApiError {
   status_code: number;
   error_code: string;
   message: string;
+}
+
+/**
+ * The structure of the GraphQL parameters
+ */
+export interface GraphQLParams {
+  uri: string;
 }
 
 /**
@@ -64,6 +72,7 @@ export interface ConfigurationOptions {
   landingPageDomain: string;
   landingPagePort: number;
 
+  graphQL?: GraphQLParams;
   rds?: ConnectionParams;
   dynamo?: DynamoConnectionParams;
   ssm?: SsmConnectionParams;
