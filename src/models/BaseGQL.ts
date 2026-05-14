@@ -149,9 +149,6 @@ export class BaseGraphQLModel {
       request.log.debug({ queryOptions }, 'Sending GraphQL query.')
       const result: QueryResult<unknown> = await request.graphQLClient.query(gqlContext);
       const data = result.data as T;
-
-      console.log('QUERY RETURNING', result.data as T)
-
       return { data };
     } catch (err) {
       const gqlError: GQLErrorInterface = this.handleError(request, err);
@@ -203,9 +200,6 @@ export class BaseGraphQLModel {
         // result.data.error = result.error;
         return { error: this.handleError(request, result.error) };
       }
-
-      console.log('MUTATION RETURNING', result.data as T)
-
       return { data: result.data as T };
     } catch (err) {
       const gqlError: GQLErrorInterface = this.handleError(request, err);
@@ -249,9 +243,6 @@ export class BaseGraphQLModel {
     // GraphQL Protocol errors (intentional GraphQL formatted errors)
     if (CombinedProtocolErrors.is(err)) {
       const error = Array.isArray(err.errors) ? err.errors[0] : undefined;
-
-      console.log('ERROR:', error?.extensions)
-
       status = error?.extensions?.code ?? 500;
     }
 

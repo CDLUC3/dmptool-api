@@ -89,9 +89,6 @@ export class VersionedTemplate extends BaseGraphQLModel implements VersionedTemp
         errorPolicy: "all"
       },
     );
-
-    console.log("DEFAULT TEMPLATE", resp.data)
-
     return resp.data && resp.data.defaultTemplate ? resp.data.defaultTemplate : undefined;
   }
 }
