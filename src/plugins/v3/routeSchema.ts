@@ -27,7 +27,7 @@ const errorObjectSchema = {
   type: 'object',
   properties: {
     status_code: {
-      type: 'string'
+      type: 'number'
     },
     error_code: {
       type: 'string'
@@ -65,15 +65,17 @@ const standardErrors = {
 // The `Accept` header is used to negotiate the response format. The default is
 // the RDA Common Standard format (NO DMP Tool extensions).
 //
-export const negotiatedDmpResponseContent = {
+export const negotiatedDmpContent = {
   [RDA_COMMON_STANDARD_CONTENT_TYPE]: {
     $defs: baseRDADmpDefs,
     type: 'object',
     properties: {
       dmp: {
-        $ref: '#/$defs/DMPData'
-      }
+        $ref: '#/$defs/DMPData',
+      },
+      unevaluatedProperties: false
     },
+    additionalProperties: false,
     required: ['dmp'],
   },
   [DMP_TOOL_CONTENT_TYPE]: {
@@ -81,12 +83,14 @@ export const negotiatedDmpResponseContent = {
     type: 'object',
     properties: {
       dmp: {
-        allof: [
+        allOf: [
           { $ref: '#/$defs/DMPData' },
           { $ref: '#/$defs/DMPToolExtension' }
-        ]
+        ],
+        unevaluatedProperties: false
       }
     },
+    additionalProperties: false,
     required: ['dmp'],
   }
 }
@@ -115,7 +119,7 @@ const maDMPBody = {
         dmp: { $ref: '#/$defs/DMPData' }
       },
       required: ['dmp'],
-      additionalProperties: false // Note that this will reject DMP Tool extensions
+      // additionalProperties: false // Note that this will reject DMP Tool extensions
     },
     // RDA Common Standard with DMP Tool extensions
     {
@@ -125,11 +129,12 @@ const maDMPBody = {
           allOf: [
             { $ref: '#/$defs/DMPData' },
             { $ref: '#/$defs/DMPToolExtension' }
-          ]
+          ],
+          unevaluatedProperties: false
         },
       },
       required: ['dmp']
-    }
+    },
   ]
 };
 
@@ -466,6 +471,65 @@ export const DELETE_DMP_OPTIONS: RouteShorthandOptions = {
     },
     response: {
       204: emptyObjectSchema,
+      ...standardErrors
+    }
+  }
+};
+
+// POST /dmps/validate
+export const POST_VALIDATE_OPTIONS: RouteShorthandOptions = {
+  schema: {
+    body: {
+      content: {
+        'application/json': {
+          schema: {
+            $defs: baseRDADmpDefs,
+            type: 'object',
+            properties: {
+              dmp: {
+                $ref: '#/$defs/DMPData'
+              }
+            },
+            required: ['dmp'],
+          }
+        },
+        [RDA_COMMON_STANDARD_CONTENT_TYPE]: {
+          schema: {
+            $defs: baseRDADmpDefs,
+            type: 'object',
+            properties: {
+              dmp: {
+                $ref: '#/$defs/DMPData'
+              }
+            },
+            required: ['dmp'],
+          }
+        },
+        [DMP_TOOL_CONTENT_TYPE]: {
+          schema: {
+            $defs: baseDMPToolDmpDefs,
+            type: 'object',
+            properties: {
+              dmp: {
+                allOf: [
+                  { $ref: '#/$defs/DMPData' },
+                  { $ref: '#/$defs/DMPToolExtension' }
+                ],
+                unevaluatedProperties: false
+              }
+            },
+            required: ['dmp'],
+          }
+        }
+      }
+    },
+    response: {
+      200: {
+        status_code: 200,
+        message: {
+          type: 'string'
+        }
+      },
       ...standardErrors
     }
   }

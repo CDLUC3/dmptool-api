@@ -15,6 +15,7 @@ export const isDmpId = (
     `${options.dmpIdBaseUrl.replace(/https?:\/\//, '')}/${options.dmpIdShoulder}`,
     `${options.domainName}/projects`,
     `doi:${options.dmpIdShoulder}`,
+    'TEMP-API',
     options.dmpIdShoulder
   ].map((prefix: string): string => encodeURIComponent(prefix));
 

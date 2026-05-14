@@ -75,7 +75,7 @@ describe('v3 serialization', () => {
 
     expect(response.statusCode).toBe(406);
     const body = JSON.parse(response.body);
-    expect(body).toHaveProperty('status_code', '406');
+    expect(body).toHaveProperty('status_code', 406);
     expect(body).toHaveProperty('error_code', 'not_acceptable');
     expect(body).toHaveProperty('message', 'The server does not support any of the requested content types.');
   });

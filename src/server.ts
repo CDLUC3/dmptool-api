@@ -7,10 +7,12 @@ import authPlugin from './plugins/auth.js';
 import configPlugin from "./plugins/config.js";
 import rateLimitPlugin from "./plugins/rateLimit.js";
 import linksetPlugin from "./plugins/linkset.js";
-
 import v3RoutesPlugin from "./plugins/v3/routes.js";
+import graphQLPlugin from "./plugins/graphQL.js";
 
 const baseConfig: ConfigurationOptions = baseConfigurationOptions;
+
+const MB_TO_BYTES = 1024 * 1024;
 
 // Initialize the Fastify instance
 const fastify: FastifyInstance = Fastify({
@@ -20,6 +22,7 @@ const fastify: FastifyInstance = Fastify({
       strictSchema: false, // This allows 'default' inside subschemas
     }
   },
+  ignoreTrailingSlash: true, // This allows both `/documentation` and `/documentation/`
   logger: {
     level: process.env.LOG_LEVEL || 'info',
     // Mask any log entries that might contain sensitive info
@@ -37,7 +40,7 @@ const fastify: FastifyInstance = Fastify({
     ],
   },
   // Convert the specified size in MB to MiB
-  bodyLimit: Number(Math.floor(baseConfig.payloadSizeLimit * 0.953674))
+  bodyLimit: Number(Math.floor(baseConfig.payloadSizeLimit * MB_TO_BYTES))
 });
 
 /**
@@ -56,6 +59,7 @@ const start = async (
     // Register our global plugins
     await fastify.register(healthcheckPlugin);
     await fastify.register(configPlugin);
+    await fastify.register(graphQLPlugin);
     await fastify.register(authPlugin, { logLevel: config.logLevel });
     await fastify.register(linksetPlugin, {});
 
@@ -78,8 +82,7 @@ const start = async (
     fastify.log.error(toErrorMessage(err));
 
     console.log(err)
-
-    // process.exit(1);
+    process.exit(1);
   }
 };
 

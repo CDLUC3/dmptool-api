@@ -150,4 +150,3 @@ export const errorHandler = (
   const errOut: ApiError = fastifyErrorToApiError(err, request.dmptoolConfig)
   return reply.status(errOut.status_code).send(errOut);
 }
-

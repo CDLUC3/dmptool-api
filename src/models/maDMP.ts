@@ -9,9 +9,42 @@ import {
   EnvironmentEnum,
   getDMPs,
   planToDMPCommonStandard,
-  queryTable,
+  queryTable, randomHex,
   updateDMP
 } from "@dmptool/utils";
+
+/**
+ * Generate a unique DMP ID for a Plan.
+ *
+ * @param request the Fastify request
+ * @returns the unique DMP ID
+ */
+export async function generateDMPId(request: FastifyRequest): Promise<string> {
+  const dmpIdPrefix = `${request.dmptoolConfig.dmpIdBaseUrl}${request.dmptoolConfig.dmpIdShoulder}`;
+  let id = randomHex(8);
+  let i = 0;
+
+  // Check if the ID already exists up to 5 times
+  while (i < 5) {
+    const dmpId = `${dmpIdPrefix}${id}`;
+    const sql = `SELECT dmpId FROM plans WHERE dmpId = ?`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const resp: { results: any[], fields: any[] } = await queryTable(
+      request.dmptoolConfig.rds as ConnectionParams,
+      sql,
+      [dmpId]
+    );
+
+    if (Array.isArray(resp.results) && resp.results.length <= 0) {
+      return dmpId;
+    }
+    id = randomHex(16);
+    i++;
+  }
+
+  request.log.fatal('Unable to generate a unique DMP ID.');
+  return `TEMP-API${id}`;
+}
 
 /**
  * Determines if the user has permission to access the entirety of the metadata
@@ -158,8 +191,9 @@ export async function loadPlan(
   return Array.isArray(plans.results) ? plans.results[0] : undefined;
 }
 
+
 /**
- * Helper function to fetch a parameter from SSM
+ * Helper function to fetch a mADMP from Dynamo based on the DMP id
  *
  * @param request the Fastify request
  * @param dmpId the DMP id to fetch
@@ -195,12 +229,12 @@ export async function loadMaDMPFromDynamo(
  * @param maDMP The maDMP record to persist
  * @param wasJustOutdated Whether the record already existed in the DynamoDB table
  */
-async function persistMaDMPRecord(
+export async function persistMaDMPRecord(
   request: FastifyRequest,
   domainName: string,
   dmpId: string,
   maDMP: DMPToolDMPType,
-  wasJustOutdated = false
+  wasJustOutdated = false,
 ): Promise<void> {
   const config: ConfigurationOptions = request.dmptoolConfig;
   // If the DynamoDB did have a maDMP record for the plan, then we need to update it

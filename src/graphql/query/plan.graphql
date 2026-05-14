@@ -1,0 +1,120 @@
+query Plan($planId: Int!) {
+  plan(planId: $planId) {
+    id
+    dmpId
+    title
+    visibility
+    status
+    created
+    createdById
+    modified
+    modifiedById
+    registered
+    project {
+      id
+    }
+    members {
+      projectMember {
+        id
+      }
+      isPrimaryContact
+      memberRoles {
+        id
+        uri
+      }
+    }
+    fundings {
+      id
+      projectFunding {
+        id
+      }
+    }
+    versionedTemplate {
+      name
+      description
+      version
+      template {
+        id
+      }
+    }
+    alternateIdentifiers {
+      id
+      alternateIdentifier
+    }
+  }
+}
+
+query Plans($projectId: Int!) {
+  plans(projectId: $projectId) {
+    id
+    title
+  }
+}
+
+query PlanByDmpId($dmpId: String!) {
+  planByDMPId(dmpId: $dmpId) {
+    id
+    dmpId
+    title
+    visibility
+    status
+    created
+    createdById
+    modified
+    modifiedById
+    registered
+    project {
+      title
+      abstractText
+      startDate
+      endDate
+      isTestProject
+      researchDomain {
+        id
+        parentResearchDomainId
+      }
+    }
+    versionedTemplate {
+      name
+      description
+      version
+      template {
+        id
+      }
+    }
+  }
+}
+
+query PlanByAlternateIdentifier($alternateIdentifier: String!) {
+  planByAlternateIdentifier(alternateIdentifier: $alternateIdentifier) {
+    id
+    dmpId
+    title
+    visibility
+    status
+    created
+    createdById
+    modified
+    modifiedById
+    registered
+    project {
+      title
+      abstractText
+      startDate
+      endDate
+      isTestProject
+      researchDomain {
+        id
+        parentResearchDomainId
+      }
+    }
+    versionedTemplate {
+      name
+      description
+      version
+      template {
+        id
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+query VersionedTemplates($templateId: Int!) {
+  templateVersions(templateId: $templateId) {
+    id
+    name
+    version
+    active
+    template {
+      id
+    }
+  }
+}
+
+query DefaultTemplate {
+  defaultTemplate {
+    id
+    name
+    version
+    active
+    template {
+      id
+    }
+  }
+}
