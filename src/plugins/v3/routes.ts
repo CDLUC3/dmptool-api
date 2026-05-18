@@ -45,6 +45,9 @@ import {
 import { Project } from "../../models/Project.js";
 import { Plan } from "../../models/Plan.js";
 import { VersionedTemplate } from "../../models/VersionedTemplate.js";
+import {ProjectMember} from "../../models/ProjectMember.js";
+import {PlanMember, PlanMemberInterface} from "../../models/PlanMember.js";
+import {MemberRole, MemberRoles} from "../../models/MemberRole.js";
 
 // TODO: Delete this mock responses once the models and business logic are in place
 const TEST_DMP = {
@@ -218,10 +221,11 @@ const v3RoutesPlugin = async function (
         });
       }
 
-      // Fetch the specified template or the default template
-      const versionedTemplate: VersionedTemplate | undefined = dmp.narrative?.template?.id
-        ? await VersionedTemplate.findByTemplateId(request, dmp.narrative.template.id)
-        : await VersionedTemplate.findDefault(request);
+      // Fetch the specified template or use the default template
+      const versionedTemplate: VersionedTemplate | undefined = await VersionedTemplate.findOrDefault(
+        request,
+        dmp.narrative?.template?.id
+      );
       // Error out if we didn't find a template!
       if (!versionedTemplate) throw new Error('Unable to find a template');
 
@@ -283,11 +287,36 @@ console.log('PLAN', plan)
         );
       }
 
-      // Save the plan members
-      if (!await plan.saveMembers(request, project.members, dmp)) {
+      // Process the contributor and contact info to generate ProjectMembers
+      const availableRoles = new MemberRoles({ roles: await MemberRole.all(request) });
+      const projectMembers: ProjectMember[] = await ProjectMember.processMembers(
+        request,
+        plan,
+        project.members,
+        availableRoles,
+        dmp
+      );
+      if (Plan.hasErrors(plan.errors)) {
         request.log.error(
           { planId: plan.id, contact: dmp.contact, contributors: dmp.contributor },
           'Unable to save members for the new plan'
+        );
+      }
+      if (!(await ProjectMember.save(request, project, projectMembers))) {
+        // Log any errors, the Project.members error will have been set
+        request.log.error(
+          { dmpId: plan.dmpId, projectId: project.id, errors: project.errors },
+          'Unable to save project members for the new plan'
+        );
+      }
+
+      // Generate the PlanMember objects from the project members
+      const planMembers: PlanMember[] = await PlanMember.fromProjectMembers(projectMembers);
+      if (!(await PlanMember.save(request, plan, planMembers))) {
+        // Log any errors, the Project.members error will have been set
+        request.log.error(
+          { dmpId: plan.dmpId, planId: plan.id, errors: plan.errors },
+          'Unable to save plan members for the new plan'
         );
       }
 

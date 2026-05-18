@@ -25,7 +25,8 @@ import {
   UpdatePlanStatusDocument,
   UpdatePlanTitleDocument
 } from "../generated/graphql.js";
-  
+import {PlanMember} from "./PlanMember.js";
+
 /**
  * Represents a Data Management Plan
  */
@@ -143,6 +144,7 @@ export class Plan extends BaseGraphQLModel {
   status?: PlanStatus;
   registered?: string;
   alternateIdentifiers?: AlternateIdentifierInterface[];
+  members?: PlanMember[];
 
   constructor(options: Partial<Plan> = {}) {
     super(options);
@@ -155,6 +157,7 @@ export class Plan extends BaseGraphQLModel {
     this.status = options.status ?? 'DRAFT';
     this.registered = options.registered;
     this.alternateIdentifiers = options.alternateIdentifiers ?? [];
+    this.members = options.members ?? [];
     this.errors = options.errors ?? {};
   }
 
@@ -404,85 +407,6 @@ export class Plan extends BaseGraphQLModel {
     }));
 
     return errs.length === 0;
-  }
-
-  /**
-   * Save the members/contributors
-   *
-   *
-   */
-  async saveMembers(
-    request: FastifyRequest,
-    projectMembers: Project['members'],
-    dmp: DMPToolDMPType['dmp']
-  ): Promise<boolean> {
-    // Bail out if the maDMP has no contact defined (should never happen)
-    if (!dmp.contact) {
-      this.errors.members = 'maDMP must have a contact';
-      return false;
-    }
-
-    let newMembers: (ProjectMember | undefined)[] = [];
-
-    // Find or initialize all other contributors
-    const contributors: ContributorsType = dmp.contributor ?? [];
-    for (const contributor in contributors) {
-      newMembers.push(
-        await ProjectMember.findOrInitialize(
-          request,
-          projectMembers,
-          contributor
-        )
-      );
-    }
-    // Remove any undefined items from the array
-    newMembers = newMembers.filter(Boolean);
-
-    // Find or initialize the primary contact
-    const contact: ProjectMember | undefined = await ProjectMember.findOrInitialize(
-      request,
-      projectMembers,
-      dmp.contact,
-    );
-
-    // Try to find a match for the contact in the existing list of project members
-    const foundContact: ProjectMember | undefined = newMembers.find((member: ProjectMember | undefined): boolean => {
-      if (!member) return false;
-
-      // match on orcid or email or exact match of name
-      return (!!member.orcid && member.orcid === contact?.orcid)
-        || (!!member.email && member.email === contact?.email)
-        || (
-          !!member.givenName && !!member.surName
-          && member.givenName === contact?.givenName
-          && member.surName === contact?.surName
-        )
-    });
-
-    if (foundContact) {
-      // Make sure the matching contact is designated as the primary contact
-      foundContact.isPrimaryContact = true;
-      newMembers.splice(newMembers.indexOf(foundContact), 1, foundContact);
-    } else if (contact) {
-      // Add the contact to the list if they aren't already in it
-      contact.isPrimaryContact = true;
-      newMembers.push(contact);
-    } else {
-      // Otherwise just make the first contributor the primary contact
-      const firstMember: ProjectMember | undefined = newMembers[0];
-      if (firstMember) {
-        firstMember.isPrimaryContact = true;
-        newMembers.splice(0, 1, firstMember);
-      }
-    }
-
-    // Check for errors
-    const memberErrs: string = newMembers.map((member: ProjectMember | undefined) => {
-      return ProjectMember.errorsToString(member?.errors ?? {});
-    }).join('; ');
-    if (memberErrs) this.errors['members'] = memberErrs;
-
-    return !Plan.hasErrors(this.errors);
   }
 
   /**

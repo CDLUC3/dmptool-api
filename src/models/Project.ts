@@ -6,6 +6,7 @@ import { DMPToolDMPType } from "@dmptool/types";
 import { isValidDate } from "@dmptool/utils";
 import { Plan } from "./Plan.js";
 import { ProjectMember } from "./ProjectMember.js";
+import { ResearchDomain } from "./ResearchDomain.js";
 import { stringToInteger } from "../utils.js";
 import { ContactType } from "../types.js";
 import {
@@ -24,7 +25,8 @@ export interface ProjectInterface {
   abstractText?: string;
   endDate?: string;
   startDate?: string;
-  researchDomainId?: string;
+  researchDomain?: ResearchDomain;
+  isTestProject: boolean;
   created: string;
   createdById: number;
   modified: string;
@@ -77,9 +79,10 @@ export interface CallerProjectResponse {
 export class Project extends BaseGraphQLModel {
   title: string;
   abstractText?: string;
-  researchDomainId?: string;
+  researchDomain?: ResearchDomain;
   startDate?: string;
   endDate?: string;
+  isTestProject: boolean;
   plans: Plan[] = [];
   members: ProjectMember[] = [];
 
@@ -88,9 +91,10 @@ export class Project extends BaseGraphQLModel {
 
     this.title = options.title ?? 'Research Project';
     this.abstractText = options.abstractText;
-    this.researchDomainId = options.researchDomainId;
+    this.researchDomain = options.researchDomain ? new ResearchDomain(options.researchDomain) : undefined;
     this.startDate = options.startDate;
     this.endDate = options.endDate;
+    this.isTestProject = options.isTestProject ?? false;
     this.plans = options.plans ?? [];
     this.members = options.members ?? [];
 
@@ -127,7 +131,15 @@ export class Project extends BaseGraphQLModel {
    * @returns true if successful. If not, any errors are added to the error object
    */
   async save(request: FastifyRequest): Promise<boolean> {
-    return this.id ? await this.update(request) : await this.create(request);
+    if (!this.id) {
+      // We always update after creation because that only sets the Project title
+      // and whether it's a test project.
+      if (await this.create(request)) {
+        return await this.update(request);
+      }
+    }
+
+    return await this.update(request);
   }
 
   /**
@@ -198,8 +210,8 @@ export class Project extends BaseGraphQLModel {
             abstractText: this.abstractText?.trim(),
             startDate: this.startDate?.trim(),
             endDate: this.endDate?.trim(),
-            researchDomainId: this.researchDomainId,
-            isTestProject: true
+            researchDomainId: this.researchDomain?.id,
+            isTestProject: this.isTestProject ?? false
           }
         },
         errorPolicy: "all"
@@ -295,12 +307,19 @@ export class Project extends BaseGraphQLModel {
 
     // We didn't find an existing Project, so initialize a new one
     request.log.debug({ title }, `Initializing a new project`);
+
+    // Fetch the research domain (we only accept known domains at this time)
+    const domain: ResearchDomain | undefined = await ResearchDomain.findByURI(
+      request,
+      dmp.research_domain?.research_domain_identifier?.identifier
+    )
     return new Project({
       title: title,
       abstractText: dmpProject?.description?.trim() ?? dmp.description?.trim() ?? null,
       endDate: isValidDate(dmpProject?.end) ? dmpProject.end : null,
       startDate: isValidDate(dmpProject?.start) ? dmpProject.start : null,
-      researchDomainId: dmp.research_domain?.research_domain_identifier || null
+      researchDomain: domain,
+      isTestProject: false
     });
   }
 

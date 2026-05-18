@@ -12,7 +12,8 @@ query Project($projectId: Int!) {
     isTestProject
     researchDomain {
       id
-      parentResearchDomainId
+      uri
+      name
     }
     plans {
       id

@@ -1,11 +1,13 @@
-import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
-import { ProjectInterface } from "./Project.js";
-import { Affiliation } from "./Affiliation.js";
-import { MemberRoleInterface, MemberRoles } from "./MemberRole.js";
 import { FastifyRequest } from "fastify";
 import { ApolloClient } from "@apollo/client";
-import { DMPToolDMPType } from "@dmptool/types";
 import MutateOptions = ApolloClient.MutateOptions;
+import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
+import { Project } from "./Project.js";
+import { Affiliation } from "./Affiliation.js";
+import { MemberRole, MemberRoles } from "./MemberRole.js";
+import { Plan } from "./Plan.js";
+import { ContributorsType } from "../types.js";
+import { DMPToolDMPType } from "@dmptool/types";
 import {
   AddProjectMemberDocument,
   ProjectMembersDocument,
@@ -18,14 +20,14 @@ import {
  */
 export interface ProjectMemberInterface {
   id: number;
-  project: ProjectInterface;
+  project: Project;
   affiliation: Affiliation;
   givenName: string;
   surName: string;
   orcid: string;
   email: string;
   isPrimaryContact: boolean;
-  memberRoles: MemberRoleInterface[];
+  memberRoles: MemberRole[];
   created: string;
   createdById: number;
   modified: string;
@@ -65,7 +67,7 @@ export interface DeleteProjectMemberResponse {
  * Represents a Project Member/Contributor
  */
 export class ProjectMember extends BaseGraphQLModel {
-  project?: ProjectInterface;
+  project?: Project;
   affiliation?: Affiliation;
 
   givenName?: string;
@@ -73,7 +75,7 @@ export class ProjectMember extends BaseGraphQLModel {
   orcid?: string;
   email?: string;
   isPrimaryContact?: boolean;
-  memberRoles: MemberRoleInterface[];
+  memberRoles: MemberRole[];
 
   constructor(options: Partial<ProjectMemberInterface> = {}) {
     super(options);
@@ -93,57 +95,78 @@ export class ProjectMember extends BaseGraphQLModel {
    * Shortcut helper function to save or update the current Project Member/Contributor
    *
    * @param request
-   * @param availableMemberRoles the available Member Roles
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @param project the Project
+   * @param members the Project Members/Contributors
+   * @returns true if successful. If not, any errors are added to the error object
    */
-  async save(request: FastifyRequest, availableMemberRoles: MemberRoles): Promise<boolean> {
-    return this.id
-      ? await this.update(request, availableMemberRoles)
-      : await this.create(request, availableMemberRoles);
+  static async save(
+    request: FastifyRequest,
+    project: Project,
+    members: ProjectMember[]
+  ): Promise<boolean> {
+    if (!project || !project.id) return false;
+    // If the members are empty this is an error (we must have a primary contact!)
+    if (!members || members.length === 0) {
+      project.errors['members'] = "maDMP must have a contact"
+    }
+
+    // Unlike PlanMembers, we don't delete project members via this API because
+    // they are potentially shared/used across other plans
+
+    // Loop through and save each member that was in the maDMP
+    const errs: string[] = [];
+    await Promise.all(members.map(async (member: ProjectMember): Promise<void> => {
+      const success: boolean = member.id
+        ? await ProjectMember.update(request, member)
+        : await ProjectMember.create(request, member);
+
+      if (!success) errs.push(ProjectMember.errorsToString(member.errors));
+    }));
+    if (errs.length > 0) project.errors['members'] = errs.join('; ');
+
+    return !Project.hasErrors(project.errors);
   }
 
   /**
    * Create the current Project Member/Contributor
    *
    * @param request the Fastify request
-   * @param availableMemberRoles the available Member Roles
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @param member the Project Member/Contributor
+   * @returns true if successful. If not, any errors are added to the error object
    */
-  async create(request: FastifyRequest, availableMemberRoles: MemberRoles): Promise<boolean> {
-    // Validate the roles (removing any that are not valid)
-    let roles: MemberRoleInterface[] = availableMemberRoles.validateRoles(this.memberRoles);
-
+  static async create(request: FastifyRequest, member: ProjectMember): Promise<boolean> {
     const saved: GQLResponse<AddProjectMemberResponse> = await ProjectMember.mutate<AddProjectMemberResponse>(
       request,
       {
         mutation: AddProjectMemberDocument,
         variables: {
-          projectId: this.project?.id,
-          affiliationId: this.affiliation?.id,
-          givenName: this.givenName,
-          surName: this.surName,
-          orcid: this.orcid,
-          email: this.email,
-          memberRoleIds: roles.map((r: MemberRoleInterface): number => r.id)
+          input: {
+            projectId: member.project?.id,
+            affiliationId: member.affiliation?.id,
+            givenName: member.givenName,
+            surName: member.surName,
+            orcid: member.orcid,
+            email: member.email,
+            memberRoleIds: member.memberRoles.map((r: MemberRole): number => r.id!)
+          }
         },
         errorPolicy: "all"
       } as MutateOptions
     );
     const data: ProjectMemberInterface | undefined = saved?.data?.addProjectMember;
     // Process any errors that may have occurred
-    this.handleMutationErrors("create", saved, data?.errors);
+    member.handleMutationErrors("create", saved, data?.errors);
 
     // If data was returned and we have no errors
     const hadErrors: boolean = ProjectMember.hasErrors(data?.errors ?? {});
     if (data && !hadErrors) {
       // Sync the local object with the saved data
-      this.id = data.id;
-      this.created = data.created;
-      this.createdById = data.createdById;
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
+      member.id = data.id;
+      member.created = data.created;
+      member.createdById = data.createdById;
+      member.modified = data.modified;
+      member.modifiedById = data.modifiedById;
     }
-
     return !hadErrors;
   }
 
@@ -151,42 +174,40 @@ export class ProjectMember extends BaseGraphQLModel {
    * Update the current Project Member/Contributor
    *
    * @param request the Fastify request
-   * @param availableMemberRoles the available Member Roles
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @param member the Project Member/Contributor
+   * @returns true if successful. If not, any errors are added to the error object
    */
-  async update(request: FastifyRequest, availableMemberRoles: MemberRoles): Promise<boolean> {
-    // Validate the roles (removing any that are not valid)
-    let roles: MemberRoleInterface[] = availableMemberRoles.validateRoles(this.memberRoles);
-
+  static async update(request: FastifyRequest, member: ProjectMember): Promise<boolean> {
     // First update the Plan title
     const saved: GQLResponse<UpdateProjectMemberResponse> = await ProjectMember.mutate<UpdateProjectMemberResponse>(
       request,
       {
         mutation: UpdateProjectMemberDocument,
         variables: {
-          projectMemberId: this.id,
-          affiliationId: this.affiliation?.id,
-          givenName: this.givenName,
-          surName: this.surName,
-          orcid: this.orcid,
-          email: this.email,
-          memberRoleIds: roles.map((r: MemberRoleInterface): number => r.id)
+          input: {
+            projectMemberId: member.id,
+            affiliationId: member.affiliation?.id,
+            givenName: member.givenName,
+            surName: member.surName,
+            orcid: member.orcid,
+            email: member.email,
+            memberRoleIds: member.memberRoles.map((r: MemberRole): number => r.id!)
+          }
         },
         errorPolicy: "all"
       } as MutateOptions
     );
     const data: ProjectMemberInterface | undefined = saved?.data?.updateProjectMember;
     // Process any errors that may have occurred
-    this.handleMutationErrors("update", saved, data?.errors);
+    member.handleMutationErrors("update", saved, data?.errors);
 
     // If data was returned and we have no errors
     let hadErrors: boolean = ProjectMember.hasErrors(data?.errors ?? {});
     if (data && !hadErrors) {
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
-      this.errors = data.errors ?? {};
+      member.modified = data.modified;
+      member.modifiedById = data.modifiedById;
+      member.errors = data.errors ?? {};
     }
-
     return !hadErrors;
   }
 
@@ -194,43 +215,136 @@ export class ProjectMember extends BaseGraphQLModel {
    * Delete this Project Member/Contributor
    *
    * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @param member the Project member/contributor to delete
+   * @returns true if successful. If not, any errors are added to the error object
    */
-  async delete(request: FastifyRequest): Promise<boolean> {
+  static async delete(request: FastifyRequest, member: ProjectMember): Promise<boolean> {
     const deleted: GQLResponse<DeleteProjectMemberResponse> = await ProjectMember.mutate<DeleteProjectMemberResponse>(
       request,
       {
         mutation: RemoveProjectMemberDocument,
-        variables: { projectMemberId: this.id },
+        variables: { projectMemberId: member.id },
         errorPolicy: "all"
       } as MutateOptions
     );
     const data: ProjectMemberInterface | undefined = deleted?.data?.removeProjectMember;
 
     // Process any errors that may have occurred
-    this.handleMutationErrors("delete", deleted, data?.errors);
+    member.handleMutationErrors("delete", deleted, data?.errors);
 
     // If data was returned and we have no errors
     const hadErrors: boolean = ProjectMember.hasErrors(data?.errors ?? {});
     if (data && !hadErrors) {
       // Sync the local object with the saved data
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
+      member.modified = data.modified;
+      member.modifiedById = data.modifiedById;
     }
 
     return !hadErrors;
   }
 
   /**
+   * Save the Project and Plan members/contributors
+   *
+   * @param request the Fastify request
+   * @param plan the Plan
+   * @param currentMembers the current members/contributors
+   * @param availableRoles the available member roles
+   * @param dmp the MaDMP
+   * @returns true if successful. If not, any errors are added to the Plan.members error
+   */
+  static async processMembers(
+    request: FastifyRequest,
+    plan: Plan,
+    currentMembers: ProjectMember[],
+    availableRoles: MemberRoles,
+    dmp: DMPToolDMPType['dmp']
+  ): Promise<ProjectMember[]> {
+    // Bail out if the maDMP has no contact defined (should never happen)
+    if (!dmp.contact) {
+      plan.errors.graphQL = 'maDMP must have a contact';
+      return currentMembers;
+    }
+
+    let newMembers: (ProjectMember | undefined)[] = [];
+
+    // Find or initialize all other contributors
+    const contributors: ContributorsType = dmp.contributor ?? [];
+    for (const contributor in contributors) {
+      newMembers.push(
+        await ProjectMember.findOrInitialize(
+          request,
+          availableRoles,
+          currentMembers,
+          contributor
+        )
+      );
+    }
+    // Remove any undefined items from the array
+    newMembers = newMembers.filter(Boolean);
+
+    // Find or initialize the primary contact
+    const contact: ProjectMember | undefined = await ProjectMember.findOrInitialize(
+      request,
+      availableRoles,
+      currentMembers,
+      dmp.contact,
+    );
+
+    // Try to find a match for the contact in the existing list of project members
+    const foundContact: ProjectMember | undefined = newMembers.find((member: ProjectMember | undefined): boolean => {
+      if (!member) return false;
+
+      // match on orcid or email or exact match of name
+      return (!!member.orcid && member.orcid === contact?.orcid)
+        || (!!member.email && member.email === contact?.email)
+        || (
+          !!member.givenName && !!member.surName
+          && member.givenName === contact?.givenName
+          && member.surName === contact?.surName
+        )
+    });
+
+    if (foundContact) {
+      // Make sure the matching contact is designated as the primary contact
+      foundContact.isPrimaryContact = true;
+      newMembers.splice(newMembers.indexOf(foundContact), 1, foundContact);
+    } else if (contact) {
+      // Add the contact to the list if they aren't already in it
+      contact.isPrimaryContact = true;
+      newMembers.push(contact);
+    } else {
+      // Otherwise just make the first contributor the primary contact
+      const firstMember: ProjectMember | undefined = newMembers[0];
+      if (firstMember) {
+        firstMember.isPrimaryContact = true;
+        newMembers.splice(0, 1, firstMember);
+      }
+    }
+
+    // Check for errors
+    const memberErrs: string = newMembers.map((member: ProjectMember | undefined) => {
+      return ProjectMember.errorsToString(member?.errors ?? {});
+    }).join('; ');
+    if (memberErrs) plan.errors['members'] = memberErrs;
+
+    return Plan.hasErrors(plan.errors)
+      ? currentMembers
+      : newMembers.filter(Boolean) as ProjectMember[];
+  }
+
+  /**
    * Find or create a new Project Member/Contributor from a MaDMP contributor or contact
    *
    * @param request the Fastify request
+   * @param availableRoles the available member roles
    * @param existingMembers the project members that already exist
    * @param memberFromMaDMP the contributor or contact from the MaDMP
    * @returns the ProjectMember
    */
   static async findOrInitialize(
     request: FastifyRequest,
+    availableRoles: MemberRoles,
     existingMembers: ProjectMember[],
     memberFromMaDMP: DMPToolDMPType['dmp']['contributor'][0] | DMPToolDMPType['dmp']['contact']
   ): Promise<ProjectMember | undefined> {
@@ -249,11 +363,17 @@ export class ProjectMember extends BaseGraphQLModel {
       .filter(Boolean)
       ?.map((n: string): string => n.trim()) : [];
 
-    const affiliation: Affiliation | undefined = await Affiliation.findOrCreate(
-      request,
-      memberFromMaDMP.affiliation,
-      false
-    );
+    // Convert the string Role URIs to MemberRoles
+    const memberRoles: MemberRole[] = availableRoles.validateRoles(memberFromMaDMP.role);
+
+    // If an affiliation was defined, try ti find it or initialize new one
+    const affiliation: Affiliation | undefined = memberFromMaDMP.affiliation
+    ? await Affiliation.findOrInitialize(
+        request,
+        memberFromMaDMP.affiliation,
+        false
+      )
+    : undefined;
 
     const match: ProjectMember | undefined = existingMembers.find((p: ProjectMember): boolean => {
       const existingNameParts: (string | undefined)[] = [
@@ -273,6 +393,7 @@ export class ProjectMember extends BaseGraphQLModel {
     return new ProjectMember({
       ...match,
       affiliation,
+      memberRoles,
       isPrimaryContact,
       orcid: orcid ?? match?.orcid,
       email: email ?? match?.email,

@@ -2,12 +2,13 @@ import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
 import { FastifyRequest } from "fastify";
 import {
   AddAffiliationDocument,
-  AffiliationByUriDocument, AffiliationsDocument
+  AffiliationByUriDocument,
+  AffiliationsDocument
 
 } from "../generated/graphql.js";
-import {ApolloClient} from "@apollo/client";
+import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
-import {DMPToolDMPType} from "@dmptool/types";
+import { DMPToolDMPType } from "@dmptool/types";
 
 /**
  * Represents an Affiliation
@@ -111,7 +112,7 @@ export class Affiliation extends BaseGraphQLModel {
    * @param isFunder true if the affiliation is a funder
    * @returns the Affiliation
    */
-  static async findOrCreate(
+  static async findOrInitialize(
     request: FastifyRequest,
     affiliation: AffiliationType,
     isFunder = false
@@ -146,17 +147,13 @@ export class Affiliation extends BaseGraphQLModel {
       ? affiliation.affiliation_id.identifier
       : undefined;
 
-    const newAffiliation: Affiliation = new Affiliation({
+    // Otherwise return a new Affiliation
+    return new Affiliation({
       name: affiliation.name,
       // If the ROR was present use it, otherwise use the identifier only if it looks like a URL
       uri: fullRorId ?? newURI,
       funder: isFunder,
     });
-    if (!(await newAffiliation.create(request))) {
-      // If we were not able to create the affiliation, add a generic error
-      newAffiliation.errors.general = `Unable to create affiliation, "${affiliation.name ?? ''}"`;
-    }
-    return newAffiliation;
   }
 
   /**

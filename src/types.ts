@@ -112,9 +112,12 @@ export interface User {
 /**
  * Shortcuts to different segments of the maDMP record
  */
+export type AffiliationType = DMPToolDMPType['dmp']['contact']['affiliation'];
+export type AffiliationIdType =AffiliationType['affiliation_id'][0];
 export type ContactType = DMPToolDMPType['dmp']['contact'];
 export type ContributorsType = DMPToolDMPType['dmp']['contributor'];
 export type ContributorType = DMPToolDMPType['dmp']['contributor'][0];
-export type ProjectType = DMPToolDMPType['dmp']['project'];
+export type ProjectsType = DMPToolDMPType['dmp']['project'];
+export type ResearchDomainType = DMPToolDMPType['dmp']['research_domain'];
 export type AlternateIdentifiersType = DMPToolDMPType['dmp']['alternate_identifier'];
 export type AlternateIdentifierType = AlternateIdentifiersType[0];

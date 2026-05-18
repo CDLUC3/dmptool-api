@@ -1,26 +1,26 @@
-import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
-import { ProjectMemberInterface } from "./ProjectMember.js";
 import { FastifyRequest } from "fastify";
 import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
+import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
+import { ProjectMember } from "./ProjectMember.js";
+import { Plan } from "./Plan.js";
+import { MemberRole } from "./MemberRole.js";
 import {
   AddPlanMemberDocument,
   PlanMembersDocument,
   RemovePlanMemberDocument,
   UpdatePlanMemberDocument,
 } from "../generated/graphql.js";
-import { PlanInterface } from "./Plan.js";
-import { MemberRoleInterface, MemberRoles } from "./MemberRole.js";
 
 /**
  * Represents a Plan Member/Contributor
  */
 export interface PlanMemberInterface {
   id: number;
-  plan: PlanInterface;
-  projectMember: ProjectMemberInterface;
+  plan: Plan;
+  projectMember: ProjectMember;
   isPrimaryContact: boolean;
-  memberRoles: MemberRoleInterface[];
+  memberRoles: MemberRole[];
   created: string;
   createdById: number;
   modified: string;
@@ -60,11 +60,11 @@ export interface DeletePlanMemberResponse {
  * Represents a Plan Member/Contributor
  */
 export class PlanMember extends BaseGraphQLModel {
-  plan?: PlanInterface;
-  projectMember?: ProjectMemberInterface;
+  plan?: Plan;
+  projectMember?: ProjectMember;
 
-  isPrimaryContact?: boolean;
-  memberRoles: MemberRoleInterface[];
+  isPrimaryContact: boolean;
+  memberRoles: MemberRole[];
 
   constructor(options: Partial<PlanMember> = {}) {
     super(options);
@@ -77,56 +77,93 @@ export class PlanMember extends BaseGraphQLModel {
   }
 
   /**
-   * Shortcut helper function to save or update the current Plan Member/Contributor
+   * Save the Project Members/Contributors
    *
    * @param request
-   * @param availableMemberRoles the available Member/Contributor Roles
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @param plan the Plan
+   * @param members the Plan Members/Contributors
+   * @returns true if successful. If not, any errors are added to the error object
    */
-  async save(request: FastifyRequest, availableMemberRoles: MemberRoles): Promise<boolean> {
-    return this.id
-      ? await this.update(request, availableMemberRoles)
-      : await this.create(request, availableMemberRoles);
+  static async save(
+    request: FastifyRequest,
+    plan: Plan,
+    members: PlanMember[]
+  ): Promise<boolean> {
+    if (!plan || !plan.id) return false;
+    // If the members are empty this is an error (we must have a primary contact!)
+    if (!members || members.length === 0) {
+      plan.errors['members'] = "maDMP must have at least one contact"
+    }
+    const memberIds: number[] = members.map((m: PlanMember): number => m.id!)
+      .filter(Boolean) as number[];
+
+    // Fetch the existing members associated with the Plan
+    const existing: PlanMember[] = await PlanMember.findByPlanId(request, plan.id);
+    // Compare them to the list of new members and see if there are any that should
+    // be deleted
+    const deleteErrs: string[] = [];
+    const toDelete: PlanMember[] = existing.filter((m: PlanMember): boolean => {
+      return !memberIds.includes(m.id!);
+    });
+    if (toDelete.length > 0) {
+      // Delete each one
+      await Promise.all(toDelete.map(async (member: PlanMember): Promise<void> => {
+        const deleted: boolean = await PlanMember.delete(request, member);
+        if (!deleted) deleteErrs.push(PlanMember.errorsToString(member.errors));
+      }));
+    }
+    // Log any deletion errors and then continue with the creates/updates to hopefully
+    // ensure that we set the primary contact one
+    if (deleteErrs.length > 0) plan.errors['members'] = deleteErrs.join('; ');
+
+    // Loop through and save each member that was in the maDMP
+    const errs: string[] = [];
+    await Promise.all(members.map(async (member: PlanMember): Promise<void> => {
+      const success: boolean = member.id
+        ? await PlanMember.update(request, member)
+        : await PlanMember.create(request, member);
+
+      if (!success) errs.push(ProjectMember.errorsToString(member.errors));
+    }));
+    if (errs.length > 0) plan.errors['members'] = errs.join('; ');
+
+    return !Plan.hasErrors(plan.errors);
   }
 
   /**
    * Create the current Plan Member/Contributor
    *
    * @param request the Fastify request
-   * @param availableMemberRoles the available Member/Contributor Roles
+   * @param member the Plan member/contributor
    * @returns true if successful. If not, any errors are added to the errors object
    */
-  async create(request: FastifyRequest, availableMemberRoles: MemberRoles): Promise<boolean> {
-    // Validate the roles (removing any that are not valid)
-    let roles: MemberRoleInterface[] = availableMemberRoles.validateRoles(this.memberRoles);
-
+  static async create(request: FastifyRequest, member: PlanMember): Promise<boolean> {
     const saved: GQLResponse<AddPlanMemberResponse> = await PlanMember.mutate<AddPlanMemberResponse>(
       request,
       {
         mutation: AddPlanMemberDocument,
         variables: {
-          planId: this.plan?.id,
-          projectMemberId: this.projectMember?.id,
-          memberRoleIds: roles.map((r: MemberRoleInterface): number => r.id)
+          planId: member.plan?.id,
+          projectMemberId: member.projectMember?.id,
+          memberRoleIds: member.memberRoles.map((r: MemberRole): number => r.id!)
         },
         errorPolicy: "all"
       } as MutateOptions
     );
     const data: PlanMemberInterface | undefined = saved?.data?.addPlanMember;
     // Process any errors that may have occurred
-    this.handleMutationErrors("create", saved, data?.errors);
+    member.handleMutationErrors("create", saved, data?.errors);
 
     // If data was returned and we have no errors
     const hadErrors: boolean = PlanMember.hasErrors(data?.errors ?? {});
     if (data && !hadErrors) {
       // Sync the local object with the saved data
-      this.id = data.id;
-      this.created = data.created;
-      this.createdById = data.createdById;
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
+      member.id = data.id;
+      member.created = data.created;
+      member.createdById = data.createdById;
+      member.modified = data.modified;
+      member.modifiedById = data.modifiedById;
     }
-
     return !hadErrors;
   }
 
@@ -134,38 +171,33 @@ export class PlanMember extends BaseGraphQLModel {
    * Update the current Plan Member/Contributor
    *
    * @param request the Fastify request
-   * @param availableMemberRoles the available Member/Contributor Roles
+   * @param member the Plan member/contributor
    * @returns true if successful. If not, any errors are added to the errors object
    */
-  async update(request: FastifyRequest, availableMemberRoles: MemberRoles): Promise<boolean> {
-    // Validate the roles (removing any that are not valid)
-    let roles: MemberRoleInterface[] = availableMemberRoles.validateRoles(this.memberRoles);
-
-    // First update the Plan title
+  static async update(request: FastifyRequest, member: PlanMember): Promise<boolean> {
     const saved: GQLResponse<UpdatePlanMemberResponse> = await PlanMember.mutate<UpdatePlanMemberResponse>(
       request,
       {
         mutation: UpdatePlanMemberDocument,
         variables: {
-          planMemberId: this.id,
-          isPrimaryContact: this.isPrimaryContact,
-          memberRoleIds: roles.map((r: MemberRoleInterface): number => r.id)
+          planMemberId: member.id,
+          isPrimaryContact: member.isPrimaryContact,
+          memberRoleIds: member.memberRoles.map((r: MemberRole): number => r.id!)
         },
         errorPolicy: "all"
       } as MutateOptions
     );
     const data: PlanMemberInterface | undefined = saved?.data?.updatePlanMember;
     // Process any errors that may have occurred
-    this.handleMutationErrors("update", saved, data?.errors);
+    member.handleMutationErrors("update", saved, data?.errors);
 
     // If data was returned and we have no errors
     let hadErrors: boolean = PlanMember.hasErrors(data?.errors ?? {});
     if (data && !hadErrors) {
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
-      this.errors = data.errors ?? {};
+      member.modified = data.modified;
+      member.modifiedById = data.modifiedById;
+      member.errors = data.errors ?? {};
     }
-
     return !hadErrors;
   }
 
@@ -173,38 +205,59 @@ export class PlanMember extends BaseGraphQLModel {
    * Delete this Plan Member/Contributor
    *
    * @param request the Fastify request
+   * @param member the Plan member/contributor
    * @returns true if successful. If not, any errors are added to the errors object
    */
-  async delete(request: FastifyRequest): Promise<boolean> {
+  static async delete(request: FastifyRequest, member: PlanMember): Promise<boolean> {
     const deleted: GQLResponse<DeletePlanMemberResponse> = await PlanMember.mutate<DeletePlanMemberResponse>(
       request,
       {
         mutation: RemovePlanMemberDocument,
-        variables: { planMemberId: this.id },
+        variables: { planMemberId: member.id },
         errorPolicy: "all"
       } as MutateOptions
     );
     const data: PlanMemberInterface | undefined = deleted?.data?.removePlanMember;
 
     // Process any errors that may have occurred
-    this.handleMutationErrors("delete", deleted, data?.errors);
+    member.handleMutationErrors("delete", deleted, data?.errors);
 
     // If data was returned and we have no errors
     const hadErrors: boolean = PlanMember.hasErrors(data?.errors ?? {});
     if (data && !hadErrors) {
       // Sync the local object with the saved data
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
+      member.modified = data.modified;
+      member.modifiedById = data.modifiedById;
     }
 
     return !hadErrors;
   }
 
   /**
+   * Initialize Plan Members from a list of Project Members
+   *
+   * @param projectMembers the Project Members to create Plan Members/Contributors from
+   * @returns the created Plan Members/Contributors
+   */
+  static async fromProjectMembers(
+    projectMembers: ProjectMember[]
+  ): Promise<PlanMember[]> {
+    if (!projectMembers || projectMembers.length === 0) return [];
+
+    return projectMembers.map((member: ProjectMember): PlanMember => {
+      return new PlanMember({
+        projectMember: member,
+        isPrimaryContact: member.isPrimaryContact || false,
+        memberRoles: member.memberRoles
+      });
+    });
+  }
+
+  /**
    * Find Plan Members/Contributors by a Plan id
    *
    * @param request the Fastify request
-   * @param projectId the Plan's id
+   * @param planId the Plan's id
    * @returns the Plan Members/Contributors
    */
   static async findByPlanId(request: FastifyRequest, planId: number): Promise<PlanMember[] | []> {

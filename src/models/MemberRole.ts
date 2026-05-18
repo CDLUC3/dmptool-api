@@ -24,7 +24,7 @@ export interface MemberRolesResponse {
  * Represents a collection of Project Member/Contributor Roles
  */
 export class MemberRoles {
-  roles?: MemberRole[] = [];
+  roles: MemberRole[] = [];
 
   constructor(options: { roles: MemberRole[] }) {
     this.roles =  options.roles ?? [];
@@ -59,14 +59,26 @@ export class MemberRoles {
    * @param roles the member roles to validate
    * @returns the remaining valid roles
    */
-  validateRoles(roles: MemberRoleInterface[]): MemberRoleInterface[] {
-    const validated: MemberRoleInterface[] = roles.filter((r: MemberRoleInterface) => {
-      return this.isValidRole(r.uri);
-    });
+  validateRoles(roles: string[]): MemberRole[] {
     const defaultRole: MemberRole | undefined = this.defaultRole();
-    return validated && validated.length > 0
-      ? validated
-      : defaultRole ? [defaultRole as MemberRoleInterface] : [];
+
+    // If there are no available roles return the default role if it exists
+    if (!this.roles || !roles) return defaultRole ? [defaultRole] : [];
+
+    // Figure out which roles are valid and remove any that are not
+    const validated: string[] = roles.filter((role: string) => {
+      return this.isValidRole(role);
+    });
+    if (validated.length === 0) return defaultRole ? [defaultRole] : [];
+
+    // Convert the validated role URIs to MemberRole objects
+    const newRoles: (MemberRole | undefined)[] = validated.map((r: string): MemberRole | undefined => {
+      return this.roles.find((mr: MemberRole): boolean => mr.uri === r)
+    });
+
+    return newRoles
+      ? newRoles.filter((r: MemberRole | undefined): r is MemberRole => r !== undefined)
+      : defaultRole ? [defaultRole] : [];
   }
 }
 
