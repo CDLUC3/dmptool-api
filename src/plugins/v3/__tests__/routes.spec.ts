@@ -1,12 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
 import { DMPToolDMPType } from "@dmptool/types";
-import {
-  DMP_TOOL_CONTENT_TYPE,
-  RDA_COMMON_STANDARD_CONTENT_TYPE
-} from "../routeSchema.js";
+import { DMP_TOOL_CONTENT_TYPE, RDA_COMMON_STANDARD_CONTENT_TYPE } from "../routeSchema.js";
 import configPlugin from "../../config.js";
-import { mockMaDMPModule } from "./maDMPMocks.js";
+import {mockMaDMP, mockMaDMPModule} from "./maDMPMocks.js";
 
 mockMaDMPModule();
 
@@ -34,6 +31,159 @@ describe('v3 routes', () => {
 
   afterEach(async () => {
     await fastify.close();
+  });
+
+  describe('POST /dmps/validate', () => {
+    it('should reject invalid DMP JSON using the RDA Common Standard', async () => {
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/api/test/dmps/validate',
+        body: {
+          dmp: {
+            contributor: [{
+              name: 'Tester',
+              role: ['tester'],
+              contributor_id: [{
+                identifier: '0000-0000-0000-000x',
+                type: 'orcid'
+              }]
+            }],
+            description: 'This is an invalid DMP'
+          }
+        },
+        headers: { 'content-type': RDA_COMMON_STANDARD_CONTENT_TYPE }
+      });
+
+      expect(response.statusCode).toBe(400);
+      const json = response.json();
+      expect(json.error_code).toEqual('dmp_invalid');
+      expect(json.status_code).toEqual(400);
+
+      // Should have errors for RDA Common Standard fields
+      expect(json.message.startsWith('Invalid DMP record')).toBe(true);
+      expect(json.message.includes('contact')).toBe(true);
+      expect(json.message.includes('created')).toBe(true);
+      expect(json.message.includes('dataset')).toBe(true);
+      expect(json.message.includes('dmp_id')).toBe(true);
+      expect(json.message.includes('ethical_issues_exist')).toBe(true);
+      expect(json.message.includes('language')).toBe(true);
+      expect(json.message.includes('modified')).toBe(true);
+      expect(json.message.includes('title')).toBe(true);
+
+      // Should not have errors for DMP Tool fields
+      expect(json.message.includes('provenance')).toBe(false);
+    });
+
+    it('should reject invalid DMP JSON using the DMP Tool Standard', async () => {
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/api/test/dmps/validate',
+        headers: { 'content-type': DMP_TOOL_CONTENT_TYPE },
+        body: {
+          dmp: {
+            contributor: [{
+              name: 'Tester',
+              role: ['tester'],
+              contributor_id: [{
+                identifier: '0000-0000-0000-000x',
+                type: 'orcid'
+              }]
+            }],
+            description: 'This is an invalid DMP'
+          }
+        }
+      });
+
+      expect(response.statusCode).toBe(400);
+      const json = response.json();
+      expect(json.error_code).toEqual('dmp_invalid');
+      expect(json.status_code).toEqual(400);
+
+      // Should have errors for RDA Common Standard fields
+      expect(json.message.startsWith('Invalid DMP record')).toBe(true);
+      expect(json.message.includes('contact')).toBe(true);
+      expect(json.message.includes('created')).toBe(true);
+      expect(json.message.includes('dataset')).toBe(true);
+      expect(json.message.includes('dmp_id')).toBe(true);
+      expect(json.message.includes('ethical_issues_exist')).toBe(true);
+      expect(json.message.includes('language')).toBe(true);
+      expect(json.message.includes('modified')).toBe(true);
+      expect(json.message.includes('title')).toBe(true);
+
+      // Should have errors for DMP Tool fields
+      expect(json.message.includes('provenance')).toBe(true);
+    });
+
+    it('should accept a valid RDA Common Standard DMP', async () => {
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/api/test/dmps/validate',
+        body: mockMaDMP
+      });
+
+      expect(response.statusCode).toBe(200);
+      const json = response.json();
+      expect(json.error_code).toBeUndefined();
+      expect(json.status_code).toBe(200);
+      expect(json.message).toBe('DMP is valid');
+    });
+
+    it('should accept a valid DMP Tool Standard DMP', async () => {
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/api/test/dmps/validate',
+        body: mockMaDMP
+      });
+
+      expect(response.statusCode).toBe(200);
+      const json = response.json();
+      expect(json.error_code).toBeUndefined();
+      expect(json.status_code).toBe(200);
+      expect(json.message).toBe('DMP is valid');
+    });
+  });
+
+  describe('POST /dmps', () => {
+    it('should reject invalid DMP JSON', async () => {
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/api/test/dmps',
+        body: {
+          dmp: {
+            contact: {
+              name: 'Tester',
+              mbox: 'tester@example.com',
+              contact_id: [{
+                identifier: '0000-0000-0000-000x',
+                type: 'orcid'
+              }]
+            },
+            dataset: [{
+              title: 'Test Dataset 123',
+              dataset_id: {
+                identifier: '123',
+                type: 'other'
+              }
+            }],
+            dmp_id: {
+              identifier: 'test-bad-json',
+              type: 'other'
+            },
+            created: '2026-04-01 03:11:23Z',
+            modified: '2026-04-06 02:23:11Z',
+            ethical_issues_exist: 'unknown',
+            language: 'eng',
+          }
+        }
+      });
+
+      expect(response.statusCode).toBe(400);
+      const json = response.json();
+      expect(json.error_code).toEqual('dmp_invalid');
+      expect(json.status_code).toEqual(400);
+      expect(json.message.startsWith('Invalid DMP record')).toBe(true);
+      expect(json.message.includes('title')).toBe(true);
+    });
   });
 
   describe('GET /dmps', () => {

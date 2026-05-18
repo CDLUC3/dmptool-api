@@ -29,3 +29,6 @@ coverage/
 
 # local Docker files
 docker/
+
+# GraphQL codegen output
+src/generated/

@@ -5,18 +5,36 @@ import { Negotiator } from '@fastify/accept-negotiator';
 import {
   DMP_TOOL_CONTENT_TYPE,
   RDA_COMMON_STANDARD_CONTENT_TYPE,
-  negotiatedDmpResponseContent
+  negotiatedDmpContent
 } from "./routeSchema.js";
 
-// AJV is used to validate the incoming payload and prune the data object by
-// removing additional properties.
+// AJV is used here to prune the data object by removing additional properties.
 // This is done to remove DMP Tool specific properties from the payload when
 // we need to return the RDA Common Standard format.
-const ajv = new Ajv({ removeAdditional: true, useDefaults: true });
+//
+// The "useDefaults" flag allows the interpreter to notice that our Zod schema
+// provides defaults for required fields in the DMP Tool extensions, so it doesn't
+// need to throw an error it if they are missing in the JSON
+const ajvRDA = new Ajv({ removeAdditional: 'all', useDefaults: true });
+const ajvDMPTool = new Ajv({ useDefaults: true });
 
-const pruneDataWithAjv = (data: unknown, schema: object): unknown => {
+/**
+ * We always generate the full RDA Common Standard with the DMP Tool extensions.
+ * This function strips off the DMP Tool extensions if the caller just wants the
+ * RDA Common Standard.
+ *
+ * @param compiler The AJV compiler to use
+ * @param data The data object to prune
+ * @param schema The schema to use for validation and pruning
+ * @returns The pruned data object
+ */
+const pruneDataWithAjv = (
+  compiler: typeof ajvRDA,
+  data: unknown,
+  schema: object
+): unknown => {
   // Validate the payload against the appropriate schema
-  const validate = ajv.compile(schema);
+  const validate = compiler.compile(schema);
 
   // Clone payload to avoid mutating the original source
   const dataToPrune = JSON.parse(JSON.stringify(data));
@@ -26,8 +44,13 @@ const pruneDataWithAjv = (data: unknown, schema: object): unknown => {
   return dataToPrune;
 }
 
-// Wrapping this in fastify-plugin to ensure that its hooks are registered and
-// available within the context of the v3Routes plugin.
+/**
+ * Provides serialization logic for requests. We are wrapping this in fastify-plugin
+ * to ensure that its hooks are registered and available within the context of
+ * the v3Routes plugin.
+ *
+ * @param fastify The Fastify instance
+ */
 const v3SerializationPlugin = fp(async function (
   fastify: FastifyInstance
 ): Promise<void> {
@@ -99,15 +122,12 @@ const v3SerializationPlugin = fp(async function (
       const targetType = (reply.getHeader('content-type') as string)?.split(';')[0]
         || RDA_COMMON_STANDARD_CONTENT_TYPE;
 
-      const schema = negotiatedDmpResponseContent[targetType as keyof typeof negotiatedDmpResponseContent];
-      // Ensure that JSON schema does not allow additional properties if returning
-      // the RDA Common Standard format
-      if (targetType === RDA_COMMON_STANDARD_CONTENT_TYPE) {
-        schema.$defs.DMPData.additionalProperties = false;
-      }
+      const schema = negotiatedDmpContent[targetType as keyof typeof negotiatedDmpContent];
+      // Use the target type to determine which Ajv validator to use
+      const ajv = targetType === DMP_TOOL_CONTENT_TYPE ? ajvDMPTool : ajvRDA;
 
       if (schema) {
-        return pruneDataWithAjv(payload, schema);
+        return pruneDataWithAjv(ajv, payload, schema);
       }
     }
 

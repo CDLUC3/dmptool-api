@@ -27,8 +27,8 @@ const authPlugin = fp(async function (
 
   // Set up the config for fastify-jwt if a Cookie name was defined
   const cookieConfig = fastify.dmptoolConfig.jwtCookieName
-  ? { cookie: { cookieName: fastify.dmptoolConfig.jwtCookieName, signed: false } }
-  : { };
+    ? { cookie: { cookieName: fastify.dmptoolConfig.jwtCookieName, signed: false } }
+    : { };
 
   // If a cookie was provided, otherwise this will default to the Authorization header.
   await fastify.register(fastifyJwt, {
@@ -39,6 +39,7 @@ const authPlugin = fp(async function (
   // TODO: Update this to include the identity of the system sending the request
   //       default to
   fastify.decorateRequest('caller', defaultCaller);
+  fastify.decorateRequest('refreshToken', undefined);
 
   // For every request, verify the JWT token if it exists and then set the user
   // property on the request object. Return an error if the token is invalid.

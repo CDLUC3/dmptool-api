@@ -107,8 +107,14 @@ export const loadFullConfigurationOptions = async (
     throw new Error('No RDS configuration provided');
   }
 
+  const graphqlURI: string = process.env.GRAPHQL_URI || 'http://localhost:4000/graphql'
+
   return {
     ...baseConfig,
+    // The configuration for our GraphQL server
+    graphQL: {
+      uri: graphqlURI.endsWith('/graphql') ? graphqlURI : `${graphqlURI}/graphql`,
+    },
     // The configuration options for the SSM parameter store
     ssm: ssmConfig,
     // The configuration options for the RDS database
@@ -130,4 +136,3 @@ export const loadFullConfigurationOptions = async (
     }
   };
 }
-
