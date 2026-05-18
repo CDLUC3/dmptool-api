@@ -86,6 +86,11 @@ const TEST_DMP = {
   featured: 'no',
 };
 
+// Needed to use AJV directly for the `POST /dmps/validate` endpoint, otherwise
+// it just returns the first error.
+//
+// Note that useDefaults allows the interpreter to see that we have defaults set
+// in Zod so it won't flag that the value is missing/empty
 const ajvWithFullErrors = new Ajv({
   allErrors: true,
   coerceTypes: true,
@@ -209,7 +214,7 @@ const v3RoutesPlugin = async function (
       // the specified dmp_id to the alternate_identifier array
       if (!dmp.alternate_identifier) dmp.alternate_identifier = [];
       const hasAltId: boolean = dmp.alternate_identifier.some((id: AlternateIdentifierType): boolean => {
-        return id.identfier === dmp.dmp_id.identifier;
+        return id.identifier === dmp.dmp_id.identifier;
       });
       if (!hasAltId){
         dmp.alternate_identifier.push({

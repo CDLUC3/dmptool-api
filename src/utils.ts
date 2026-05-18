@@ -15,6 +15,8 @@ export const isDmpId = (
     `${options.dmpIdBaseUrl.replace(/https?:\/\//, '')}/${options.dmpIdShoulder}`,
     `${options.domainName}/projects`,
     `doi:${options.dmpIdShoulder}`,
+    // The Apollo server will use this if it cannot generate a unique DMP id with
+    // our DOI shoulder (shouldn't ever happen, but it could)
     'TEMP-API',
     options.dmpIdShoulder
   ].map((prefix: string): string => encodeURIComponent(prefix));
