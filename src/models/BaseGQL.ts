@@ -9,7 +9,6 @@ import QueryOptions = ApolloClient.QueryOptions;
 import MutationOptions = ApolloClient.MutateOptions;
 import QueryResult = ApolloClient.QueryResult;
 import MutateResult = ApolloClient.MutateResult;
-import {ProjectInterface} from "./Project.js";
 
 export interface GQLResponse<T> {
   data?: T;
@@ -135,7 +134,7 @@ export class BaseGraphQLModel {
     queryOptions: QueryOptions,
     isRetry = false,
   ): Promise<GQLResponse<T>> {
-    if (!request.graphQLClient) throw new Error('GraphQL client not initialized');
+    if (!request || !request.graphQLClient) throw new Error('GraphQL client not initialized');
 
     const gqlContext = {
       ...queryOptions,
@@ -182,7 +181,7 @@ export class BaseGraphQLModel {
     mutationOptions: MutationOptions,
     isRetry = false,
   ): Promise<GQLResponse<T>> {
-    if (!request.graphQLClient) throw new Error('GraphQL client not initialized');
+    if (!request || !request.graphQLClient) throw new Error('GraphQL client not initialized');
 
     const gqlContext = {
       ...mutationOptions,

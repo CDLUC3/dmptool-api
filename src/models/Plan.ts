@@ -3,14 +3,10 @@ import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
 import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { DMPToolDMPType } from "@dmptool/types";
-import { Project, ProjectInterface } from "./Project.js";
+import { ProjectInterface } from "./Project.js";
+import { PlanMember } from "./PlanMember.js";
 import { VersionedTemplate, VersionedTemplateInterface } from "./VersionedTemplate.js";
-import {
-  AlternateIdentifiersType,
-  AlternateIdentifierType,
-  ContributorsType
-} from "../types.js";
-import { ProjectMember } from "./ProjectMember.js";
+import { AlternateIdentifierType } from "../types.js";
 import {
   AddAlternateIdentifierDocument,
   AddPlanDocument,
@@ -25,7 +21,6 @@ import {
   UpdatePlanStatusDocument,
   UpdatePlanTitleDocument
 } from "../generated/graphql.js";
-import {PlanMember} from "./PlanMember.js";
 
 /**
  * Represents a Data Management Plan
@@ -317,7 +312,7 @@ export class Plan extends BaseGraphQLModel {
   ): Promise<Plan> {
     const dmpId: string = dmp.dmp_id.identifier;
     // Try to find it by the DMP id
-    let plan: Plan | undefined = await Plan.findByDMPId(request, dmpId);
+    const plan: Plan | undefined = await Plan.findByDMPId(request, dmpId);
     if (plan) return plan;
 
     // Try to find it by its alternate identifiers

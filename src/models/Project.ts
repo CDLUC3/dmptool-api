@@ -119,10 +119,8 @@ export class Project extends BaseGraphQLModel {
    * @param contact the primary contact on the maDMP record
    * @returns true if successful. If not, any errors are added to the error object
    */
-  async setOwnership(
-    request: FastifyRequest,
-    contact: ContactType
-  ): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async setOwnership(request: FastifyRequest, contact: ContactType): Promise<boolean> {
     // TODO: Once we've implemented OAuth and the caller is not necessarily the owner
     //       use the designated primary contact as the primary owner of the project
     return true;
@@ -135,15 +133,18 @@ export class Project extends BaseGraphQLModel {
    * @returns true if successful. If not, any errors are added to the error object
    */
   async save(request: FastifyRequest): Promise<boolean> {
-    if (!this.id) {
-      // We always update after creation because that only sets the Project title
-      // and whether it's a test project.
-      if (await this.create(request)) {
-        return await this.update(request);
-      }
+    if (this.id) {
+      // The id exists, so we're updating
+      return await this.update(request);
     }
 
-    return await this.update(request);
+    // The GraphQL API doesn't allow us to include all fields when we create, so
+    // we immediately follow it up with an update to set the remaining fields.
+    if (await this.create(request)) {
+      return await this.update(request);
+    }
+
+    return false;
   }
 
   /**

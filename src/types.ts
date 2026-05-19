@@ -1,13 +1,12 @@
 // Add our config to the FastifyInstance and FastifyRequest
 import { LogLevel } from "fastify";
 import { ApolloClient } from "@apollo/client";
+import { DMPToolDMPType } from "@dmptool/types";
 import {
   ConnectionParams,
   DynamoConnectionParams,
   SsmConnectionParams
 } from "@dmptool/utils";
-import {BaseGraphQLModel} from "./models/BaseGQL.js";
-import {DMPToolDMPType} from "@dmptool/types";
 
 /**
  * Add our additional properties to the FastifyInstance and FastifyRequest

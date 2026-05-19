@@ -94,7 +94,7 @@ export class PlanMember extends BaseGraphQLModel {
     if (!members || members.length === 0) {
       plan.errors['members'] = "maDMP must have at least one contact"
     }
-    const memberIds: number[] = members.map((m: PlanMember): number => m.id!)
+    const memberIds: number[] = members.map((m: PlanMember): number | undefined => m.id)
       .filter(Boolean) as number[];
 
     // Fetch the existing members associated with the Plan
@@ -103,7 +103,7 @@ export class PlanMember extends BaseGraphQLModel {
     // be deleted
     const deleteErrs: string[] = [];
     const toDelete: PlanMember[] = existing.filter((m: PlanMember): boolean => {
-      return !memberIds.includes(m.id!);
+      return m.id ? !memberIds.includes(m.id) : false;
     });
     if (toDelete.length > 0) {
       // Delete each one
@@ -145,7 +145,7 @@ export class PlanMember extends BaseGraphQLModel {
         variables: {
           planId: member.plan?.id,
           projectMemberId: member.projectMember?.id,
-          roleIds: member.memberRoles.map((r: MemberRole): number => r.id!)
+          roleIds: member.memberRoles.map((r: MemberRole): number | undefined => r.id)
         },
         errorPolicy: "all"
       } as MutateOptions
@@ -183,7 +183,7 @@ export class PlanMember extends BaseGraphQLModel {
           planId: member.plan?.id,
           planMemberId: member.id,
           isPrimaryContact: member.isPrimaryContact,
-          memberRoleIds: member.memberRoles.map((r: MemberRole): number => r.id!)
+          memberRoleIds: member.memberRoles.map((r: MemberRole): number | undefined => r.id)
         },
         errorPolicy: "all"
       } as MutateOptions
@@ -193,7 +193,7 @@ export class PlanMember extends BaseGraphQLModel {
     member.handleMutationErrors("update", saved, data?.errors);
 
     // If data was returned and we have no errors
-    let hadErrors: boolean = PlanMember.hasErrors(data?.errors ?? {});
+    const hadErrors: boolean = PlanMember.hasErrors(data?.errors ?? {});
     if (data && !hadErrors) {
       member.modified = data.modified;
       member.modifiedById = data.modifiedById;

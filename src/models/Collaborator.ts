@@ -147,7 +147,7 @@ export class Collaborator extends BaseGraphQLModel {
     this.handleMutationErrors("update", saved, data?.errors);
 
     // If data was returned and we have no errors
-    let hadErrors: boolean = Collaborator.hasErrors(data?.errors ?? {});
+    const hadErrors: boolean = Collaborator.hasErrors(data?.errors ?? {});
     if (data && !hadErrors) {
       this.modified = data.modified;
       this.modifiedById = data.modifiedById;

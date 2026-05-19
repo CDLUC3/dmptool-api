@@ -155,7 +155,7 @@ export class ProjectMember extends BaseGraphQLModel {
             surName: member.surName,
             orcid: member.orcid,
             email: member.email,
-            memberRoleIds: member.memberRoles.map((r: MemberRole): number => r.id!)
+            memberRoleIds: member.memberRoles.map((r: MemberRole): number | undefined => r.id)
           }
         },
         errorPolicy: "all"
@@ -207,7 +207,7 @@ export class ProjectMember extends BaseGraphQLModel {
             surName: member.surName,
             orcid: member.orcid,
             email: member.email,
-            memberRoleIds: member.memberRoles.map((r: MemberRole): number => r.id!)
+            memberRoleIds: member.memberRoles.map((r: MemberRole): number | undefined => r.id)
           }
         },
         errorPolicy: "all"
@@ -218,7 +218,7 @@ export class ProjectMember extends BaseGraphQLModel {
     member.handleMutationErrors("update", saved, data?.errors);
 
     // If data was returned and we have no errors
-    let hadErrors: boolean = ProjectMember.hasErrors(data?.errors ?? {});
+    const hadErrors: boolean = ProjectMember.hasErrors(data?.errors ?? {});
     if (data && !hadErrors) {
       member.modified = data.modified;
       member.modifiedById = data.modifiedById;
@@ -379,7 +379,7 @@ export class ProjectMember extends BaseGraphQLModel {
       : undefined;
 
     // If this is a contact in the maDMP then they are the primary contact
-    const isPrimaryContact: boolean = !!memberFromMaDMP.contact_id;
+    const isPrimaryContact = !!memberFromMaDMP.contact_id;
     // Prep the other properties
     const email: string | undefined = memberFromMaDMP.mbox?.trim();
     const nameParts: string[] = memberFromMaDMP.name ? memberFromMaDMP.name.split(' ')

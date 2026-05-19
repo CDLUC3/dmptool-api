@@ -1,14 +1,21 @@
-import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
 import { DMPToolDMPType } from "@dmptool/types";
 import { DMP_TOOL_CONTENT_TYPE, RDA_COMMON_STANDARD_CONTENT_TYPE } from "../routeSchema.js";
 import configPlugin from "../../config.js";
-import {mockMaDMP, mockMaDMPModule} from "./maDMPMocks.js";
+import { mockMaDMP, mockMaDMPModule } from "./maDMPMocks.js";
 
 mockMaDMPModule();
 
+jest.unstable_mockModule('../workflows/planWorkflow.js', () => ({
+  createPlanWorkflow: jest.fn(),
+}));
+
+import { createPlanWorkflow } from "../workflows/planWorkflow.js";
+
 describe('v3 routes', () => {
   let fastify: FastifyInstance;
+  let createPlanWorkflow: jest.Mock;
 
   beforeEach(async () => {
     fastify = Fastify({
@@ -22,6 +29,11 @@ describe('v3 routes', () => {
     });
     // Register the config and headers plugins first as the routes are dependent on them
     await fastify.register(configPlugin, {});
+
+    // Import the mocked workflow module first, then routes
+    const workflowModule = await import('../workflows/planWorkflow.js');
+    createPlanWorkflow = workflowModule.createPlanWorkflow as jest.Mock;
+    createPlanWorkflow.mockReset();
 
     // Must import the routes plugin here because the maDMP functions we need to
     // mock are called in the routes plugin and would override the mocks otherwise
@@ -144,45 +156,97 @@ describe('v3 routes', () => {
   });
 
   describe('POST /dmps', () => {
-    it('should reject invalid DMP JSON', async () => {
+    it('returns 201 when createPlanWorkflow succeeds', async () => {
+      createPlanWorkflow.mockResolvedValue({
+        ok: true,
+        statusCode: 201,
+        data: {
+          dmp: {
+            title: 'Route test',
+            dmp_id: { identifier: 'generated-1', type: 'other' },
+          },
+        },
+      } as never);
+
       const response = await fastify.inject({
         method: 'POST',
         url: '/api/test/dmps',
         body: {
           dmp: {
-            contact: {
-              name: 'Tester',
-              mbox: 'tester@example.com',
-              contact_id: [{
-                identifier: '0000-0000-0000-000x',
-                type: 'orcid'
-              }]
-            },
-            dataset: [{
-              title: 'Test Dataset 123',
-              dataset_id: {
-                identifier: '123',
-                type: 'other'
-              }
-            }],
-            dmp_id: {
-              identifier: 'test-bad-json',
-              type: 'other'
-            },
+            title: 'Route test',
+            dmp_id: { identifier: 'external-abc', type: 'other' },
             created: '2026-04-01 03:11:23Z',
             modified: '2026-04-06 02:23:11Z',
             ethical_issues_exist: 'unknown',
             language: 'eng',
-          }
-        }
+            contact: {
+              name: 'Tester',
+              mbox: 'tester@example.com',
+              contact_id: [{ identifier: '0000-0000-0000-000x', type: 'orcid' }],
+            },
+            dataset: [
+              {
+                title: 'Dataset',
+                dataset_id: { identifier: '123', type: 'other' },
+                personal_data: 'unknown',
+                sensitive_data: 'no',
+              },
+            ],
+          },
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toEqual({
+        dmp: {
+          title: 'Route test',
+          dmp_id: { identifier: 'generated-1', type: 'other' },
+        },
+      });
+    });
+
+    it('returns workflow error payload when createPlanWorkflow fails', async () => {
+      createPlanWorkflow.mockResolvedValue({
+        ok: false,
+        statusCode: 400,
+        errorCode: 'dmp_invalid',
+        message: 'Bad input',
+      } as never);
+
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/api/test/dmps',
+        body: {
+          dmp: {
+            title: 'Route test',
+            dmp_id: { identifier: 'external-abc', type: 'other' },
+            created: '2026-04-01 03:11:23Z',
+            modified: '2026-04-06 02:23:11Z',
+            ethical_issues_exist: 'unknown',
+            language: 'eng',
+            contact: {
+              name: 'Tester',
+              mbox: 'tester@example.com',
+              contact_id: [{ identifier: '0000-0000-0000-000x', type: 'orcid' }],
+            },
+            dataset: [
+              {
+                title: 'Dataset',
+                dataset_id: { identifier: '123', type: 'other' },
+                personal_data: 'unknown',
+                sensitive_data: 'no',
+              },
+            ],
+          },
+        },
       });
 
       expect(response.statusCode).toBe(400);
-      const json = response.json();
-      expect(json.error_code).toEqual('dmp_invalid');
-      expect(json.status_code).toEqual(400);
-      expect(json.message.startsWith('Invalid DMP record')).toBe(true);
-      expect(json.message.includes('title')).toBe(true);
+      expect(response.json()).toEqual({
+        status_code: 400,
+        error_code: 'dmp_invalid',
+        message: 'Bad input',
+      });
     });
   });
 
@@ -275,53 +339,6 @@ describe('v3 routes', () => {
       expect(response.statusCode).toBe(400);
       const json = response.json();
       expect(json.error_code).toEqual('dmp_invalid');
-    });
-  });
-
-  describe('POST /dmps', () => {
-    let dmp: DMPToolDMPType;
-
-    beforeEach(async () => {
-      dmp = {
-        dmp: {
-          title: 'Test DMP for routes',
-          dmp_id: {
-            identifier: 'test-routes-123',
-            type: 'other'
-          },
-          created: '2026-04-01 03:11:23Z',
-          modified: '2026-04-06 02:23:11Z',
-          ethical_issues_exist: 'unknown',
-          language: 'eng',
-          contact: {
-            name: 'Tester',
-            mbox: 'tester@example.com',
-            contact_id: [{
-              identifier: '0000-0000-0000-000x',
-              type: 'orcid'
-            }]
-          },
-          dataset: [{
-            title: 'Test Dataset 123',
-            dataset_id: {
-              identifier: '123',
-              type: 'other'
-            },
-            personal_data: 'unknown',
-            sensitive_data: 'no',
-          }],
-        }
-      };
-    });
-
-    it('should return 201 status code if successful', async () => {
-      const response = await fastify.inject({
-        method: 'POST',
-        url: `/api/test/dmps`,
-        body: dmp
-      });
-
-      expect(response.statusCode).toBe(201);
     });
   });
 
