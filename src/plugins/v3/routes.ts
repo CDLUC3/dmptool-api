@@ -21,18 +21,24 @@ import {
 } from "./routeSchema.js";
 import { DMPToolDMPType } from "@dmptool/types";
 import { convertMySQLDateTimeToRFC3339, DMP_LATEST_VERSION } from "@dmptool/utils";
-import {
-  AccessiblePlan, AlternateIdentifierType,
-  ConfigurationOptions,
-  User
-} from "../../types.js";
 import v3SerializationPlugin from "./serialization.js";
 import { v3SwaggerConfig, v3SwaggerUIConfig } from "./swagger.js";
 import { errorHandler, notFoundHandler } from "../../handlers/error.js";
 import { decorateLog } from "../../handlers/logger.js";
 import { isDmpId } from "../../utils.js";
+import {
+  AccessiblePlan,
+  AlternateIdentifierType,
+  ConfigurationOptions,
+  User
+} from "../../types.js";
 import { Plan as PlanRDS } from "../../types.js";
-
+import { Project } from "../../models/Project.js";
+import { Plan } from "../../models/Plan.js";
+import { VersionedTemplate } from "../../models/VersionedTemplate.js";
+import { ProjectMember } from "../../models/ProjectMember.js";
+import { PlanMember } from "../../models/PlanMember.js";
+import { MemberRole, MemberRoles } from "../../models/MemberRole.js";
 import {
   callerHasPermission,
   handleMissingMaDMP,
@@ -42,12 +48,6 @@ import {
   loadPlansForUser,
   userHasPermission,
 } from "../../models/maDMP.js";
-import { Project } from "../../models/Project.js";
-import { Plan } from "../../models/Plan.js";
-import { VersionedTemplate } from "../../models/VersionedTemplate.js";
-import {ProjectMember} from "../../models/ProjectMember.js";
-import {PlanMember, PlanMemberInterface} from "../../models/PlanMember.js";
-import {MemberRole, MemberRoles} from "../../models/MemberRole.js";
 
 // TODO: Delete this mock responses once the models and business logic are in place
 const TEST_DMP = {
@@ -89,6 +89,11 @@ const TEST_DMP = {
   featured: 'no',
 };
 
+// Needed to use AJV directly for the `POST /dmps/validate` endpoint, otherwise
+// it just returns the first error.
+//
+// Note that useDefaults allows the interpreter to see that we have defaults set
+// in Zod so it won't flag that the value is missing/empty
 const ajvWithFullErrors = new Ajv({
   allErrors: true,
   coerceTypes: true,
@@ -212,7 +217,7 @@ const v3RoutesPlugin = async function (
       // the specified dmp_id to the alternate_identifier array
       if (!dmp.alternate_identifier) dmp.alternate_identifier = [];
       const hasAltId: boolean = dmp.alternate_identifier.some((id: AlternateIdentifierType): boolean => {
-        return id.identfier === dmp.dmp_id.identifier;
+        return id.identifier === dmp.dmp_id.identifier;
       });
       if (!hasAltId){
         dmp.alternate_identifier.push({
@@ -268,10 +273,6 @@ const v3RoutesPlugin = async function (
         });
       }
 
-console.log('PROJECT:', project);
-console.log('PROJECT MEMBERS:', project.members);
-console.log('PLAN', plan)
-
       // Abort if the new plan was not assigned a DMP id
       if (!plan.dmpId) {
         request.log.error({ plan }, 'Unable to generate a new DMP id for the plan!');
@@ -291,8 +292,8 @@ console.log('PLAN', plan)
       const availableRoles = new MemberRoles({ roles: await MemberRole.all(request) });
       const projectMembers: ProjectMember[] = await ProjectMember.processMembers(
         request,
+        project,
         plan,
-        project.members,
         availableRoles,
         dmp
       );
@@ -302,6 +303,7 @@ console.log('PLAN', plan)
           'Unable to save members for the new plan'
         );
       }
+
       if (!(await ProjectMember.save(request, project, projectMembers))) {
         // Log any errors, the Project.members error will have been set
         request.log.error(
@@ -311,7 +313,7 @@ console.log('PLAN', plan)
       }
 
       // Generate the PlanMember objects from the project members
-      const planMembers: PlanMember[] = await PlanMember.fromProjectMembers(projectMembers);
+      const planMembers: PlanMember[] = await PlanMember.fromProjectMembers(plan, projectMembers);
       if (!(await PlanMember.save(request, plan, planMembers))) {
         // Log any errors, the Project.members error will have been set
         request.log.error(

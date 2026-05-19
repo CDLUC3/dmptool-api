@@ -1,4 +1,4 @@
-import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
+import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { ProjectInterface } from "./Project.js";
 import { User } from "../types.js";
 import { FastifyRequest } from "fastify";

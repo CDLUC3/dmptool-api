@@ -1,4 +1,4 @@
-import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
+import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { FastifyRequest } from "fastify";
 import {
   AddAffiliationDocument,
@@ -36,7 +36,9 @@ export interface AffiliationByURIResponse {
  * The possible response for an Affiliations GraphQL query
  */
 export interface AffiliationsResponse {
-  affiliations: AffiliationInterface[]
+  affiliations: {
+    items: AffiliationInterface[]
+  }
 }
 
 /**
@@ -83,9 +85,11 @@ export class Affiliation extends BaseGraphQLModel {
       {
         mutation: AddAffiliationDocument,
         variables: {
-          name: this.name,
-          funder: this.funder ?? false,
-          active: true
+          input: {
+            name: this.name,
+            funder: this.funder ?? false,
+            active: true
+          }
         },
         errorPolicy: "all"
       } as MutateOptions
@@ -143,7 +147,7 @@ export class Affiliation extends BaseGraphQLModel {
     }
     if (existing) return existing;
 
-    const newURI: string = affiliation.affiliation_id?.identifier?.startsWith(/https?:\/\//)
+    const newURI: string = affiliation.affiliation_id?.identifier?.startsWith('http')
       ? affiliation.affiliation_id.identifier
       : undefined;
 
@@ -184,17 +188,17 @@ export class Affiliation extends BaseGraphQLModel {
    * @param name the URI to search for
    * @returns the Affiliation
    */
-  static async findByName(request: FastifyRequest, name: string): Promise<Affiliation[] | []> {
+  static async findByName(request: FastifyRequest, name: string, funderOnly = false): Promise<Affiliation[] | []> {
     const resp: GQLResponse<AffiliationsResponse> = await this.query<AffiliationsResponse>(
       request,
       {
         query: AffiliationsDocument,
-        variables: { name },
+        variables: { name, funderOnly },
         errorPolicy: "all"
       }
     );
-    return resp.data && resp.data.affiliations
-      ? resp.data.affiliations.map((a: AffiliationInterface): Affiliation => new Affiliation(a))
+    return resp.data && resp.data.affiliations && resp.data.affiliations.items
+      ? resp.data.affiliations.items.map((a: AffiliationInterface): Affiliation => new Affiliation(a))
       : [];
   }
 }

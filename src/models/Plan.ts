@@ -157,7 +157,9 @@ export class Plan extends BaseGraphQLModel {
     this.status = options.status ?? 'DRAFT';
     this.registered = options.registered;
     this.alternateIdentifiers = options.alternateIdentifiers ?? [];
-    this.members = options.members ?? [];
+
+    this.members = options.members ? options.members.map((m: PlanMember) => new PlanMember(m)) : [];
+
     this.errors = options.errors ?? {};
   }
 
@@ -168,7 +170,15 @@ export class Plan extends BaseGraphQLModel {
    * @returns true if successful. If not, any errors are added to the error object
    */
   async save(request: FastifyRequest): Promise<boolean> {
-    return this.id ? await this.update(request) : await this.create(request);
+    if (this.id) return await this.update(request);
+
+    const created: boolean = await this.create(request);
+    if (created) {
+      // If the creation was successful, follow it up with an update since the
+      // creat process does not set the title or status!
+      return await this.update(request);
+    }
+    return false;
   }
 
   /**

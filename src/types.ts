@@ -112,6 +112,8 @@ export interface User {
 /**
  * Shortcuts to different segments of the maDMP record
  */
+export type IdentifiersType = DMPToolDMPType['dmp']['alternate_identifier'];
+export type IdentifierType = DMPToolDMPType['dmp']['dmp_id'];
 export type AffiliationType = DMPToolDMPType['dmp']['contact']['affiliation'];
 export type AffiliationIdType =AffiliationType['affiliation_id'][0];
 export type ContactType = DMPToolDMPType['dmp']['contact'];

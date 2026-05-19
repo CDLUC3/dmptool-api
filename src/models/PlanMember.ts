@@ -1,7 +1,7 @@
 import { FastifyRequest } from "fastify";
 import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
-import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
+import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { ProjectMember } from "./ProjectMember.js";
 import { Plan } from "./Plan.js";
 import { MemberRole } from "./MemberRole.js";
@@ -145,7 +145,7 @@ export class PlanMember extends BaseGraphQLModel {
         variables: {
           planId: member.plan?.id,
           projectMemberId: member.projectMember?.id,
-          memberRoleIds: member.memberRoles.map((r: MemberRole): number => r.id!)
+          roleIds: member.memberRoles.map((r: MemberRole): number => r.id!)
         },
         errorPolicy: "all"
       } as MutateOptions
@@ -180,6 +180,7 @@ export class PlanMember extends BaseGraphQLModel {
       {
         mutation: UpdatePlanMemberDocument,
         variables: {
+          planId: member.plan?.id,
           planMemberId: member.id,
           isPrimaryContact: member.isPrimaryContact,
           memberRoleIds: member.memberRoles.map((r: MemberRole): number => r.id!)
@@ -236,16 +237,19 @@ export class PlanMember extends BaseGraphQLModel {
   /**
    * Initialize Plan Members from a list of Project Members
    *
+   * @param plan the Plan
    * @param projectMembers the Project Members to create Plan Members/Contributors from
    * @returns the created Plan Members/Contributors
    */
   static async fromProjectMembers(
+    plan: Plan,
     projectMembers: ProjectMember[]
   ): Promise<PlanMember[]> {
     if (!projectMembers || projectMembers.length === 0) return [];
 
     return projectMembers.map((member: ProjectMember): PlanMember => {
       return new PlanMember({
+        plan: plan,
         projectMember: member,
         isPrimaryContact: member.isPrimaryContact || false,
         memberRoles: member.memberRoles

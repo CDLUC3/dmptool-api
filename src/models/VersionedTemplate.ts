@@ -65,7 +65,7 @@ export class VersionedTemplate extends BaseGraphQLModel implements VersionedTemp
       request,
       {
         query: VersionedTemplatesDocument,
-        variables: { versionedTemplateId: id },
+        variables: { templateId: id },
         errorPolicy: "all"
       }
     );

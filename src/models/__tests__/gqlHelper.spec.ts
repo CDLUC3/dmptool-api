@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { FastifyRequest } from 'fastify';
 import { DocumentNode, Kind } from 'graphql';
-import { BaseGraphQLModel, GQLResponse } from '../gqlHelper.js';
+import { BaseGraphQLModel, GQLResponse } from '../BaseGQL.js';
 
 const TEST_DOCUMENT: DocumentNode = {
   kind: Kind.DOCUMENT,

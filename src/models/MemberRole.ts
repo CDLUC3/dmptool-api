@@ -1,4 +1,4 @@
-import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
+import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { FastifyRequest } from "fastify";
 import { MemberRolesDocument } from "../generated/graphql.js";
 

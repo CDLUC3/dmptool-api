@@ -11,9 +11,23 @@ import {
 // AJV is used here to prune the data object by removing additional properties.
 // This is done to remove DMP Tool specific properties from the payload when
 // we need to return the RDA Common Standard format.
+//
+// The "useDefaults" flag allows the interpreter to notice that our Zod schema
+// provides defaults for required fields in the DMP Tool extensions, so it doesn't
+// need to throw an error it if they are missing in the JSON
 const ajvRDA = new Ajv({ removeAdditional: 'all', useDefaults: true });
 const ajvDMPTool = new Ajv({ useDefaults: true });
 
+/**
+ * We always generate the full RDA Common Standard with the DMP Tool extensions.
+ * This function strips off the DMP Tool extensions if the caller just wants the
+ * RDA Common Standard.
+ *
+ * @param compiler The AJV compiler to use
+ * @param data The data object to prune
+ * @param schema The schema to use for validation and pruning
+ * @returns The pruned data object
+ */
 const pruneDataWithAjv = (
   compiler: typeof ajvRDA,
   data: unknown,
@@ -30,8 +44,13 @@ const pruneDataWithAjv = (
   return dataToPrune;
 }
 
-// Wrapping this in fastify-plugin to ensure that its hooks are registered and
-// available within the context of the v3Routes plugin.
+/**
+ * Provides serialization logic for requests. We are wrapping this in fastify-plugin
+ * to ensure that its hooks are registered and available within the context of
+ * the v3Routes plugin.
+ *
+ * @param fastify The Fastify instance
+ */
 const v3SerializationPlugin = fp(async function (
   fastify: FastifyInstance
 ): Promise<void> {

@@ -1,5 +1,5 @@
 import { FastifyRequest } from "fastify";
-import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
+import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
 import { DMPToolDMPType } from "@dmptool/types";
@@ -95,8 +95,12 @@ export class Project extends BaseGraphQLModel {
     this.startDate = options.startDate;
     this.endDate = options.endDate;
     this.isTestProject = options.isTestProject ?? false;
-    this.plans = options.plans ?? [];
-    this.members = options.members ?? [];
+
+    this.plans = options.plans ? options.plans.map((p: Plan) => new Plan(p)) : [];
+
+    this.members = options.members
+      ? options.members.map((m: ProjectMember) => new ProjectMember(m))
+      : [];
 
     this.errors = options.errors ?? {};
   }

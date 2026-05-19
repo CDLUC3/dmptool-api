@@ -1,12 +1,12 @@
 import { FastifyRequest } from "fastify";
 import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
-import { BaseGraphQLModel, GQLResponse } from "./gqlHelper.js";
+import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { Project } from "./Project.js";
 import { Affiliation } from "./Affiliation.js";
 import { MemberRole, MemberRoles } from "./MemberRole.js";
 import { Plan } from "./Plan.js";
-import { ContributorsType } from "../types.js";
+import { ContributorsType, IdentifiersType } from "../types.js";
 import { DMPToolDMPType } from "@dmptool/types";
 import {
   AddProjectMemberDocument,
@@ -105,7 +105,7 @@ export class ProjectMember extends BaseGraphQLModel {
     members: ProjectMember[]
   ): Promise<boolean> {
     if (!project || !project.id) return false;
-    // If the members are empty this is an error (we must have a primary contact!)
+    // If the member array is empty, this is an error (we must have a primary contact!)
     if (!members || members.length === 0) {
       project.errors['members'] = "maDMP must have a contact"
     }
@@ -135,6 +135,14 @@ export class ProjectMember extends BaseGraphQLModel {
    * @returns true if successful. If not, any errors are added to the error object
    */
   static async create(request: FastifyRequest, member: ProjectMember): Promise<boolean> {
+    // If the member's affiliation has an undefined id then it needs to saved first!
+    if (member.affiliation && !member.affiliation.id) {
+      const affiliationSaved: boolean = await member.affiliation.create(request);
+      if (!affiliationSaved) {
+        member.errors['affiliation'] = 'Failed to save affiliation';
+      }
+    }
+
     const saved: GQLResponse<AddProjectMemberResponse> = await ProjectMember.mutate<AddProjectMemberResponse>(
       request,
       {
@@ -142,7 +150,7 @@ export class ProjectMember extends BaseGraphQLModel {
         variables: {
           input: {
             projectId: member.project?.id,
-            affiliationId: member.affiliation?.id,
+            affiliationId: member.affiliation?.uri,
             givenName: member.givenName,
             surName: member.surName,
             orcid: member.orcid,
@@ -178,6 +186,14 @@ export class ProjectMember extends BaseGraphQLModel {
    * @returns true if successful. If not, any errors are added to the error object
    */
   static async update(request: FastifyRequest, member: ProjectMember): Promise<boolean> {
+    // If the member's affiliation has an undefined id then it needs to saved first!
+    if (member.affiliation && !member.affiliation.id) {
+      const affiliationSaved: boolean = await member.affiliation.create(request);
+      if (!affiliationSaved) {
+        member.errors['affiliation'] = 'Failed to save affiliation';
+      }
+    }
+
     // First update the Plan title
     const saved: GQLResponse<UpdateProjectMemberResponse> = await ProjectMember.mutate<UpdateProjectMemberResponse>(
       request,
@@ -186,7 +202,7 @@ export class ProjectMember extends BaseGraphQLModel {
         variables: {
           input: {
             projectMemberId: member.id,
-            affiliationId: member.affiliation?.id,
+            affiliationId: member.affiliation?.uri,
             givenName: member.givenName,
             surName: member.surName,
             orcid: member.orcid,
@@ -247,19 +263,21 @@ export class ProjectMember extends BaseGraphQLModel {
    * Save the Project and Plan members/contributors
    *
    * @param request the Fastify request
+   * @param project the Project
    * @param plan the Plan
-   * @param currentMembers the current members/contributors
    * @param availableRoles the available member roles
    * @param dmp the MaDMP
    * @returns true if successful. If not, any errors are added to the Plan.members error
    */
   static async processMembers(
     request: FastifyRequest,
+    project: Project,
     plan: Plan,
-    currentMembers: ProjectMember[],
     availableRoles: MemberRoles,
     dmp: DMPToolDMPType['dmp']
   ): Promise<ProjectMember[]> {
+    const currentMembers: ProjectMember[] = project.members ?? [];
+
     // Bail out if the maDMP has no contact defined (should never happen)
     if (!dmp.contact) {
       plan.errors.graphQL = 'maDMP must have a contact';
@@ -270,11 +288,12 @@ export class ProjectMember extends BaseGraphQLModel {
 
     // Find or initialize all other contributors
     const contributors: ContributorsType = dmp.contributor ?? [];
-    for (const contributor in contributors) {
+    for (const contributor of contributors) {
       newMembers.push(
         await ProjectMember.findOrInitialize(
           request,
           availableRoles,
+          project,
           currentMembers,
           contributor
         )
@@ -287,6 +306,7 @@ export class ProjectMember extends BaseGraphQLModel {
     const contact: ProjectMember | undefined = await ProjectMember.findOrInitialize(
       request,
       availableRoles,
+      project,
       currentMembers,
       dmp.contact,
     );
@@ -325,7 +345,7 @@ export class ProjectMember extends BaseGraphQLModel {
     // Check for errors
     const memberErrs: string = newMembers.map((member: ProjectMember | undefined) => {
       return ProjectMember.errorsToString(member?.errors ?? {});
-    }).join('; ');
+    }).filter(Boolean).join('; ');
     if (memberErrs) plan.errors['members'] = memberErrs;
 
     return Plan.hasErrors(plan.errors)
@@ -338,6 +358,7 @@ export class ProjectMember extends BaseGraphQLModel {
    *
    * @param request the Fastify request
    * @param availableRoles the available member roles
+   * @param project the Project
    * @param existingMembers the project members that already exist
    * @param memberFromMaDMP the contributor or contact from the MaDMP
    * @returns the ProjectMember
@@ -345,15 +366,17 @@ export class ProjectMember extends BaseGraphQLModel {
   static async findOrInitialize(
     request: FastifyRequest,
     availableRoles: MemberRoles,
+    project: Project,
     existingMembers: ProjectMember[],
     memberFromMaDMP: DMPToolDMPType['dmp']['contributor'][0] | DMPToolDMPType['dmp']['contact']
   ): Promise<ProjectMember | undefined> {
     if (!memberFromMaDMP) return undefined;
 
     // Get the contact/contributor id
-    const orcid: string | undefined = !!memberFromMaDMP.contributor_id
-        ? memberFromMaDMP.contributor_id.type === 'orcid' ? memberFromMaDMP.contributor_id.identifier?.trim() : undefined
-        : memberFromMaDMP.contact_id?.type === 'orcid' ? memberFromMaDMP.contact_id.identifier?.trim() : undefined;
+    const identifiers: IdentifiersType | undefined = memberFromMaDMP.contributor_id ?? memberFromMaDMP.contact_id ?? [];
+    const orcid: string | undefined = Array.isArray(identifiers) && identifiers.length > 0
+      ? identifiers[0].type === 'orcid' ? identifiers[0].identifier?.trim() : undefined
+      : undefined;
 
     // If this is a contact in the maDMP then they are the primary contact
     const isPrimaryContact: boolean = !!memberFromMaDMP.contact_id;
@@ -370,7 +393,7 @@ export class ProjectMember extends BaseGraphQLModel {
     const affiliation: Affiliation | undefined = memberFromMaDMP.affiliation
     ? await Affiliation.findOrInitialize(
         request,
-        memberFromMaDMP.affiliation,
+        Array.isArray(memberFromMaDMP.affiliation) ? memberFromMaDMP.affiliation[0] : memberFromMaDMP.affiliation,
         false
       )
     : undefined;
@@ -392,6 +415,7 @@ export class ProjectMember extends BaseGraphQLModel {
 
     return new ProjectMember({
       ...match,
+      project,
       affiliation,
       memberRoles,
       isPrimaryContact,
