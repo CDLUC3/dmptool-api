@@ -11,8 +11,6 @@ jest.unstable_mockModule('../workflows/planWorkflow.js', () => ({
   createPlanWorkflow: jest.fn(),
 }));
 
-import { createPlanWorkflow } from "../workflows/planWorkflow.js";
-
 describe('v3 routes', () => {
   let fastify: FastifyInstance;
   let createPlanWorkflow: jest.Mock;

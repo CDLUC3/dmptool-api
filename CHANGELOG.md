@@ -11,7 +11,9 @@
 - Moved logic to find the specified template or use the default into the VersionedTemplate Model.
 - The logic in the `routes.ts` file for the `POST /dmps` endpoint was getting long and hard to follow once I added the Member logic, so refactored to break that logic up into new `src/plugins/v3/workflows` files
   - The `saveMembersWorkflow.ts` which should work for both creating a new Project/Plan or updating an existing one
-  - The `planWorkflow.ts` which just handles creating a Project/Plan at the moment but will also include update and delete in the near future
+  - The `planWorkflow.ts` which just handles creating a Project/Plan at the moment but will also include update and delete in the future
+- Removed overrides for `fast-jwt`, `fast-uri` and `fast-xml-parser`
+- Added overrides for `ws` and `brace-expansion` to fix some issues with the latest versions of those packages
 
 ## 2026-05-14
 - Added helper types to `src/types.ts` to facilitate access to nested portions of the JSON schemas
