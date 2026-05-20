@@ -42,7 +42,7 @@ export class BaseGraphQLModel {
   static hasErrors(errors: Record<string, string>): boolean {
     return Object.keys(errors)
       .filter(k => k !== '__typename')
-      .some(k => errors[k] && errors[k] !== null);
+      .some(k => !!errors[k]);
   }
 
   /**
@@ -53,7 +53,7 @@ export class BaseGraphQLModel {
    */
   static errorsToString(errors: Record<string, string>): string {
     return Object.keys(errors)
-      .filter(k => k !== '__typename' && !errors[k] && errors[k] !== null)
+      .filter(k => k !== '__typename' && !!errors[k])
       .map(key => `${key}: ${errors[key]}`)
       .join(', ');
   }

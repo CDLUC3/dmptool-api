@@ -279,7 +279,7 @@ export class Plan extends BaseGraphQLModel {
       request,
       {
         mutation: ArchivePlanDocument,
-        variables: { projectIid: this.id },
+        variables: { planId: this.id },
         errorPolicy: "all"
       } as MutateOptions
     );
