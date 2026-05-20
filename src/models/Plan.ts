@@ -21,6 +21,7 @@ import {
   UpdatePlanStatusDocument,
   UpdatePlanTitleDocument
 } from "../generated/graphql.js";
+import { randomHex } from "@dmptool/utils";
 
 /**
  * Represents a Data Management Plan
@@ -133,7 +134,7 @@ export class Plan extends BaseGraphQLModel {
   projectId?: number;
   versionedTemplate?: VersionedTemplateInterface;
 
-  dmpId?: string;
+  dmpId: string;
   title?: string;
   visibility?: PlanVisibility;
   status?: PlanStatus;
@@ -146,7 +147,7 @@ export class Plan extends BaseGraphQLModel {
 
     this.projectId = options.projectId;
     this.versionedTemplate = options.versionedTemplate;
-    this.dmpId = options.dmpId;
+    this.dmpId = options.dmpId ?? `tmp-dmps-${randomHex(12)}`;
     this.title = options.title;
     this.visibility = options.visibility ?? 'PRIVATE';
     this.status = options.status ?? 'DRAFT';

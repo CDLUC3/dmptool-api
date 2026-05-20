@@ -147,16 +147,6 @@ export async function createPlanWorkflow(
     };
   }
 
-  // Something went wrong if the new DMP id was not set
-  if (!plan.dmpId) {
-    return {
-      ok: false,
-      statusCode: 500,
-      errorCode: 'generic_error',
-      message: 'Unable to assign a DMP id to the new plan',
-    };
-  }
-
   // Now save the Project and Plan Members
   const finalPlan: Plan = await saveMembersWorkflow(request, project, plan, dmp);
 

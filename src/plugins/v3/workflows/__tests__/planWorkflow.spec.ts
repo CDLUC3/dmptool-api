@@ -154,35 +154,6 @@ describe('createPlanWorkflow', () => {
     });
   });
 
-  it('returns 500 when saved plan has no dmp id', async () => {
-    const plan = {
-      id: undefined,
-      dmpId: undefined,
-      errors: {},
-      save: jest.fn().mockResolvedValue(true as never),
-      saveAlternateIdentifiers: jest.fn().mockResolvedValue(true as never),
-    } as unknown as Plan;
-
-    const project = {
-      id: 55,
-      errors: {},
-      save: jest.fn().mockResolvedValue(true as never),
-    } as unknown as Project;
-
-    jest.spyOn(VersionedTemplate, 'findOrDefault').mockResolvedValue({ id: 1 } as never);
-    jest.spyOn(Plan, 'findOrInitialize').mockResolvedValue(plan);
-    jest.spyOn(Project, 'findOrInitialize').mockResolvedValue(project);
-
-    const result = await createPlanWorkflow(makeRequest(), makeBody());
-
-    expect(result).toEqual({
-      ok: false,
-      statusCode: 500,
-      errorCode: 'generic_error',
-      message: 'Unable to assign a DMP id to the new plan',
-    });
-  });
-
   it('returns 400 when final plan has errors after non-fatal artifact save', async () => {
     const plan = {
       id: undefined,
