@@ -1,5 +1,18 @@
 # dmptool-api Changelog
 
+## 2026-05-20
+- Added `CODEGEN_GRAPHQL_URI` to the `.env.example` (was missing last time)
+- Removed hardcoded DMP examples from README and instead added reference to the `docs/jsonSamples` files
+- Added GraphQL queries and mutations for Affiliations and Project/Plan Members
+- Added Models for Collaborator, Affiliations, MemberRole and Project/Plan Members
+- Fixed an issue with the Plan create where it was not setting the title because the GraphQL mutation doesn't allow it. It now calls create and then update if the create was successful
+- Fixed an issue where the Project was not properly saving the Research Domain id. It will now lookup the id using a new GraphQL query
+- Added tests for every Model
+- Moved logic to find the specified template or use the default into the VersionedTemplate Model.
+- The logic in the `routes.ts` file for the `POST /dmps` endpoint was getting long and hard to follow once I added the Member logic, so refactored to break that logic up into new `src/plugins/v3/workflows` files
+  - The `saveMembersWorkflow.ts` which should work for both creating a new Project/Plan or updating an existing one
+  - The `planWorkflow.ts` which just handles creating a Project/Plan at the moment but will also include update and delete in the near future
+
 ## 2026-05-14
 - Added helper types to `src/types.ts` to facilitate access to nested portions of the JSON schemas
 - Updated the `server.ts` to load the new GraphQL plugin
