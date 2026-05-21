@@ -169,10 +169,10 @@
           "type": "ror"
         },
         "funding_status": "granted",
-        "grant_id": [{
+        "grant_id": {
           "identifier": "1234567890",
           "type": "other"
-        }],
+        },
         "name": "Funder Organization"
       }],
       "start": "2025-01-01",

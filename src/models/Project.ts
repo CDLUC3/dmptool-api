@@ -1,12 +1,14 @@
 import { FastifyRequest } from "fastify";
+import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
 import { DMPToolDMPType } from "@dmptool/types";
 import { isValidDate } from "@dmptool/utils";
 import { Plan } from "./Plan.js";
+import { ProjectMember } from "./ProjectMember.js";
+import { ResearchDomain } from "./ResearchDomain.js";
 import { stringToInteger } from "../utils.js";
 import { ContactType } from "../types.js";
-import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import {
   AddProjectDocument,
   ArchiveProjectDocument, MyProjectsDocument,
@@ -23,12 +25,14 @@ export interface ProjectInterface {
   abstractText?: string;
   endDate?: string;
   startDate?: string;
-  researchDomainId?: string;
+  researchDomain?: ResearchDomain;
+  isTestProject: boolean;
   created: string;
   createdById: number;
   modified: string;
   modifiedById: number;
   plans: Plan[];
+  members: ProjectMember[];
   errors?: Record<string, string>;
 }
 
@@ -75,22 +79,37 @@ export interface CallerProjectResponse {
 export class Project extends BaseGraphQLModel {
   title: string;
   abstractText?: string;
-  researchDomainId?: string;
+  researchDomain?: ResearchDomain;
   startDate?: string;
   endDate?: string;
+  isTestProject: boolean;
   plans: Plan[] = [];
+  members: ProjectMember[] = [];
 
   constructor(options: Partial<Project> = {}) {
     super(options);
 
     this.title = options.title ?? 'Research Project';
     this.abstractText = options.abstractText;
-    this.researchDomainId = options.researchDomainId;
+    this.researchDomain = options.researchDomain ? new ResearchDomain(options.researchDomain) : undefined;
     this.startDate = options.startDate;
     this.endDate = options.endDate;
-    this.plans = options.plans ?? [];
+    this.isTestProject = options.isTestProject ?? false;
+
+    this.plans = options.plans ? options.plans.map((p: Plan) => new Plan(p)) : [];
+
+    this.members = options.members
+      ? options.members.map((m: ProjectMember) => new ProjectMember(m))
+      : [];
 
     this.errors = options.errors ?? {};
+  }
+
+  /**
+   * Get the primary contact from the project members/contributors
+   */
+  primaryContact(): ProjectMember | undefined {
+    return this.members.find((m: ProjectMember): boolean => m.isPrimaryContact ?? false);
   }
 
   /**
@@ -100,10 +119,8 @@ export class Project extends BaseGraphQLModel {
    * @param contact the primary contact on the maDMP record
    * @returns true if successful. If not, any errors are added to the error object
    */
-  async setOwnership(
-    request: FastifyRequest,
-    contact: ContactType
-  ): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async setOwnership(request: FastifyRequest, contact: ContactType): Promise<boolean> {
     // TODO: Once we've implemented OAuth and the caller is not necessarily the owner
     //       use the designated primary contact as the primary owner of the project
     return true;
@@ -116,7 +133,18 @@ export class Project extends BaseGraphQLModel {
    * @returns true if successful. If not, any errors are added to the error object
    */
   async save(request: FastifyRequest): Promise<boolean> {
-    return this.id ? await this.update(request) : await this.create(request);
+    if (this.id) {
+      // The id exists, so we're updating
+      return await this.update(request);
+    }
+
+    // The GraphQL API doesn't allow us to include all fields when we create, so
+    // we immediately follow it up with an update to set the remaining fields.
+    if (await this.create(request)) {
+      return await this.update(request);
+    }
+
+    return false;
   }
 
   /**
@@ -146,11 +174,12 @@ export class Project extends BaseGraphQLModel {
     // If data was returned and we have no errors
     const hadErrors: boolean = Project.hasErrors(data?.errors ?? {});
     if (data && !hadErrors) {
+      const primary: ProjectMember | undefined = this.primaryContact();
 
       // We are eventually going to want to figure out how to let a system create
       // a project on a user's behalf, so adding this stub function for now as
       // a placeholder for where we will eventually implement that.
-      if (!(await this.setOwnership(request, undefined))) {
+      if (primary && !(await this.setOwnership(request, primary))){
         this.errors.general = "Project was created but we were unable to set ownership.";
       }
 
@@ -186,8 +215,8 @@ export class Project extends BaseGraphQLModel {
             abstractText: this.abstractText?.trim(),
             startDate: this.startDate?.trim(),
             endDate: this.endDate?.trim(),
-            researchDomainId: this.researchDomainId,
-            isTestProject: true
+            researchDomainId: this.researchDomain?.id,
+            isTestProject: this.isTestProject ?? false
           }
         },
         errorPolicy: "all"
@@ -283,12 +312,19 @@ export class Project extends BaseGraphQLModel {
 
     // We didn't find an existing Project, so initialize a new one
     request.log.debug({ title }, `Initializing a new project`);
+
+    // Fetch the research domain (we only accept known domains at this time)
+    const domain: ResearchDomain | undefined = await ResearchDomain.findByURI(
+      request,
+      dmp.research_domain?.research_domain_identifier?.identifier
+    )
     return new Project({
       title: title,
       abstractText: dmpProject?.description?.trim() ?? dmp.description?.trim() ?? null,
       endDate: isValidDate(dmpProject?.end) ? dmpProject.end : null,
       startDate: isValidDate(dmpProject?.start) ? dmpProject.start : null,
-      researchDomainId: dmp.research_domain?.research_domain_identifier || null
+      researchDomain: domain,
+      isTestProject: false
     });
   }
 

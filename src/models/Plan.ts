@@ -1,11 +1,12 @@
 import { FastifyRequest } from "fastify";
 import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
+import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { DMPToolDMPType } from "@dmptool/types";
 import { ProjectInterface } from "./Project.js";
+import { PlanMember } from "./PlanMember.js";
 import { VersionedTemplate, VersionedTemplateInterface } from "./VersionedTemplate.js";
-import { AlternateIdentifiersType, AlternateIdentifierType } from "../types.js";
-import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
+import { AlternateIdentifierType } from "../types.js";
 import {
   AddAlternateIdentifierDocument,
   AddPlanDocument,
@@ -19,7 +20,8 @@ import {
   RemoveAlternateIdentifierDocument,
   UpdatePlanStatusDocument,
   UpdatePlanTitleDocument
-} from "../generated/graphql.js"
+} from "../generated/graphql.js";
+import { randomHex } from "@dmptool/utils";
 
 /**
  * Represents a Data Management Plan
@@ -132,24 +134,28 @@ export class Plan extends BaseGraphQLModel {
   projectId?: number;
   versionedTemplate?: VersionedTemplateInterface;
 
-  dmpId?: string;
+  dmpId: string;
   title?: string;
   visibility?: PlanVisibility;
   status?: PlanStatus;
   registered?: string;
   alternateIdentifiers?: AlternateIdentifierInterface[];
+  members?: PlanMember[];
 
   constructor(options: Partial<Plan> = {}) {
     super(options);
 
     this.projectId = options.projectId;
     this.versionedTemplate = options.versionedTemplate;
-    this.dmpId = options.dmpId;
+    this.dmpId = options.dmpId ?? `tmp-dmps-${randomHex(12)}`;
     this.title = options.title;
     this.visibility = options.visibility ?? 'PRIVATE';
     this.status = options.status ?? 'DRAFT';
     this.registered = options.registered;
     this.alternateIdentifiers = options.alternateIdentifiers ?? [];
+
+    this.members = options.members ? options.members.map((m: PlanMember) => new PlanMember(m)) : [];
+
     this.errors = options.errors ?? {};
   }
 
@@ -160,7 +166,15 @@ export class Plan extends BaseGraphQLModel {
    * @returns true if successful. If not, any errors are added to the error object
    */
   async save(request: FastifyRequest): Promise<boolean> {
-    return this.id ? await this.update(request) : await this.create(request);
+    if (this.id) return await this.update(request);
+
+    const created: boolean = await this.create(request);
+    if (created) {
+      // If the creation was successful, follow it up with an update since the
+      // creat process does not set the title or status!
+      return await this.update(request);
+    }
+    return false;
   }
 
   /**
@@ -265,7 +279,7 @@ export class Plan extends BaseGraphQLModel {
       request,
       {
         mutation: ArchivePlanDocument,
-        variables: { projectIid: this.id },
+        variables: { planId: this.id },
         errorPolicy: "all"
       } as MutateOptions
     );
@@ -299,12 +313,12 @@ export class Plan extends BaseGraphQLModel {
   ): Promise<Plan> {
     const dmpId: string = dmp.dmp_id.identifier;
     // Try to find it by the DMP id
-    let plan: Plan | undefined = await Plan.findByDMPId(request, dmpId);
+    const plan: Plan | undefined = await Plan.findByDMPId(request, dmpId);
     if (plan) return plan;
 
     // Try to find it by its alternate identifiers
     if (Array.isArray(dmp.alternate_identifier) && dmp.alternate_identifier.length > 0) {
-      const altIds: AlternateIdentifiersType = dmp.alternate_identifier;
+      const altIds: AlternateIdentifierType[] = dmp.alternate_identifier;
       // Loop through the alternate identifiers and see if any match an existing plan
       for (const altId of altIds) {
         const identifier = altId?.identifier?.trim();
@@ -333,7 +347,7 @@ export class Plan extends BaseGraphQLModel {
    */
   async saveAlternateIdentifiers(
     request: FastifyRequest,
-    altIds: AlternateIdentifiersType
+    altIds: AlternateIdentifierType[]
   ): Promise<boolean> {
     // Just return true if there are no alternate identifiers to save
     if (!altIds || !Array.isArray(altIds) || altIds.length === 0) return true;

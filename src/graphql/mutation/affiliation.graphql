@@ -1,0 +1,16 @@
+
+mutation AddAffiliation($input: AffiliationInput!) {
+  addAffiliation(input: $input) {
+    id
+    name
+    uri
+    errors {
+      general
+      uri
+      name
+      displayName
+      searchName
+      provenance
+    }
+  }
+}

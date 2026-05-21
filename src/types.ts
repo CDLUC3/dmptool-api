@@ -1,13 +1,12 @@
 // Add our config to the FastifyInstance and FastifyRequest
 import { LogLevel } from "fastify";
 import { ApolloClient } from "@apollo/client";
+import { DMPToolDMPType } from "@dmptool/types";
 import {
   ConnectionParams,
   DynamoConnectionParams,
   SsmConnectionParams
 } from "@dmptool/utils";
-import {BaseGraphQLModel} from "./models/BaseGQL.js";
-import {DMPToolDMPType} from "@dmptool/types";
 
 /**
  * Add our additional properties to the FastifyInstance and FastifyRequest
@@ -112,7 +111,14 @@ export interface User {
 /**
  * Shortcuts to different segments of the maDMP record
  */
+export type IdentifiersType = DMPToolDMPType['dmp']['alternate_identifier'];
+export type IdentifierType = DMPToolDMPType['dmp']['dmp_id'];
+export type AffiliationType = DMPToolDMPType['dmp']['contact']['affiliation'];
+export type AffiliationIdType =AffiliationType['affiliation_id'][0];
 export type ContactType = DMPToolDMPType['dmp']['contact'];
-export type ProjectType = DMPToolDMPType['dmp']['project'];
+export type ContributorsType = DMPToolDMPType['dmp']['contributor'];
+export type ContributorType = DMPToolDMPType['dmp']['contributor'][0];
+export type ProjectsType = DMPToolDMPType['dmp']['project'];
+export type ResearchDomainType = DMPToolDMPType['dmp']['research_domain'];
 export type AlternateIdentifiersType = DMPToolDMPType['dmp']['alternate_identifier'];
 export type AlternateIdentifierType = AlternateIdentifiersType[0];

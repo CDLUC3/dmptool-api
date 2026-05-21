@@ -53,6 +53,24 @@ export class VersionedTemplate extends BaseGraphQLModel implements VersionedTemp
   }
 
   /**
+   * Find the specified template. If none was specified, or it was not found,
+   * return the default template.
+   *
+   * @param request the Fastify request
+   * @param templateId the template id to find
+   * @returns the VersionedTemplate
+   */
+  static async findOrDefault(request: FastifyRequest, templateId?: number): Promise<VersionedTemplate | undefined> {
+    let template: VersionedTemplate | undefined;
+    if (templateId) {
+      template = await this.findByTemplateId(request, templateId);
+      if (template) return template;
+    }
+
+    return await this.findDefault(request);
+  }
+
+  /**
    * Find a VersionedTemplate by a Template id
    *
    * @param request the Fastify request

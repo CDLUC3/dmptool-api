@@ -45,6 +45,10 @@ jest.unstable_mockModule('../configuration.ts', () => {
     landingPagePort: 4060,
   }
 
+  const graphQLConfig = {
+    uri: 'http://localhost:4000',
+  }
+
   const ssmConfig = {
     logger,
     region: 'us-east-1',
@@ -76,7 +80,8 @@ jest.unstable_mockModule('../configuration.ts', () => {
       ...baseConfig,
       ssm: ssmConfig,
       rds: rdsConfig,
-      dynamo: dynamoConfig
+      dynamo: dynamoConfig,
+      graphQL: graphQLConfig
     }))
   }
 });
