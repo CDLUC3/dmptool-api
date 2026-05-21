@@ -1,5 +1,10 @@
 # dmptool-api Changelog
 
+## 2026-05-21
+- Renamed versionedTemplate model to VersionedTemplate
+- Uncommented lint, test and audit in CodeBuild file
+- Added codegen GraphQL files to repo
+
 ## 2026-05-20
 - Added `CODEGEN_GRAPHQL_URI` to the `.env.example` (was missing last time)
 - Removed hardcoded DMP examples from README and instead added reference to the `docs/jsonSamples` files
