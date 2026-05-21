@@ -77,7 +77,7 @@ const graphQLPlugin = fp(async function (fastify: FastifyInstance): Promise<void
     fetch
   });
 
-  const errorLink = new ErrorLink(({ error }: ErrorHandlerOptions) => {
+  const errorLink = new ErrorLink(({ error, result, operation }: ErrorHandlerOptions) => {
     // GraphQL errors (query/mutation issues)
     if (CombinedGraphQLErrors.is(error)) {
       error.errors.forEach(({ message, locations, path, extensions }: GraphQLFormattedError) => {
@@ -112,7 +112,7 @@ const graphQLPlugin = fp(async function (fastify: FastifyInstance): Promise<void
       if (status) {
         handleHttpStatus(status, error, fastify);
       } else {
-        fastify.log.error({ error }, '[Apollo Network Error] - No status code available');
+        fastify.log.error({ error, operation, result }, '[Apollo Network Error] - No status code available');
       }
     }
   });
@@ -161,7 +161,10 @@ const graphQLPlugin = fp(async function (fastify: FastifyInstance): Promise<void
 
   // Simple status check to make sure the plugin is registered
   fastify.addHook('onReady', async () => {
-    fastify.log.info('GraphQL Plugin has been registered.');
+    fastify.log.info(
+      { endpoint: fastify.dmptoolConfig.graphQL?.uri },
+      'GraphQL Plugin has been registered.'
+    );
   });
 });
 export default graphQLPlugin;

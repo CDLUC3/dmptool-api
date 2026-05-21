@@ -45,7 +45,10 @@ describe('graphQLPlugin', () => {
 
     await fastify.ready();
 
-    expect(infoSpy).toHaveBeenCalledWith('GraphQL Plugin has been registered.');
+    expect(infoSpy).toHaveBeenCalledWith(
+      { "endpoint": "http://localhost:4000" },
+      'GraphQL Plugin has been registered.'
+    );
     infoSpy.mockRestore();
   });
 
