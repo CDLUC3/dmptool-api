@@ -29,6 +29,3 @@ coverage/
 
 # local Docker files
 docker/
-
-# GraphQL Generated code
-src/generated/*.ts
