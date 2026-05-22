@@ -90,6 +90,7 @@ describe('errorHandler', () => {
       log: {
         fatal: jest.fn(),
         error: jest.fn(),
+        warn: jest.fn(),
         info: jest.fn(),
       } as unknown,
     } as Partial<FastifyRequest>;
@@ -136,7 +137,7 @@ describe('errorHandler', () => {
         error as FastifyError
       );
 
-      expect(mockRequest.log?.info).toHaveBeenCalledWith(
+      expect(mockRequest.log?.warn).toHaveBeenCalledWith(
         {error},
         'Validation exception!'
       );
@@ -279,7 +280,7 @@ describe('errorHandler', () => {
       });
     });
 
-    it('should convert 403 to 401 authentication error', () => {
+    it('should map 403 to authentication required with insufficient permissions message', () => {
       const error: Partial<FastifyError> = {
         statusCode: 403,
         code: 'FORBIDDEN',
@@ -292,11 +293,11 @@ describe('errorHandler', () => {
         error as FastifyError
       );
 
-      expect(mockReply.status).toHaveBeenCalledWith(401);
+      expect(mockReply.status).toHaveBeenCalledWith(403);
       expect(mockReply.send).toHaveBeenCalledWith({
-        status_code: 401,
+        status_code: 403,
         error_code: 'authentication_required',
-        message: 'Missing or invalid token',
+        message: 'Insufficient permissions',
       });
     });
 
@@ -397,9 +398,9 @@ describe('errorHandler', () => {
         error as FastifyError
       );
 
-      expect(mockRequest.log?.error).toHaveBeenCalledWith(
-        {error},
-        'Fastify exception!'
+      expect(mockRequest.log?.fatal).toHaveBeenCalledWith(
+        { error, errOut: { status_code: 500, error_code: 'generic_error', message: 'Internal server error' } },
+        'Fastify fatal exception!'
       );
       expect(mockReply.status).toHaveBeenCalledWith(500);
       expect(mockReply.send).toHaveBeenCalledWith({

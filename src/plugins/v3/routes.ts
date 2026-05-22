@@ -30,6 +30,13 @@ import { AccessiblePlan, ConfigurationOptions, User } from "../../types.js";
 import { Plan as PlanRDS } from "../../types.js";
 import { CreateDmpResult, createPlanWorkflow } from "./workflows/planWorkflow.js";
 import {
+  DeleteDmpResult,
+  UpdateDmpResult,
+  WorkflowFailure,
+  deleteDmpWorkflow,
+  updateDmpWorkflow,
+} from "./workflows/mutationWorkflow.js";
+import {
   callerHasPermission,
   handleMissingMaDMP,
   loadMaDMPFromDynamo,
@@ -38,6 +45,52 @@ import {
   loadPlansForUser,
   userHasPermission,
 } from "../../models/maDMP.js";
+
+const isAuthenticatedUser = (request: FastifyRequest): boolean => {
+  return !!request.user && typeof request.user === 'object' && Object.keys(request.user as object).length > 0;
+}
+
+const requireAuthenticatedUser = (
+  request: FastifyRequest,
+  reply: FastifyReply,
+  action: 'create' | 'update' | 'delete'
+): boolean => {
+  if (isAuthenticatedUser(request)) return true;
+
+  request.log.warn({ action, url: request.url }, `Authentication required to ${action} a DMP`);
+  reply.code(401).send({
+    status_code: 401,
+    error_code: 'authentication_required',
+    message: 'Missing or invalid token'
+  });
+  return false;
+}
+
+const logWorkflowFailure = (
+  request: FastifyRequest,
+  failure: WorkflowFailure,
+  context: string
+): void => {
+  const payload = {
+    statusCode: failure.statusCode,
+    errorCode: failure.errorCode,
+    message: failure.message,
+  };
+
+  switch (failure.logLevel) {
+    case 'fatal':
+      request.log.fatal(payload, context);
+      break;
+    case 'error':
+      request.log.error(payload, context);
+      break;
+    case 'debug':
+      request.log.debug(payload, context);
+      break;
+    default:
+      request.log.warn(payload, context);
+  }
+}
 
 // TODO: Delete this mock responses once the models and business logic are in place
 const TEST_DMP = {
@@ -183,12 +236,16 @@ const v3RoutesPlugin = async function (
       }
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      if (!requireAuthenticatedUser(request, reply, 'create')) return;
+
       const result: CreateDmpResult = await createPlanWorkflow(
         request,
         request.body as DMPToolDMPType
       );
 
       if (!result.ok) {
+        logWorkflowFailure(request, result, 'Unable to create DMP');
+
         return reply.code(result.statusCode).send({
           status_code: result.statusCode,
           error_code: result.errorCode,
@@ -334,18 +391,11 @@ const v3RoutesPlugin = async function (
       }
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      const params = request.params as { id: string };
-      let modCheck = request.headers['if-unmodified-since'] as string;
-      const id: string = params ? encodeURIComponent(params.id) : '';
+      if (!requireAuthenticatedUser(request, reply, 'update')) return;
 
-      // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
-      if (!id || !isDmpId(request.dmptoolConfig, id)) {
-        return reply.code(400).send({
-          status_code: 400,
-          error_code: 'dmp_invalid',
-          message: 'Invalid DMP ID'
-        });
-      }
+      const params = request.params as { id: string };
+      const id: string = params ? encodeURIComponent(params.id) : '';
+      const modCheck = request.headers['if-unmodified-since'] as string;
 
       // TODO: Fetch the DMP from the DynamoDB table and check authorization
       //       if authorized, update the DMP (use the Accept header to
@@ -354,17 +404,13 @@ const v3RoutesPlugin = async function (
       //       --
       //       FOR NOW - just return a mock DMP based on the Accept header
 
-      // Convert the If-Unmodified-Since date in the header and the DMP modified date to RFC3339 format
-      modCheck = convertMySQLDateTimeToRFC3339(modCheck) as string;
-      const modified = convertMySQLDateTimeToRFC3339(TEST_DMP.modified) as string;
-
-      // Check the `If-Unmodified-Since` header and return a 409 Conflict if the
-      // DMP has been `modified` since the time specified in the header
-      if (modCheck !== modified) {
-        return reply.code(409).send({
-          status_code: 409,
-          error_code: 'conflict',
-          message: 'The DMP has been modified since the time specified in the If-Unmodified-Since header'
+      const result: UpdateDmpResult = await updateDmpWorkflow(request, id, modCheck, { dmp: TEST_DMP });
+      if (!result.ok) {
+        logWorkflowFailure(request, result, 'Unable to update DMP');
+        return reply.code(result.statusCode).send({
+          status_code: result.statusCode,
+          error_code: result.errorCode,
+          message: result.message,
         });
       }
 
@@ -372,8 +418,8 @@ const v3RoutesPlugin = async function (
       // equal to the `modified` field of the DMP. This is used to verify that
       // the DMP has not changed since the client last fetched it.
       reply.code(200)
-        .header('Last-Modified', TEST_DMP.modified)
-        .send({ dmp: TEST_DMP });
+        .header('Last-Modified', result.lastModified)
+        .send(result.body);
     }
   );
 
@@ -392,7 +438,11 @@ const v3RoutesPlugin = async function (
       }
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      let modCheck = request.headers['if-unmodified-since'] as string;
+      if (!requireAuthenticatedUser(request, reply, 'delete')) return;
+
+      const params = request.params as { id: string };
+      const id: string = params ? encodeURIComponent(params.id) : '';
+      const modCheck = request.headers['if-unmodified-since'] as string;
 
       // TODO: Fetch the DMP from the DynamoDB table, check authorization and
       //       then delete if authorized
@@ -413,18 +463,14 @@ const v3RoutesPlugin = async function (
       //   return false;
       // }
 
-      // Convert the If-Unmodified-Since date in the header and the DMP modified date to RFC3339 format
-      modCheck = convertMySQLDateTimeToRFC3339(modCheck) as string;
-      const modified = convertMySQLDateTimeToRFC3339(TEST_DMP.modified) as string;
-
-      // Check the `If-Unmodified-Since` header and return a 409 Conflict if the
-      // DMP has been `modified` since the time specified in the header
-      if (modCheck !== modified) {
-        return reply.code(409).send({
-          status_code: 409,
-          error_code: 'conflict',
-          message: 'The DMP has been modified since the time specified in the If-Unmodified-Since header'
-        })
+      const result: DeleteDmpResult = await deleteDmpWorkflow(request, id, modCheck, TEST_DMP.modified);
+      if (!result.ok) {
+        logWorkflowFailure(request, result, 'Unable to delete DMP');
+        return reply.code(result.statusCode).send({
+          status_code: result.statusCode,
+          error_code: result.errorCode,
+          message: result.message,
+        });
       }
 
       reply.code(204).send();

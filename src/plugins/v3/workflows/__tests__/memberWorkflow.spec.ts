@@ -82,6 +82,8 @@ describe('saveMembersWorkflow', () => {
     const plan = makePlan();
     const dmp = makeDmp();
 
+    plan.errors = { members: 'Unable to process members' };
+
     jest.spyOn(MemberRole, 'all').mockResolvedValue([] as never);
     jest.spyOn(ProjectMember, 'processMembers').mockResolvedValue([] as never);
     jest.spyOn(Plan, 'hasErrors').mockReturnValue(true);
@@ -96,7 +98,12 @@ describe('saveMembersWorkflow', () => {
 
     expect(result).toBe(plan);
     expect(request.log.error).toHaveBeenCalledWith(
-      { planId: plan.id, contact: dmp.contact, contributors: dmp.contributor },
+      {
+        planId: plan.id,
+        contact: dmp.contact,
+        contributors: dmp.contributor,
+        errors: { members: 'Unable to process members' },
+      },
       'Unable to process contact and contributor information.'
     );
     expect(projectSaveSpy).not.toHaveBeenCalled();

@@ -245,17 +245,30 @@ export class BaseGraphQLModel {
       status = error?.extensions?.code ?? 500;
     }
 
-    // An unintentional error
+    // An unintentional error from the GraphQL endpoint transport layer
     if (err instanceof Error && 'statusCode' in err) {
       status = (err as unknown as ServerError).statusCode;
     }
 
+    // The GraphQL endpoint returned a malformed/bad request response.
+    // Treat upstream 400s as internal failures so we don't leak internals.
+    if (status === 400) {
+      request.log.fatal(
+        { errors: CombinedProtocolErrors.is(err) ? err.errors : [err] },
+        'GraphQL endpoint returned a fatal 400 error'
+      );
+      return { status: 500, message: 'Internal Server Error' };
+    }
+
     switch (status) {
       case 401:
+        request.log.debug({ status, err }, 'GraphQL request unauthenticated');
         return { status: 401, message: 'Unauthenticated' };
       case 403:
+        request.log.debug({ status, err }, 'GraphQL request unauthorized');
         return { status: 403, message: 'Unauthorized' };
       case 404:
+        request.log.debug({ status, err }, 'GraphQL resource not found');
         return { status: 404, message: 'Not Found' };
       default:
         if (err) {

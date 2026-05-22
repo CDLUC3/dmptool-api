@@ -32,11 +32,14 @@ const fastifyErrorToApiError = (
     statusCode = 404;
     errorCode = 'not_found';
     message = err.message;
-  } else if (err.code.startsWith('FST_JWT_') || [401, 403].includes(statusCode)) {
-    // Always return a Fastify 401 or 403 as a 401 to prevent someone fishing for valid DMPs
+  } else if (err.code.startsWith('FST_JWT_') || statusCode === 401) {
     statusCode = 401;
     errorCode = 'authentication_required';
     message = 'Missing or invalid token';
+  } else if (statusCode === 403) {
+    statusCode = 403;
+    errorCode = 'authentication_required';
+    message = 'Insufficient permissions';
   } else if (err.code === 'FST_ERR_CTP_INVALID_PARSE_TYPE' || statusCode === 406) {
     statusCode = 406;
     errorCode = 'not_acceptable'
@@ -111,7 +114,7 @@ export const errorHandler = (
   // Handle AJV Validation Errors (Fastify-specific)
   if (err.validation) {
     // Always log the original error with request context for debugging
-    request.log.info({ error: err }, 'Validation exception!');
+    request.log.warn({ error: err }, 'Validation exception!');
 
     let errorCode = 'bad_request';
     let messagePrefix = '';
@@ -144,9 +147,12 @@ export const errorHandler = (
   }
 
   // Otherwise it's not a validation error
-  request.log.error({ error: err }, 'Fastify exception!');
-
-  // Unhandled errors aren't FastifyErrors, so we need to check the type
   const errOut: ApiError = fastifyErrorToApiError(err, request.dmptoolConfig)
+  if (errOut.status_code >= 500) {
+    request.log.fatal({ error: err, errOut }, 'Fastify fatal exception!');
+  } else {
+    request.log.warn({ error: err, errOut }, 'Fastify request exception!');
+  }
+
   return reply.status(errOut.status_code).send(errOut);
 }

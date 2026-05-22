@@ -71,6 +71,7 @@ describe('createPlanWorkflow', () => {
       statusCode: 400,
       errorCode: 'dmp_invalid',
       message: 'The DMPTool is responsible for assigning DMP ids.',
+      logLevel: 'warn',
     });
   });
 
@@ -84,6 +85,7 @@ describe('createPlanWorkflow', () => {
       statusCode: 500,
       errorCode: 'generic_error',
       message: 'Unable to find a template',
+      logLevel: 'fatal',
     });
   });
 
@@ -98,6 +100,7 @@ describe('createPlanWorkflow', () => {
       statusCode: 400,
       errorCode: 'dmp_already_exists',
       message: 'DMP already exists',
+      logLevel: 'warn',
     });
   });
 
@@ -121,6 +124,7 @@ describe('createPlanWorkflow', () => {
       statusCode: 400,
       errorCode: 'dmp_invalid',
       message: 'title: invalid',
+      logLevel: 'error',
     });
   });
 
@@ -151,10 +155,11 @@ describe('createPlanWorkflow', () => {
       statusCode: 400,
       errorCode: 'dmp_invalid',
       message: 'graphQL: bad plan',
+      logLevel: 'error',
     });
   });
 
-  it('returns 400 when final plan has errors after non-fatal artifact save', async () => {
+  it('treats lenient artifact errors as non-fatal and only fails if downstream retrieval fails', async () => {
     const plan = {
       id: undefined,
       dmpId: '10.99999/abc',
@@ -181,9 +186,10 @@ describe('createPlanWorkflow', () => {
 
     expect(result).toEqual({
       ok: false,
-      statusCode: 400,
-      errorCode: 'dmp_invalid',
-      message: 'alternateIdentifiers: failed',
+      statusCode: 500,
+      errorCode: 'generic_error',
+      message: 'Unable to complete your request at this time. Please try again later.',
+      logLevel: 'fatal',
     });
   });
 
@@ -217,6 +223,7 @@ describe('createPlanWorkflow', () => {
       statusCode: 500,
       errorCode: 'generic_error',
       message: 'Unable to complete your request at this time. Please try again later.',
+      logLevel: 'fatal',
     });
   });
 

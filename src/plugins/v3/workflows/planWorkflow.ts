@@ -18,7 +18,39 @@ export type CreateDmpResult =
     statusCode: 400 | 500;
     errorCode: string;
     message: string;
+    // Allows the route handler to consistently log by severity
+    logLevel?: 'warn' | 'error' | 'fatal' | 'debug';
   }
+
+// Model errors in this allowlist are non-blocking and should not fail the request.
+const LENIENT_MODEL_ERROR_KEYS = new Set<string>(['alternateIdentifiers']);
+
+const serializeModelErrors = (errors: Record<string, string> = {}): string => {
+  return Object.entries(errors)
+    .filter(([key, value]) => key !== '__typename' && !!value)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join('; ');
+}
+
+const splitModelErrors = (errors: Record<string, string> = {}): {
+  strictErrors: Record<string, string>;
+  lenientErrors: Record<string, string>;
+} => {
+  const strictErrors: Record<string, string> = {};
+  const lenientErrors: Record<string, string> = {};
+
+  Object.entries(errors)
+    .filter(([key, value]) => key !== '__typename' && !!value)
+    .forEach(([key, value]) => {
+      if (LENIENT_MODEL_ERROR_KEYS.has(key)) {
+        lenientErrors[key] = value;
+      } else {
+        strictErrors[key] = value;
+      }
+    });
+
+  return { strictErrors, lenientErrors };
+}
 
 /**
  * Normalizes the incoming maDMP by adding the default values and ensuring that
@@ -67,7 +99,7 @@ const saveNonFatalPlanArtifacts = async (
   if (!await plan.saveAlternateIdentifiers(request, dmp.alternate_identifier)){
     // Log any errors, the Plan.alternateIdentiers error will have been set
     request.log.error(
-      { planId: plan.id, alternateIdentifiers: dmp.alternat_identifier },
+      { planId: plan.id, alternateIdentifiers: dmp.alternate_identifier },
       'Unable to save alternate identifiers for the new plan'
     );
   }
@@ -93,6 +125,7 @@ export async function createPlanWorkflow(
       statusCode: 400,
       errorCode: 'dmp_invalid',
       message: `The ${request.dmptoolConfig.applicationName} is responsible for assigning DMP ids.`,
+      logLevel: 'warn',
     };
   }
 
@@ -102,22 +135,26 @@ export async function createPlanWorkflow(
     dmp.narrative?.template?.id
   );
   if (!template) {
+    request.log.fatal({ templateId: dmp.narrative?.template?.id }, 'Unable to find a template for DMP creation');
     return {
       ok: false,
       statusCode: 500,
       errorCode: 'generic_error',
       message: 'Unable to find a template',
+      logLevel: 'fatal',
     };
   }
 
   // Find the Plan or initialize a new one
   const plan = await Plan.findOrInitialize(request, template, dmp);
   if (plan.id) {
+    request.log.warn({ dmpId: dmp.dmp_id.identifier, planId: plan.id }, 'DMP already exists');
     return {
       ok: false,
       statusCode: 400,
       errorCode: 'dmp_already_exists',
       message: 'DMP already exists',
+      logLevel: 'warn',
     };
   }
 
@@ -126,24 +163,40 @@ export async function createPlanWorkflow(
   const project = await Project.findOrInitialize(request, dmp);
   // If the Project was initialized, create it
   if (!project.id && !(await project.save(request))) {
-    const errs = Project.errorsToString(project.errors);
+    const errs = serializeModelErrors(project.errors) || 'Unable to save project';
+    request.log.error({ errors: project.errors, dmpId: dmp.dmp_id.identifier }, 'Unable to save project model');
     return {
       ok: false,
       statusCode: 400,
       errorCode: 'dmp_invalid',
       message: errs,
+      logLevel: 'error',
     };
   }
 
   // Create the new Plan
   plan.projectId = project.id;
   if (!(await plan.save(request))) {
-    const errs = Plan.errorsToString(plan.errors);
+    const errs = serializeModelErrors(plan.errors) || 'Unable to save plan';
+    request.log.error({ errors: plan.errors, dmpId: dmp.dmp_id.identifier }, 'Unable to save plan model');
     return {
       ok: false,
       statusCode: 400,
       errorCode: 'dmp_invalid',
       message: errs,
+      logLevel: 'error',
+    };
+  }
+
+  // Something went wrong if the new DMP id was not set
+  if (!plan.dmpId) {
+    request.log.fatal({ plan }, 'Plan save completed but no DMP id was assigned');
+    return {
+      ok: false,
+      statusCode: 500,
+      errorCode: 'generic_error',
+      message: 'Unable to assign a DMP id to the new plan',
+      logLevel: 'fatal',
     };
   }
 
@@ -157,13 +210,24 @@ export async function createPlanWorkflow(
   // Errors would have been added to the Plan object if any errors occurred while
   // attempting to save the artifacts.
   if (Plan.hasErrors(finalPlan.errors)) {
-    const errs = Plan.errorsToString(finalPlan.errors);
-    return {
-      ok: false,
-      statusCode: 400,
-      errorCode: 'dmp_invalid',
-      message: errs,
-    };
+    const { strictErrors, lenientErrors } = splitModelErrors(finalPlan.errors);
+
+    if (Object.keys(lenientErrors).length > 0) {
+      request.log.warn({ errors: lenientErrors, dmpId: finalPlan.dmpId }, 'Non-fatal model errors occurred');
+    }
+
+    if (Object.keys(strictErrors).length > 0) {
+      const errs = serializeModelErrors(strictErrors) || 'Unable to process DMP model errors';
+      request.log.error({ errors: strictErrors, dmpId: finalPlan.dmpId }, 'Strict model errors occurred');
+
+      return {
+        ok: false,
+        statusCode: 400,
+        errorCode: 'dmp_invalid',
+        message: errs,
+        logLevel: 'error',
+      };
+    }
   }
 
   // Generate the maDMP JSON so that we can return it
@@ -177,11 +241,13 @@ export async function createPlanWorkflow(
   //       want to attach those warnings to the response
 
   if (!newMaDMP) {
+    request.log.fatal({ dmpId: plan.dmpId }, 'Unable to load newly-created maDMP');
     return {
       ok: false,
       statusCode: 500,
       errorCode: 'generic_error',
       message: 'Unable to complete your request at this time. Please try again later.',
+      logLevel: 'fatal',
     };
   }
 
