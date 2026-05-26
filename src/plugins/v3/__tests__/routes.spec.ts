@@ -33,6 +33,11 @@ describe('v3 routes', () => {
       request.user = { id: 1, email: 'tester@example.com', role: 'RESEARCHER' };
     });
 
+    // Mutating endpoints require an authenticated user.
+    fastify.addHook('preValidation', async (request): Promise<void> => {
+      request.user = { id: 1, email: 'tester@example.com', role: 'RESEARCHER' };
+    });
+
     // Import the mocked workflow module first, then routes
     const workflowModule = await import('../workflows/planWorkflow.js');
     createPlanWorkflow = workflowModule.createPlanWorkflow as jest.Mock;
@@ -249,6 +254,55 @@ describe('v3 routes', () => {
         status_code: 400,
         error_code: 'dmp_invalid',
         message: 'Bad input',
+      });
+    });
+
+    it('returns dmp_invalid when the payload contains more than one project', async () => {
+      createPlanWorkflow.mockResolvedValue({
+        ok: false,
+        statusCode: 400,
+        errorCode: 'dmp_invalid',
+        message: 'Only one project is currently supported per DMP.',
+        logLevel: 'warn',
+      } as never);
+
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/api/test/dmps',
+        body: {
+          dmp: {
+            title: 'Route test',
+            dmp_id: { identifier: 'external-abc', type: 'other' },
+            created: '2026-04-01 03:11:23Z',
+            modified: '2026-04-06 02:23:11Z',
+            ethical_issues_exist: 'unknown',
+            language: 'eng',
+            contact: {
+              name: 'Tester',
+              mbox: 'tester@example.com',
+              contact_id: [{ identifier: '0000-0000-0000-000x', type: 'orcid' }],
+            },
+            dataset: [
+              {
+                title: 'Dataset',
+                dataset_id: { identifier: '123', type: 'other' },
+                personal_data: 'unknown',
+                sensitive_data: 'no',
+              },
+            ],
+            project: [
+              { title: 'Project one' },
+              { title: 'Project two' },
+            ],
+          },
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toEqual({
+        status_code: 400,
+        error_code: 'dmp_invalid',
+        message: 'Only one project is currently supported per DMP.',
       });
     });
   });

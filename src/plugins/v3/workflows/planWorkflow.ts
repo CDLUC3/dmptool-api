@@ -6,6 +6,7 @@ import { Project } from "../../../models/Project.js";
 import { Plan } from "../../../models/Plan.js";
 import { loadMaDMPFromDynamo } from "../../../models/maDMP.js";
 import { saveMembersWorkflow } from "./memberWorkflow.js";
+import { saveFundingWorkflow } from "./fundingWorkflow.js";
 
 export type CreateDmpResult =
   | {
@@ -129,6 +130,16 @@ export async function createPlanWorkflow(
     };
   }
 
+  if (Array.isArray(dmp.project) && dmp.project.length > 1) {
+    return {
+      ok: false,
+      statusCode: 400,
+      errorCode: 'dmp_invalid',
+      message: 'Only one project is currently supported per DMP.',
+      logLevel: 'warn',
+    };
+  }
+
   // Fetch the specified template OR use the default template
   const template: VersionedTemplate | undefined = await VersionedTemplate.findOrDefault(
     request,
@@ -201,7 +212,15 @@ export async function createPlanWorkflow(
   }
 
   // Now save the Project and Plan Members
-  const finalPlan: Plan = await saveMembersWorkflow(request, project, plan, dmp);
+  const membersSavedPlan: Plan = await saveMembersWorkflow(request, project, plan, dmp);
+
+  // Save funding data after members so project and plan ids are available.
+  const finalPlan: Plan = await saveFundingWorkflow(
+    request,
+    project,
+    membersSavedPlan,
+    dmp
+  );
 
   // Now that the Project and Plan have been saved, go through and save all
   // the associated artifacts

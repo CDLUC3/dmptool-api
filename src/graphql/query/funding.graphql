@@ -1,0 +1,37 @@
+query ProjectFundings($projectId: Int!) {
+  projectFundings(projectId: $projectId) {
+    id
+    affiliation {
+      uri
+      name
+    }
+    status
+    funderOpportunityNumber
+    funderProjectNumber
+    grantId
+    errors {
+      general
+      projectId
+      affiliationId
+      status
+      funderProjectNumber
+      grantId
+      funderOpportunityNumber
+    }
+  }
+}
+
+query PlanFundings($planId: Int!) {
+  planFundings(planId: $planId) {
+    id
+    projectFunding {
+      id
+    }
+    errors {
+      general
+      planId
+      ProjectFundingId
+    }
+  }
+}
+

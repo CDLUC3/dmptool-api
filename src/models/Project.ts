@@ -6,6 +6,7 @@ import { DMPToolDMPType } from "@dmptool/types";
 import { isValidDate } from "@dmptool/utils";
 import { Plan } from "./Plan.js";
 import { ProjectMember } from "./ProjectMember.js";
+import { ProjectFunding } from "./ProjectFunding.js";
 import { ResearchDomain } from "./ResearchDomain.js";
 import { stringToInteger } from "../utils.js";
 import { ContactType } from "../types.js";
@@ -33,6 +34,7 @@ export interface ProjectInterface {
   modifiedById: number;
   plans: Plan[];
   members: ProjectMember[];
+  fundings?: ProjectFunding[];
   errors?: Record<string, string>;
 }
 
@@ -85,6 +87,7 @@ export class Project extends BaseGraphQLModel {
   isTestProject: boolean;
   plans: Plan[] = [];
   members: ProjectMember[] = [];
+  fundings: ProjectFunding[] = [];
 
   constructor(options: Partial<Project> = {}) {
     super(options);
@@ -100,6 +103,10 @@ export class Project extends BaseGraphQLModel {
 
     this.members = options.members
       ? options.members.map((m: ProjectMember) => new ProjectMember(m))
+      : [];
+
+    this.fundings = options.fundings
+      ? options.fundings.map((f: ProjectFunding) => new ProjectFunding(f))
       : [];
 
     this.errors = options.errors ?? {};

@@ -5,10 +5,15 @@ import { Project } from '../../../../models/Project.js';
 import { Plan } from '../../../../models/Plan.js';
 
 const mockSaveMembersWorkflow = jest.fn();
+const mockSaveFundingWorkflow = jest.fn();
 const mockLoadMaDMPFromDynamo = jest.fn();
 
 jest.unstable_mockModule('../memberWorkflow.js', () => ({
   saveMembersWorkflow: mockSaveMembersWorkflow,
+}));
+
+jest.unstable_mockModule('../fundingWorkflow.js', () => ({
+  saveFundingWorkflow: mockSaveFundingWorkflow,
 }));
 
 jest.unstable_mockModule('../../../../models/maDMP.js', () => ({
@@ -53,7 +58,10 @@ describe('createPlanWorkflow', () => {
 
   beforeEach(async () => {
     mockSaveMembersWorkflow.mockReset();
+    mockSaveFundingWorkflow.mockReset();
     mockLoadMaDMPFromDynamo.mockReset();
+    mockSaveMembersWorkflow.mockImplementation(async (_r, _project, plan) => plan);
+    mockSaveFundingWorkflow.mockImplementation(async (_r, _project, plan) => plan);
 
     const workflowModule = await import('../planWorkflow.js');
     createPlanWorkflow = workflowModule.createPlanWorkflow;
@@ -86,6 +94,21 @@ describe('createPlanWorkflow', () => {
       errorCode: 'generic_error',
       message: 'Unable to find a template',
       logLevel: 'fatal',
+    });
+  });
+
+  it('returns 400 when more than one project is supplied', async () => {
+    const body = makeBody();
+    body.dmp.project = [{ title: 'One' }, { title: 'Two' }] as never;
+
+    const result = await createPlanWorkflow(makeRequest(), body);
+
+    expect(result).toEqual({
+      ok: false,
+      statusCode: 400,
+      errorCode: 'dmp_invalid',
+      message: 'Only one project is currently supported per DMP.',
+      logLevel: 'warn',
     });
   });
 

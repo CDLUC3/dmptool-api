@@ -74,6 +74,12 @@ query PlanByDmpId($dmpId: String!) {
         parentResearchDomainId
       }
     }
+    fundings {
+      id
+      projectFunding {
+        id
+      }
+    }
     versionedTemplate {
       name
       description
