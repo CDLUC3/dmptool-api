@@ -1,9 +1,10 @@
 # dmptool-api Changelog
 
 ## 2026-05-26
-- Added create-time validation for `POST /dmps` to reject payloads containing more than one `dmp.project` with a `dmp_invalid` error
-- Added GraphQL funding models and workflow support to map `dmp.project[0].funding` plus DMP Tool extensions (`funding_opportunity` and `funding_project`) into `ProjectFunding` and `PlanFunding` records
-- Added/updated workflow and model tests for the new funding processing path
+- Added validation for `POST /dmps` to reject payloads containing more than one `dmp.project` with a `dmp_invalid` error
+- Added models and workflows to map `dmp.project[0].funding` plus DMP Tool extensions (`funding_opportunity` and `funding_project`) to `ProjectFunding` and `PlanFunding`
+
+## 2026-05-22
 - Refactored error handling behavior across the API to enforce consistent log severity by failure type (request warning, model error, system fatal)
 - Added route-level auth guards for mutating v3 endpoints (`POST/PUT/DELETE /dmps`) with structured `authentication_required` responses
 - Updated `POST /dmps` flow to consume workflow log metadata and log with explicit severity before returning structured API errors
