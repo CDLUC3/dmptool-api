@@ -114,11 +114,13 @@ export interface User {
 export type IdentifiersType = DMPToolDMPType['dmp']['alternate_identifier'];
 export type IdentifierType = DMPToolDMPType['dmp']['dmp_id'];
 export type AffiliationType = DMPToolDMPType['dmp']['contact']['affiliation'];
-export type AffiliationIdType =AffiliationType['affiliation_id'][0];
+export type AffiliationIdType =NonNullable<AffiliationType['affiliation_id']>[0];
 export type ContactType = DMPToolDMPType['dmp']['contact'];
 export type ContributorsType = DMPToolDMPType['dmp']['contributor'];
-export type ContributorType = DMPToolDMPType['dmp']['contributor'][0];
+export type ContributorType = NonNullable<DMPToolDMPType['dmp']['contributor']>[0];
+export type FundingType = NonNullable<ProjectType['funding']>[0];
 export type ProjectsType = DMPToolDMPType['dmp']['project'];
+export type ProjectType = NonNullable<DMPToolDMPType['dmp']['project']>[0];
 export type ResearchDomainType = DMPToolDMPType['dmp']['research_domain'];
 export type AlternateIdentifiersType = DMPToolDMPType['dmp']['alternate_identifier'];
-export type AlternateIdentifierType = AlternateIdentifiersType[0];
+export type AlternateIdentifierType = NonNullable<AlternateIdentifiersType>[0];

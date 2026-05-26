@@ -152,6 +152,47 @@ describe('ProjectFunding', () => {
     expect(project.errors.fundings).toContain('status: invalid');
   });
 
+  it('save succeeds even when project has unrelated existing errors', async () => {
+    const request = buildRequest();
+    const project = new Project({
+      id: 11,
+      errors: { members: 'non-funding warning' } as never,
+    });
+    const desired = new ProjectFunding({
+      affiliation: new Affiliation({ uri: 'https://ror.org/a' }),
+      status: 'PLANNED',
+    });
+
+    jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([]);
+    jest.spyOn(ProjectFunding, 'create').mockResolvedValue(true);
+
+    const result = await ProjectFunding.save(request, project, [desired]);
+
+    expect(result).toBe(true);
+    expect(project.errors.members).toBe('non-funding warning');
+    expect(project.errors.fundings).toBeUndefined();
+  });
+
+  it('save clears stale funding errors before a successful sync', async () => {
+    const request = buildRequest();
+    const project = new Project({
+      id: 11,
+      errors: { fundings: 'old funding error' } as never,
+    });
+    const desired = new ProjectFunding({
+      affiliation: new Affiliation({ uri: 'https://ror.org/a' }),
+      status: 'PLANNED',
+    });
+
+    jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([]);
+    jest.spyOn(ProjectFunding, 'create').mockResolvedValue(true);
+
+    const result = await ProjectFunding.save(request, project, [desired]);
+
+    expect(result).toBe(true);
+    expect(project.errors.fundings).toBeUndefined();
+  });
+
   it('updates project funding and resolves affiliation by URI when id is missing', async () => {
     const request = buildRequest();
     const funding = new ProjectFunding({

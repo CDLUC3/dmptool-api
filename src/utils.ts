@@ -59,3 +59,17 @@ export const toErrorBody = (
     message,
   };
 }
+
+/**
+ * Extracts the identifier from an object that may contain an identifier or
+ * an array of identifiers.
+ *
+ * @param idObj the object containing the identifier(s)
+ * @returns the first identifier found, or undefined if no identifier is present
+ */
+export const extractIdentifier = (
+  idObj?: { identifier?: string } | { identifier?: string }[]
+): string | undefined => {
+  if (Array.isArray(idObj)) return idObj[0]?.identifier?.trim();
+  return idObj?.identifier?.trim();
+};

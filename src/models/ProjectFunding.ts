@@ -46,6 +46,9 @@ export interface RemoveProjectFundingResponse {
   removeProjectFunding: ProjectFundingInterface;
 }
 
+/**
+ * Represents funding information for a Project
+ */
 export class ProjectFunding extends BaseGraphQLModel {
   project?: Project;
   affiliation?: Affiliation;
@@ -68,12 +71,23 @@ export class ProjectFunding extends BaseGraphQLModel {
     this.errors = options.errors ?? {};
   }
 
+  /**
+   * Create or update the Project funding information
+   *
+   * @param request the Fastify request
+   * @param project the Project
+   * @param fundings the funding information
+   * @returns true if the save was successful. The Project will have errors if not
+   */
   static async save(
     request: FastifyRequest,
     project: Project,
     fundings: ProjectFunding[]
   ): Promise<boolean> {
     if (!project?.id) return false;
+
+    // Reset stale funding-specific errors before re-synchronizing.
+    delete project.errors.fundings;
 
     const existing: ProjectFunding[] = await ProjectFunding.findByProjectId(
       request,
@@ -111,6 +125,7 @@ export class ProjectFunding extends BaseGraphQLModel {
 
     const errs: string[] = [];
 
+    // Remove any funding information that is no longer there
     await Promise.all(
       unmatchedExisting.map(async (funding: ProjectFunding): Promise<void> => {
         const deleted = await ProjectFunding.delete(request, funding);
@@ -118,6 +133,7 @@ export class ProjectFunding extends BaseGraphQLModel {
       })
     );
 
+    // Add or update the funding information
     await Promise.all(
       desired.map(async (funding: ProjectFunding): Promise<void> => {
         funding.project = project;
@@ -132,11 +148,19 @@ export class ProjectFunding extends BaseGraphQLModel {
 
     if (errs.length > 0) {
       project.errors.fundings = errs.join('; ');
+      return false;
     }
 
-    return !Project.hasErrors(project.errors);
+    return true;
   }
 
+  /**
+   * Add the project funding information
+   *
+   * @param request the Fastify request
+   * @param funding the funding information
+   * @returns true if successful. If not, the error object will have messages
+   */
   static async create(
     request: FastifyRequest,
     funding: ProjectFunding
@@ -176,9 +200,17 @@ export class ProjectFunding extends BaseGraphQLModel {
       funding.modifiedById = data.modifiedById;
     }
 
+
     return !hadErrors;
   }
 
+  /**
+   * Update the project funding information
+   *
+   * @param request the Fastify request
+   * @param funding the funding information
+   * @returns true if successful. If not, the error object will have messages
+   */
   static async update(
     request: FastifyRequest,
     funding: ProjectFunding
@@ -217,6 +249,13 @@ export class ProjectFunding extends BaseGraphQLModel {
     return !hadErrors;
   }
 
+  /**
+   * Remove the funding information
+   *
+   * @param request the Fastify request
+   * @param funding the funding information to remove
+   * @returns true if successful. If not, the error object will have messages
+   */
   static async delete(
     request: FastifyRequest,
     funding: ProjectFunding
@@ -243,6 +282,13 @@ export class ProjectFunding extends BaseGraphQLModel {
     return !hadErrors;
   }
 
+  /**
+   * Fetch all the funding information for the specified Project
+   *
+   * @param request the Fastify request
+   * @param projectId the Project id
+   * @returns an array of Project funding information
+   */
   static async findByProjectId(
     request: FastifyRequest,
     projectId: number
@@ -262,6 +308,14 @@ export class ProjectFunding extends BaseGraphQLModel {
       : [];
   }
 
+  /**
+   * Ensure that the funder has been persisted to the DB
+   *
+   * @param request the Fastify Request
+   * @param funding the funding information
+   * @returns true if the affiliation is valid. If not, the funding error object
+   * will have messages
+   */
   private static async ensureFunderAffiliation(
     request: FastifyRequest,
     funding: ProjectFunding
@@ -281,6 +335,12 @@ export class ProjectFunding extends BaseGraphQLModel {
     return true;
   }
 
+  /**
+   * Create a unique identifier for the project funding to facilitate matches
+   *
+   * @param funding the funding information
+   * @returns a unique fingerprint for the funding
+   */
   private static fingerprint(funding: ProjectFunding): string {
     return [
       funding.affiliation?.uri ?? '',

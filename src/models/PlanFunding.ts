@@ -38,6 +38,9 @@ export interface RemovePlanFundingResponse {
   removePlanFunding: PlanFundingInterface;
 }
 
+/**
+ * Represents funding information for a Plan.
+ */
 export class PlanFunding extends BaseGraphQLModel {
   plan?: Plan;
   projectFunding?: ProjectFunding;
@@ -52,12 +55,23 @@ export class PlanFunding extends BaseGraphQLModel {
     this.errors = options.errors ?? {};
   }
 
+  /**
+   * Create or update the Plan funding information
+   *
+   * @param request the Fastify request
+   * @param plan the Plan
+   * @param fundings the funding information
+   * @returns true if the save was successful. The Plan will have errors if not
+   */
   static async save(
     request: FastifyRequest,
     plan: Plan,
     fundings: PlanFunding[]
   ): Promise<boolean> {
     if (!plan?.id) return false;
+
+    // Reset stale funding-specific errors before re-synchronizing.
+    delete plan.errors.fundings;
 
     const fundingIds: number[] = [
       ...new Set(
@@ -72,6 +86,7 @@ export class PlanFunding extends BaseGraphQLModel {
     const existing = await PlanFunding.findByPlanId(request, plan.id);
     const errs: string[] = [];
 
+    // Remove any funding information that is no longer there
     if (fundingIds.length === 0) {
       await Promise.all(
         existing.map(async (funding: PlanFunding): Promise<void> => {
@@ -80,16 +95,21 @@ export class PlanFunding extends BaseGraphQLModel {
         })
       );
 
-      if (errs.length > 0) plan.errors.fundings = errs.join('; ');
-      return !Plan.hasErrors(plan.errors);
+      if (errs.length > 0) {
+        plan.errors.fundings = errs.join('; ');
+        return false;
+      }
+
+      return true;
     }
 
+    // Create or update the funding information
     const syncedFundings = existing.length === 0
       ? await PlanFunding.create(request, plan.id, fundingIds)
       : await PlanFunding.update(request, plan.id, fundingIds);
 
     if (!syncedFundings) {
-      errs.push('Unable to synchronize plan fundings');
+      errs.push('Unable to synchronize plan funding information');
     } else {
       fundings.forEach((funding: PlanFunding): void => {
         funding.plan = plan;
@@ -106,11 +126,20 @@ export class PlanFunding extends BaseGraphQLModel {
 
     if (errs.length > 0) {
       plan.errors.fundings = errs.join('; ');
+      return false;
     }
 
-    return !Plan.hasErrors(plan.errors);
+    return true;
   }
 
+  /**
+   * Create the plan funding information
+   *
+   * @param request the Fastify request
+   * @param planId the Plan id
+   * @param projectFundingIds the project funding ids
+   * @returns the created PlanFunding objects, or undefined if there was an error
+   */
   static async create(
     request: FastifyRequest,
     planId: number,
@@ -135,6 +164,14 @@ export class PlanFunding extends BaseGraphQLModel {
     return PlanFunding.findByPlanId(request, planId);
   }
 
+  /**
+   * Update the plan funding information
+   *
+   * @param request the Fastify request
+   * @param planId the Plan id
+   * @param projectFundingIds the project funding ids
+   * @returns the updated PlanFunding objects, or undefined if there was an error
+   */
   static async update(
     request: FastifyRequest,
     planId: number,
@@ -164,6 +201,13 @@ export class PlanFunding extends BaseGraphQLModel {
     });
   }
 
+  /**
+   * Remove the plan funding information
+   *
+   * @param request the Fastify request
+   * @param funding the funding information to delete
+   * @returns true if successful, adds errors to the funding if not
+   */
   static async delete(
     request: FastifyRequest,
     funding: PlanFunding
@@ -190,6 +234,13 @@ export class PlanFunding extends BaseGraphQLModel {
     return !hadErrors;
   }
 
+  /**
+   * Fetch all funding information for a Plan
+   *
+   * @param request the Fastify request
+   * @param planId the Plan id
+   * @returns an array of PlanFunding objects, or an empty array if there was an error
+   */
   static async findByPlanId(
     request: FastifyRequest,
     planId: number
@@ -209,6 +260,13 @@ export class PlanFunding extends BaseGraphQLModel {
       : [];
   }
 
+  /**
+   * Convert Project funding information into Plan funding information
+   *
+   * @param plan the Plan
+   * @param fundings the Project funding information
+   * @returns an array of PlanFunding objects
+   */
   static fromProjectFundings(plan: Plan, fundings: ProjectFunding[]): PlanFunding[] {
     return (fundings ?? []).map((funding: ProjectFunding): PlanFunding => {
       return new PlanFunding({

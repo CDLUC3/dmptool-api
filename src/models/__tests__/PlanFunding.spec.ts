@@ -148,6 +148,41 @@ describe('PlanFunding', () => {
     expect(fundings[0].id).toBe(303);
   });
 
+  it('save succeeds even when plan has unrelated existing errors', async () => {
+    const request = buildRequest();
+    const plan = new Plan({ id: 5, errors: { members: 'keep me' } as never });
+    const fundings = [new PlanFunding({ projectFunding: new ProjectFunding({ id: 33 }) })];
+
+    jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue([
+      new PlanFunding({ id: 1, projectFunding: new ProjectFunding({ id: 99 }) }),
+    ]);
+    jest.spyOn(PlanFunding, 'update').mockResolvedValue([
+      new PlanFunding({ id: 303, projectFunding: new ProjectFunding({ id: 33 }) }),
+    ]);
+
+    const result = await PlanFunding.save(request, plan, fundings);
+
+    expect(result).toBe(true);
+    expect(plan.errors.members).toBe('keep me');
+    expect(plan.errors.fundings).toBeUndefined();
+  });
+
+  it('save clears stale funding errors before a successful sync', async () => {
+    const request = buildRequest();
+    const plan = new Plan({ id: 5, errors: { fundings: 'old funding error' } as never });
+    const fundings = [new PlanFunding({ projectFunding: new ProjectFunding({ id: 12 }) })];
+
+    jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue([]);
+    jest.spyOn(PlanFunding, 'create').mockResolvedValue([
+      new PlanFunding({ id: 101, projectFunding: new ProjectFunding({ id: 12 }) }),
+    ]);
+
+    const result = await PlanFunding.save(request, plan, fundings);
+
+    expect(result).toBe(true);
+    expect(plan.errors.fundings).toBeUndefined();
+  });
+
   it('create returns undefined when mutation has no data', async () => {
     jest.spyOn(PlanFunding, 'mutate').mockResolvedValue({ data: undefined });
 

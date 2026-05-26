@@ -1,9 +1,6 @@
 # dmptool-api Changelog
 
 ## 2026-05-26
-- Expanded unit test coverage for `ProjectFunding` and `PlanFunding` model behaviors (save/create/update/delete and failure branches), raising both files to >95% line coverage
-
-## 2026-05-22
 - Added create-time validation for `POST /dmps` to reject payloads containing more than one `dmp.project` with a `dmp_invalid` error
 - Added GraphQL funding models and workflow support to map `dmp.project[0].funding` plus DMP Tool extensions (`funding_opportunity` and `funding_project`) into `ProjectFunding` and `PlanFunding` records
 - Added/updated workflow and model tests for the new funding processing path

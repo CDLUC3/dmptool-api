@@ -6,6 +6,8 @@ import { PlanFunding } from "../../../models/PlanFunding.js";
 import { Project } from "../../../models/Project.js";
 import { ProjectFunding } from "../../../models/ProjectFunding.js";
 import { ProjectFundingStatus } from "../../../generated/graphql.js";
+import { extractIdentifier } from "../../../utils.js";
+import { FundingType, ProjectType } from "../../../types.js";
 
 interface FundingExtensionType {
   project_id?: { identifier?: string } | { identifier?: string }[];
@@ -14,9 +16,12 @@ interface FundingExtensionType {
   project_identifier?: { identifier?: string };
 }
 
-type DmpProjectType = NonNullable<DMPToolDMPType['dmp']['project']>[0];
-type DmpFundingType = NonNullable<DmpProjectType['funding']>[0];
-
+/**
+ * Convert the RDA Common Standard funding status to the GraphQL enum.
+ *
+ * @param status the status code
+ * @returns the status code as a GraphQL enum value
+ */
 const toStatus = (
   status?: string
 ): ProjectFundingStatus | undefined => {
@@ -29,32 +34,25 @@ const toStatus = (
   return undefined;
 };
 
-const extractIdentifier = (
-  idObj?: { identifier?: string } | { identifier?: string }[]
-): string | undefined => {
-  if (Array.isArray(idObj)) return idObj[0]?.identifier?.trim();
-  return idObj?.identifier?.trim();
-};
-
-const normalizeFunderId = (identifier?: string): string | undefined => {
-  if (!identifier) return undefined;
-
-  if (identifier.includes('ror.org')) return identifier;
-  return identifier.startsWith('http') ? identifier : `https://ror.org/${identifier}`;
-};
-
 const extensionKey = (projectIdentifier?: string, funderIdentifier?: string): string => {
   return `${projectIdentifier ?? ''}|${funderIdentifier ?? ''}`;
 };
 
+/**
+ * Locate the Project+funding associated with the specified funder opportunity id
+ * or funder project number
+ *
+ * @param extensions the Project and funder ids
+ * @param valueKey the opportunity id or project number
+ */
 const indexByProjectAndFunder = (
   extensions: FundingExtensionType[] | undefined,
   valueKey: 'opportunity_identifier' | 'project_identifier'
 ): Record<string, string[]> => {
   return (extensions ?? []).reduce((acc: Record<string, string[]>, ext: FundingExtensionType) => {
-    const projectIdentifier = extractIdentifier(ext.project_id);
-    const funderIdentifier = normalizeFunderId(ext.funder_id?.identifier?.trim());
-    const value = ext[valueKey]?.identifier?.trim();
+    const projectIdentifier: string | undefined = extractIdentifier(ext.project_id);
+    const funderIdentifier: string | undefined = Affiliation.normalizeRORId(ext.funder_id?.identifier?.trim());
+    const value: string | undefined = ext[valueKey]?.identifier?.trim();
 
     if (!value) return acc;
 
@@ -68,6 +66,12 @@ const indexByProjectAndFunder = (
 /**
  * Workflow to convert maDMP funding information into ProjectFunding and PlanFunding
  * records and persist them in GraphQL.
+ *
+ * @param request the Fastify request
+ * @param project the research project
+ * @param plan the Plan
+ * @param dmp the maDMP information
+ * @returns the updated Plan
  */
 export const saveFundingWorkflow = async (
   request: FastifyRequest,
@@ -75,8 +79,8 @@ export const saveFundingWorkflow = async (
   plan: Plan,
   dmp: DMPToolDMPType['dmp']
 ): Promise<Plan> => {
-  const dmpProject: DmpProjectType | undefined = dmp.project?.[0];
-  const dmpFundings: DmpFundingType[] = dmpProject?.funding ?? [];
+  const dmpProject: ProjectType | undefined = dmp.project?.[0];
+  const dmpFundings: FundingType[] = dmpProject?.funding ?? [];
 
   const opportunityIndex = indexByProjectAndFunder(
     dmp.funding_opportunity as FundingExtensionType[],
@@ -89,30 +93,76 @@ export const saveFundingWorkflow = async (
 
   const projectIdentifier = extractIdentifier(dmpProject?.project_id);
 
-  const projectFundings: ProjectFunding[] = await Promise.all(
-    dmpFundings.map(async (funding: DmpFundingType): Promise<ProjectFunding> => {
-      const funderIdentifier = normalizeFunderId(
-                funding.funder_id?.identifier?.trim()
-      );
-      const extKey = extensionKey(projectIdentifier, funderIdentifier);
+  /**
+   * Generate potential Project funding information
+   *
+   * @param funding the funding information from the maDMP
+   * @returns project funding information
+   */
+  const generateFundingCandidate = async (
+    funding: FundingType
+  ): Promise<ProjectFunding | null> => {
+    const funderIdentifier = Affiliation.normalizeRORId(
+      funding.funder_id?.identifier?.trim()
+    );
+    const extKey = extensionKey(projectIdentifier, funderIdentifier);
 
-      const affiliation = new Affiliation({
-        uri: funderIdentifier,
-        name: funding.name?.trim(),
-        funder: true,
-      });
+    // Build a minimal affiliation object compatible with findOrInitialize so
+    // that we reuse the standard look-up path (ROR URI first, then name fallback).
+    const affiliationLookup = {
+      name: funding.name?.trim(),
+      affiliationId: funderIdentifier
+        ? [{ identifier: funderIdentifier, type: 'ror' }]
+        : [],
+      affiliation_id: funderIdentifier
+        ? { identifier: funderIdentifier }
+        : undefined,
+    } as Parameters<typeof Affiliation.findOrInitialize>[1];
 
-      return new ProjectFunding({
-        project,
-        affiliation,
-        status: toStatus(funding.funding_status),
-        grantId: funding.grant_id?.identifier?.trim(),
-        funderOpportunityNumber: opportunityIndex[extKey]?.shift(),
-        funderProjectNumber: projectNumberIndex[extKey]?.shift(),
-      });
+    const affiliation: Affiliation = await Affiliation.findOrInitialize(
+      request,
+      affiliationLookup,
+      true
+    );
+
+    // If the affiliation does not yet exist in the system, persist it now so
+    // that the subsequent ProjectFunding mutation has a valid affiliationId.
+    if (!affiliation.id) {
+      const created = await affiliation.create(request);
+      if (!created) {
+        request.log.warn(
+          { funderIdentifier, name: funding.name, errors: affiliation.errors },
+          'Unable to create funder affiliation; skipping this funding entry'
+        );
+        return null;
+      }
+    }
+
+    return new ProjectFunding({
+      project,
+      affiliation,
+      status: toStatus(funding.funding_status),
+      grantId: funding.grant_id?.identifier?.trim(),
+      funderOpportunityNumber: opportunityIndex[extKey]?.shift(),
+      funderProjectNumber: projectNumberIndex[extKey]?.shift(),
+    });
+  }
+
+  // Resolve (or create) each funder affiliation before building ProjectFunding records.
+  // null entries indicate that the funder affiliation could not be resolved and should
+  // be skipped so that a single bad funder doesn't abort the entire workflow.
+  const projectFundingCandidates: (ProjectFunding | null)[] = await Promise.all(
+    dmpFundings.map(async (funding: FundingType): Promise<ProjectFunding | null> => {
+      return generateFundingCandidate(funding);
     })
   );
 
+  // Drop any entries where the funder affiliation could not be resolved
+  const projectFundings: ProjectFunding[] = projectFundingCandidates.filter(
+    (pf): pf is ProjectFunding => pf !== null
+  );
+
+  // Save all the project funding information
   if (!(await ProjectFunding.save(request, project, projectFundings))) {
     request.log.error(
       { dmpId: plan.dmpId, projectId: project.id, errors: project.errors },
@@ -122,10 +172,12 @@ export const saveFundingWorkflow = async (
     return plan;
   }
 
+  // Generate plan funding information from the project funding information
   const planFundings: PlanFunding[] = PlanFunding.fromProjectFundings(
     plan,
     projectFundings
   );
+
 
   if (!(await PlanFunding.save(request, plan, planFundings))) {
     request.log.error(

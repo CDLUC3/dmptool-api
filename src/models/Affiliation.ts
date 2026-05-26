@@ -74,6 +74,19 @@ export class Affiliation extends BaseGraphQLModel {
   }
 
   /**
+   * Normalize ROR identifiers
+   *
+   * @param identifier the identifier to normalize
+   * @returns the normalized identifier
+   */
+  static normalizeRORId(identifier?: string): string | undefined {
+    if (!identifier) return undefined;
+
+    if (identifier.includes('ror.org')) return identifier;
+    return identifier.startsWith('http') ? identifier : `https://ror.org/${identifier}`;
+  };
+
+  /**
    * Create the current Affiliation
    *
    * @param request the Fastify request
@@ -132,8 +145,8 @@ export class Affiliation extends BaseGraphQLModel {
 
     if (rorId) {
       // If a ROR was found, attempt to find the affiliation by the ROR ID
-      fullRorId = rorId.includes('ror.org') ? rorId : `https://ror.org/${rorId}`;
-      existing = await Affiliation.findByURI(request, fullRorId);
+      fullRorId = Affiliation.normalizeRORId(rorId)
+      existing = fullRorId ? await Affiliation.findByURI(request, fullRorId) : undefined;
     }
 
     // Otherwise, attempt to find the affiliation by the name
