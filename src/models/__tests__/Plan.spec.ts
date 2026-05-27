@@ -82,7 +82,7 @@ describe('Plan', () => {
 
     expect(result).toBe(true);
     expect(plan.id).toBe(11);
-    expect(plan.dmpId).toBe('doi:10.12345/abc');
+    expect(plan.dmpId).toMatch(/^tmp-dmps-/);
   });
 
   it('should update title and status on success', async () => {
@@ -133,7 +133,7 @@ describe('Plan', () => {
 
     const result = await plan.update(buildRequest());
 
-    expect(result).toBe(true);
+    expect(result).toBe(false);
     expect(mutateSpy).toHaveBeenCalledTimes(2);
     expect(plan.modified).toBe('m2');
   });

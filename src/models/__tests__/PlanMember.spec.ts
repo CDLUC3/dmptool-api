@@ -68,7 +68,7 @@ describe('PlanMember', () => {
       },
     });
 
-    const result = await PlanMember.create(buildRequest(), member);
+    const result = await member.create(buildRequest());
 
     expect(result).toBe(true);
     expect(member.id).toBe(5);
@@ -99,7 +99,7 @@ describe('PlanMember', () => {
       },
     });
 
-    const result = await PlanMember.update(buildRequest(), member);
+    const result = await member.update(buildRequest());
 
     expect(result).toBe(true);
     expect(member.modified).toBe('updated');
@@ -124,7 +124,7 @@ describe('PlanMember', () => {
       },
     });
 
-    const result = await PlanMember.delete(buildRequest(), member);
+    const result = await member.delete(buildRequest());
 
     expect(result).toBe(true);
     expect(member.modified).toBe('deleted');
@@ -146,16 +146,16 @@ describe('PlanMember', () => {
     });
 
     jest.spyOn(PlanMember, 'findByPlanId').mockResolvedValue([existing, updatedMember]);
-    jest.spyOn(PlanMember, 'delete').mockResolvedValue(true);
-    jest.spyOn(PlanMember, 'create').mockResolvedValue(true);
-    jest.spyOn(PlanMember, 'update').mockResolvedValue(true);
+    jest.spyOn(existing, 'delete').mockResolvedValue(true);
+    jest.spyOn(newMember, 'create').mockResolvedValue(true);
+    jest.spyOn(updatedMember, 'update').mockResolvedValue(true);
 
     const result = await PlanMember.save(buildRequest(), plan, [newMember, updatedMember]);
 
     expect(result).toBe(true);
-    expect(PlanMember.delete).toHaveBeenCalledWith(expect.anything(), existing);
-    expect(PlanMember.create).toHaveBeenCalledWith(expect.anything(), newMember);
-    expect(PlanMember.update).toHaveBeenCalledWith(expect.anything(), updatedMember);
+    expect(existing.delete).toHaveBeenCalledWith(expect.anything());
+    expect(newMember.create).toHaveBeenCalledWith(expect.anything());
+    expect(updatedMember.update).toHaveBeenCalledWith(expect.anything());
   });
 
   it('should create plan members from project members', async () => {

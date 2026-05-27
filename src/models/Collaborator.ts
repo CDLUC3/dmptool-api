@@ -1,8 +1,8 @@
 import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
-import { ProjectInterface } from "./Project.js";
 import { User } from "../types.js";
 import { FastifyRequest } from "fastify";
 import { ApolloClient } from "@apollo/client";
+import { Project } from "./Project.js";
 import MutateOptions = ApolloClient.MutateOptions;
 import {
   AddProjectCollaboratorDocument,
@@ -43,7 +43,7 @@ export interface DeleteCollaboratorResponse {
  * Represents a Collaborator on a Data Management Plan
  */
 export class Collaborator extends BaseGraphQLModel {
-  project?: ProjectInterface;
+  project?: Project;
   user?: User
   invitedBy?: User
 

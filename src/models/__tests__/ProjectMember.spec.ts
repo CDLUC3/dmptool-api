@@ -87,7 +87,7 @@ describe('ProjectMember', () => {
       },
     });
 
-    const result = await ProjectMember.create(buildRequest(), member);
+    const result = await member.create(buildRequest());
 
     expect(result).toBe(true);
     expect(member.id).toBe(10);
@@ -122,7 +122,7 @@ describe('ProjectMember', () => {
       },
     });
 
-    await ProjectMember.create(buildRequest(), member);
+    await member.create(buildRequest());
 
     expect(affiliation.create).toHaveBeenCalled();
   });
@@ -155,7 +155,7 @@ describe('ProjectMember', () => {
       },
     });
 
-    const result = await ProjectMember.update(buildRequest(), member);
+    const result = await member.update(buildRequest());
 
     expect(result).toBe(true);
     expect(member.modified).toBe('updated');
@@ -184,7 +184,7 @@ describe('ProjectMember', () => {
       },
     });
 
-    const result = await ProjectMember.delete(buildRequest(), member);
+    const result = await member.delete(buildRequest());
 
     expect(result).toBe(true);
     expect(member.modified).toBe('deleted');

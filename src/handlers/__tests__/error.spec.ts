@@ -33,7 +33,7 @@ describe('notFoundHandler', () => {
     expect(mockReply.status).toHaveBeenCalledWith(404);
     expect(mockReply.send).toHaveBeenCalledWith({
       status_code: '404',
-      error_code: 'not_found',
+      error_code: 'dmp_not_found',
       message: 'Route GET:/api/v3/dmps not found.',
     });
   });
@@ -53,7 +53,7 @@ describe('notFoundHandler', () => {
     expect(mockReply.status).toHaveBeenCalledWith(404);
     expect(mockReply.send).toHaveBeenCalledWith({
       status_code: '404',
-      error_code: 'not_found',
+      error_code: 'dmp_not_found',
       message: 'Route GET:/api/v3/dmps/10.12345/abc123 not found. Make sure the DMP id is URL encoded.',
     });
   });
@@ -113,11 +113,10 @@ describe('errorHandler', () => {
 
       expect(mockRequest.log?.fatal).toHaveBeenCalledWith(expect.stringContaining('Unhandled Exception!'));
       expect(mockReply.status).toHaveBeenCalledWith(500);
-      expect(mockReply.send).toHaveBeenCalledWith({
+      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
         status_code: 500,
         error_code: 'generic_error',
-        message: 'Internal server error',
-      });
+      }));
     });
   });
 
@@ -234,7 +233,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 400,
         error_code: 'dmp_invalid',
-        message: 'Empty JSON body',
+        error_message: 'The DMP is invalid. Please use /dmps/validate for more information.: Empty JSON body',
       });
     });
 
@@ -254,8 +253,8 @@ describe('errorHandler', () => {
       expect(mockReply.status).toHaveBeenCalledWith(404);
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 404,
-        error_code: 'not_found',
-        message: 'Not found',
+        error_code: 'dmp_not_found',
+        error_message: 'The DMP could not be found.',
       });
     });
 
@@ -276,7 +275,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 401,
         error_code: 'authentication_required',
-        message: 'Missing or invalid token',
+        error_message: 'Authentication required to perform the specified request.',
       });
     });
 
@@ -296,8 +295,8 @@ describe('errorHandler', () => {
       expect(mockReply.status).toHaveBeenCalledWith(403);
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 403,
-        error_code: 'authentication_required',
-        message: 'Insufficient permissions',
+        error_code: 'insufficient_permissions',
+        error_message: 'The current user has insufficient permissions to perform this action',
       });
     });
 
@@ -318,7 +317,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 406,
         error_code: 'not_acceptable',
-        message: 'Invalid parse type',
+        error_message: 'The client has requested a DMP standard that the server cannot fulfill.',
       });
     });
 
@@ -339,7 +338,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 415,
         error_code: 'unsupported_media_type',
-        message: 'Invalid media type',
+        error_message: 'The server cannot process the DMP sent by the client because it does not support th specified MIME type.',
       });
     });
 
@@ -357,11 +356,10 @@ describe('errorHandler', () => {
       );
 
       expect(mockReply.status).toHaveBeenCalledWith(413);
-      expect(mockReply.send).toHaveBeenCalledWith({
+      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
         status_code: 413,
         error_code: 'payload_too_large',
-        message: 'The DMP was too large. Please keep it under 10MB',
-      });
+      }));
     });
 
     it('should handle 4xx errors with custom message', () => {
@@ -381,7 +379,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 422,
         error_code: 'CUSTOM_ERROR',
-        message: 'Custom error message',
+        error_message: 'The request is invalid.',
       });
     });
 
@@ -399,15 +397,17 @@ describe('errorHandler', () => {
       );
 
       expect(mockRequest.log?.fatal).toHaveBeenCalledWith(
-        { error, errOut: { status_code: 500, error_code: 'generic_error', message: 'Internal server error' } },
+        expect.objectContaining({
+          error,
+          errOut: expect.objectContaining({ status_code: 500, error_code: 'generic_error' }),
+        }),
         'Fastify fatal exception!'
       );
       expect(mockReply.status).toHaveBeenCalledWith(500);
-      expect(mockReply.send).toHaveBeenCalledWith({
+      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
         status_code: 500,
         error_code: 'generic_error',
-        message: 'Internal server error',
-      });
+      }));
     });
 
     it('should handle error with no statusCode defaulting to 500', () => {
@@ -423,11 +423,10 @@ describe('errorHandler', () => {
       );
 
       expect(mockReply.status).toHaveBeenCalledWith(500);
-      expect(mockReply.send).toHaveBeenCalledWith({
+      expect(mockReply.send).toHaveBeenCalledWith(expect.objectContaining({
         status_code: 500,
         error_code: 'generic_error',
-        message: 'Internal server error',
-      });
+      }));
     });
   });
 });

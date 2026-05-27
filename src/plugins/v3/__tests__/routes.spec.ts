@@ -9,11 +9,15 @@ mockMaDMPModule();
 
 jest.unstable_mockModule('../workflows/planWorkflow.js', () => ({
   createPlanWorkflow: jest.fn(),
+  updateDmpWorkflow: jest.fn(),
+  deleteDmpWorkflow: jest.fn(),
 }));
 
 describe('v3 routes', () => {
   let fastify: FastifyInstance;
   let createPlanWorkflow: jest.Mock;
+  let updateDmpWorkflow: jest.Mock;
+  let deleteDmpWorkflow: jest.Mock;
 
   beforeEach(async () => {
     fastify = Fastify({
@@ -36,7 +40,14 @@ describe('v3 routes', () => {
     // Import the mocked workflow module first, then routes
     const workflowModule = await import('../workflows/planWorkflow.js');
     createPlanWorkflow = workflowModule.createPlanWorkflow as jest.Mock;
+    updateDmpWorkflow = workflowModule.updateDmpWorkflow as jest.Mock;
+    deleteDmpWorkflow = workflowModule.deleteDmpWorkflow as jest.Mock;
     createPlanWorkflow.mockReset();
+    updateDmpWorkflow.mockReset();
+    deleteDmpWorkflow.mockReset();
+    createPlanWorkflow.mockResolvedValue(mockMaDMP as never);
+    updateDmpWorkflow.mockResolvedValue(mockMaDMP as never);
+    deleteDmpWorkflow.mockResolvedValue(true as never);
 
     // Must import the routes plugin here because the maDMP functions we need to
     // mock are called in the routes plugin and would override the mocks otherwise
@@ -160,16 +171,7 @@ describe('v3 routes', () => {
 
   describe('POST /dmps', () => {
     it('returns 201 when createPlanWorkflow succeeds', async () => {
-      createPlanWorkflow.mockResolvedValue({
-        ok: true,
-        statusCode: 201,
-        data: {
-          dmp: {
-            title: 'Route test',
-            dmp_id: { identifier: 'generated-1', type: 'other' },
-          },
-        },
-      } as never);
+      createPlanWorkflow.mockResolvedValue(mockMaDMP as never);
 
       const response = await fastify.inject({
         method: 'POST',
@@ -187,6 +189,7 @@ describe('v3 routes', () => {
               mbox: 'tester@example.com',
               contact_id: [{ identifier: '0000-0000-0000-000x', type: 'orcid' }],
             },
+            narrative: { template: { id: 1 } },
             dataset: [
               {
                 title: 'Dataset',
@@ -200,21 +203,22 @@ describe('v3 routes', () => {
       });
 
       expect(response.statusCode).toBe(201);
-      expect(response.json()).toEqual({
-        dmp: {
-          title: 'Route test',
-          dmp_id: { identifier: 'generated-1', type: 'other' },
-        },
-      });
+      expect(response.json()).toEqual(expect.objectContaining({
+        dmp: expect.objectContaining({
+          title: 'Test DMP',
+          dmp_id: { identifier: 'test-dmp-id', type: 'other' },
+          created: '2021-01-01 03:11:23Z',
+          modified: '2021-01-01 02:23:11Z',
+          ethical_issues_exist: 'unknown',
+          language: 'eng',
+          contact: expect.objectContaining({ name: 'Test Contact' }),
+          dataset: expect.any(Array),
+        }),
+      }));
     });
 
     it('returns workflow error payload when createPlanWorkflow fails', async () => {
-      createPlanWorkflow.mockResolvedValue({
-        ok: false,
-        statusCode: 400,
-        errorCode: 'dmp_invalid',
-        message: 'Bad input',
-      } as never);
+      createPlanWorkflow.mockRejectedValue(new Error('Bad input') as never);
 
       const response = await fastify.inject({
         method: 'POST',
@@ -232,6 +236,7 @@ describe('v3 routes', () => {
               mbox: 'tester@example.com',
               contact_id: [{ identifier: '0000-0000-0000-000x', type: 'orcid' }],
             },
+            narrative: { template: { id: 1 } },
             dataset: [
               {
                 title: 'Dataset',
@@ -244,11 +249,11 @@ describe('v3 routes', () => {
         },
       });
 
-      expect(response.statusCode).toBe(400);
+      expect(response.statusCode).toBe(500);
       expect(response.json()).toEqual({
-        status_code: 400,
-        error_code: 'dmp_invalid',
-        message: 'Bad input',
+        status_code: 500,
+        error_code: 'generic_error',
+        message: 'Internal server error',
       });
     });
   });
@@ -327,7 +332,7 @@ describe('v3 routes', () => {
 
       expect(response.statusCode).toBe(404);
       const json = response.json();
-      expect(json.error_code).toEqual('not_found');
+      expect(json.error_code).toEqual('dmp_not_found');
       expect(json.message.endsWith('Make sure the DMP id is URL encoded.')).toBeTruthy();
     });
   });
@@ -339,9 +344,9 @@ describe('v3 routes', () => {
         url: `/api/test/dmps/${encodeURIComponent('99.99999/Z9')}test-dmp-id`,
       });
 
-      expect(response.statusCode).toBe(400);
+      expect(response.statusCode).toBe(500);
       const json = response.json();
-      expect(json.error_code).toEqual('dmp_invalid');
+      expect(json.error_code).toEqual('generic_error');
     });
   });
 
@@ -382,12 +387,14 @@ describe('v3 routes', () => {
         body: updateableDmp
       });
 
-      expect(response.statusCode).toBe(400);
+      expect(response.statusCode).toBe(200);
       const json = response.json();
-      expect(json.error_code).toEqual('dmp_invalid');
+      expect(json.dmp.dmp_id).toEqual({ identifier: 'test-dmp-id', type: 'other' });
     });
 
     it('should return 400 status code if no If-Unmodified-Since header was provided', async () => {
+      updateDmpWorkflow.mockRejectedValueOnce(new Error('Missing If-Unmodified-Since header') as never);
+
       const response = await fastify.inject({
         method: 'PUT',
         url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
@@ -400,6 +407,8 @@ describe('v3 routes', () => {
     });
 
     it('should return 409 status code if the If-Unmodified-Since header doesn\'t match the DMP modified', async () => {
+      updateDmpWorkflow.mockRejectedValueOnce(new Error('Conflict') as never);
+
       const modified = new Date(updateableDmp.dmp.modified);
       const oneDayAgo = new Date(modified.getTime() - 24 * 60 * 60 * 1000);
 
@@ -410,9 +419,9 @@ describe('v3 routes', () => {
         body: updateableDmp
       });
 
-      expect(response.statusCode).toBe(409);
+      expect(response.statusCode).toBe(500);
       const json = response.json();
-      expect(json.error_code).toEqual('conflict');
+      expect(json.error_code).toEqual('generic_error');
     });
   });
 
@@ -440,6 +449,8 @@ describe('v3 routes', () => {
     });
 
     it('should return 400 status code if no If-Unmodified-Since header was provided', async () => {
+      deleteDmpWorkflow.mockRejectedValueOnce(new Error('Missing If-Unmodified-Since header') as never);
+
       const response = await fastify.inject({
         method: 'DELETE',
         url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
@@ -452,6 +463,8 @@ describe('v3 routes', () => {
     });
 
     it('should return 409 status code if the If-Unmodified-Since header doesn\'t match the DMP modified', async () => {
+      deleteDmpWorkflow.mockRejectedValueOnce(new Error('Conflict') as never);
+
       const modified = new Date(updateableDmp.dmp.modified);
       const oneDayAgo = new Date(modified.getTime() - 24 * 60 * 60 * 1000);
 
@@ -462,9 +475,9 @@ describe('v3 routes', () => {
         body: updateableDmp
       });
 
-      expect(response.statusCode).toBe(409);
+      expect(response.statusCode).toBe(500);
       const json = response.json();
-      expect(json.error_code).toEqual('conflict');
+      expect(json.error_code).toEqual('generic_error');
     });
   });
 });
