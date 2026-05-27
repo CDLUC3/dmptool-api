@@ -12,47 +12,31 @@ import {
 } from "../generated/graphql.js";
 
 /**
- * Represents a Collaborator
- */
-export interface CollaboratorInterface {
-  id: number;
-  projectId: number;
-  email: string;
-  invitedById: number;
-  userId: number;
-  created: string;
-  createdById: number;
-  modified: string;
-  modifiedById: number;
-  errors?: Record<string, string>;
-}
-
-/**
  * The possible response for a Collaborators GraphQL query
  */
 export interface CollaboratorsResponse {
-  projectCollaborators: CollaboratorInterface[]
+  projectCollaborators: Collaborator[]
 }
 
 /**
  * Representation of the GraphQL query response for adding a Collaborator
  */
 export interface AddCollaboratorResponse {
-  addProjectCollaborator: CollaboratorInterface
+  addProjectCollaborator: Collaborator
 }
 
 /**
  * Representation of the GraphQL query response for updating a Collaborator
  */
 export interface UpdateCollaboratorResponse {
-  updateProjectCollaborator: CollaboratorInterface
+  updateProjectCollaborator: Collaborator
 }
 
 /**
  * Representation of the GraphQL query response for deleting a Collaborator
  */
 export interface DeleteCollaboratorResponse {
-  removeProjectCollaborator: CollaboratorInterface
+  removeProjectCollaborator: Collaborator
 }
 
 /**
@@ -74,14 +58,13 @@ export class Collaborator extends BaseGraphQLModel {
     this.invitedBy = options.invitedBy;
     this.email = options.email;
     this.accessLevel = options.accessLevel ?? 'OWN';
-    this.errors = options.errors ?? {};
   }
 
   /**
    * Shortcut helper function to save or update the current Collaborator
    *
    * @param request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async save(request: FastifyRequest): Promise<boolean> {
     return this.id ? await this.update(request) : await this.create(request);
@@ -91,7 +74,7 @@ export class Collaborator extends BaseGraphQLModel {
    * Create the current Collaborator
    *
    * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async create(request: FastifyRequest): Promise<boolean> {
     const saved: GQLResponse<AddCollaboratorResponse> = await Collaborator.mutate<AddCollaboratorResponse>(
@@ -105,29 +88,16 @@ export class Collaborator extends BaseGraphQLModel {
         errorPolicy: "all"
       } as MutateOptions
     );
-    const data: CollaboratorInterface | undefined = saved?.data?.addProjectCollaborator;
-    // Process any errors that may have occurred
-    this.handleMutationErrors("create", saved, data?.errors);
-
-    // If data was returned and we have no errors
-    const hadErrors: boolean = Collaborator.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      // Sync the local object with the saved data
-      this.id = data.id;
-      this.created = data.created;
-      this.createdById = data.createdById;
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
-    }
-
-    return !hadErrors;
+    const data: Collaborator | undefined = saved?.data?.addProjectCollaborator;
+    this.processGQLResponse(saved, data as Collaborator, 'create ProjectCollaborator');
+    return !this.hasErrors();
   }
 
   /**
    * Update the current Collaborator
    *
    * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async update(request: FastifyRequest): Promise<boolean> {
     // First update the Plan title
@@ -142,26 +112,16 @@ export class Collaborator extends BaseGraphQLModel {
         errorPolicy: "all"
       } as MutateOptions
     );
-    const data: CollaboratorInterface | undefined = saved?.data?.updateProjectCollaborator;
-    // Process any errors that may have occurred
-    this.handleMutationErrors("update", saved, data?.errors);
-
-    // If data was returned and we have no errors
-    const hadErrors: boolean = Collaborator.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
-      this.errors = data.errors ?? {};
-    }
-
-    return !hadErrors;
+    const data: Collaborator | undefined = saved?.data?.updateProjectCollaborator;
+    this.processGQLResponse(saved, data as Collaborator, 'update ProjectCollaborator');
+    return !this.hasErrors();
   }
 
   /**
    * Delete this Collaborator
    *
    * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async delete(request: FastifyRequest): Promise<boolean> {
     const deleted: GQLResponse<DeleteCollaboratorResponse> = await Collaborator.mutate<DeleteCollaboratorResponse>(
@@ -172,20 +132,10 @@ export class Collaborator extends BaseGraphQLModel {
         errorPolicy: "all"
       } as MutateOptions
     );
-    const data: CollaboratorInterface | undefined = deleted?.data?.removeProjectCollaborator;
+    const data: Collaborator | undefined = deleted?.data?.removeProjectCollaborator;
 
-    // Process any errors that may have occurred
-    this.handleMutationErrors("delete", deleted, data?.errors);
-
-    // If data was returned and we have no errors
-    const hadErrors: boolean = Collaborator.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      // Sync the local object with the saved data
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
-    }
-
-    return !hadErrors;
+    this.processGQLResponse(deleted, data as Collaborator, 'delete ProjectCollaborator');
+    return !this.hasErrors();
   }
 
   /**
@@ -206,7 +156,7 @@ export class Collaborator extends BaseGraphQLModel {
     );
 
     return Array.isArray(resp.data?.projectCollaborators)
-      ? resp.data.projectCollaborators.map((c: CollaboratorInterface): Collaborator => new Collaborator(c))
+      ? resp.data.projectCollaborators.map((c: Collaborator): Collaborator => new Collaborator(c))
       : [];
   }
 }

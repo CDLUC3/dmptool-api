@@ -6,20 +6,6 @@ import {
 } from "../generated/graphql.js";
 
 /**
- * Representation of a published DMP Tool template
- */
-export interface VersionedTemplateInterface {
-  id?: number;
-  template?: {
-    id?: number;
-  };
-  name?: string;
-  description?: string;
-  version?: string;
-  active?: boolean;
-}
-
-/**
  * Representation of the GraphQL query results for versionedTemplates
  */
 export interface VersionedTemplatesResponse {
@@ -33,7 +19,7 @@ export interface DefaultTemplateResponse {
 /**
  * A VersionedTemplate
  */
-export class VersionedTemplate extends BaseGraphQLModel implements VersionedTemplateInterface {
+export class VersionedTemplate extends BaseGraphQLModel {
   template?: {
     id?: number;
   };

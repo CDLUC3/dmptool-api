@@ -11,25 +11,10 @@ import MutateOptions = ApolloClient.MutateOptions;
 import { DMPToolDMPType } from "@dmptool/types";
 
 /**
- * Represents an Affiliation
- */
-export interface AffiliationInterface {
-  id: number;
-  uri: string;
-  name: string;
-  displayName: string;
-  aliases?: string[];
-  acronyms?: string[];
-  funder: boolean;
-  provenance?: string;
-  errors?: Record<string, string>;
-}
-
-/**
  * The possible response for an AffiliationsByURI GraphQL query
  */
 export interface AffiliationByURIResponse {
-  affiliationByURI: AffiliationInterface
+  affiliationByURI: Affiliation
 }
 
 /**
@@ -37,7 +22,7 @@ export interface AffiliationByURIResponse {
  */
 export interface AffiliationsResponse {
   affiliations: {
-    items: AffiliationInterface[]
+    items: Affiliation[]
   }
 }
 
@@ -45,7 +30,7 @@ export interface AffiliationsResponse {
  * The possible response for an Add Affiliation GraphQL mutation
  */
 export interface AddAffiliationResponse {
-  addAffiliation: AffiliationInterface
+  addAffiliation: Affiliation
 }
 
 type AffiliationType = DMPToolDMPType['dmp']['contact']['affiliation'];
@@ -62,7 +47,7 @@ export class Affiliation extends BaseGraphQLModel {
   funder?: boolean;
   provenance?: string;
 
-  constructor(options: Partial<AffiliationInterface> = {}) {
+  constructor(options: Partial<Affiliation> = {}) {
     super(options);
 
     this.uri = options.uri;
@@ -95,17 +80,9 @@ export class Affiliation extends BaseGraphQLModel {
       } as MutateOptions
     );
 
-    const data: AffiliationInterface | undefined = saved?.data?.addAffiliation;
-    // Process any errors that may have occurred
-    this.handleMutationErrors("create", saved, saved?.data?.addAffiliation?.errors);
-
-    // If data was returned and we have no errors
-    const hadErrors: boolean = Affiliation.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      // Sync the local object with the saved data
-      this.id = data.id;
-    }
-    return !hadErrors;
+    const data: Affiliation | undefined = saved?.data?.addAffiliation;
+    this.processGQLResponse(saved, data as Affiliation, 'create Affiliation');
+    return !this.hasErrors();
   }
 
   /**
@@ -154,7 +131,7 @@ export class Affiliation extends BaseGraphQLModel {
     // Otherwise return a new Affiliation
     return new Affiliation({
       name: affiliation.name,
-      // If the ROR was present use it, otherwise use the identifier only if it looks like a URL
+      // Use the ROR id if it was present, otherwise use the identifier only if it looks like a URL
       uri: fullRorId ?? newURI,
       funder: isFunder,
     });
@@ -198,7 +175,7 @@ export class Affiliation extends BaseGraphQLModel {
       }
     );
     return resp.data && resp.data.affiliations && resp.data.affiliations.items
-      ? resp.data.affiliations.items.map((a: AffiliationInterface): Affiliation => new Affiliation(a))
+      ? resp.data.affiliations.items.map((a: Affiliation): Affiliation => new Affiliation(a))
       : [];
   }
 }

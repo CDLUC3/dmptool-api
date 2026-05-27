@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { FastifyRequest } from 'fastify';
-import { deleteDmpWorkflow, updateDmpWorkflow } from '../mutationWorkflow.js';
+import { deleteDmpWorkflow, updateDmpWorkflow } from '../workflowHelper.js';
 
 const makeRequest = (): FastifyRequest =>
   ({

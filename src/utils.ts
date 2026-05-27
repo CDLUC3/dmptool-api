@@ -40,22 +40,3 @@ export const stringToInteger = (
   return Number.isInteger(parsed) ? parsed : undefined;
 }
 
-/**
- * Convert an error to an ApiError
- *
- * @param statusCode the HTTP status code
- * @param errorCode the error code
- * @param message the error message
- * @returns the error in the ApiError format
- */
-export const toErrorBody = (
-  statusCode: number,
-  errorCode: string,
-  message: string
-): ApiError => {
-  return {
-    status_code: statusCode,
-    error_code: errorCode,
-    message,
-  };
-}

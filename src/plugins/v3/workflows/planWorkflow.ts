@@ -1,56 +1,38 @@
 import { FastifyRequest } from "fastify";
+import { createError } from "@fastify/error";
 import { DMPToolDMPType } from "@dmptool/types";
+import { convertMySQLDateTimeToRFC3339 } from "@dmptool/utils";
 import { IdentifierType } from "../../../types.js";
 import { VersionedTemplate } from "../../../models/VersionedTemplate.js";
 import { Project } from "../../../models/Project.js";
 import { Plan } from "../../../models/Plan.js";
 import { loadMaDMPFromDynamo } from "../../../models/maDMP.js";
 import { saveMembersWorkflow } from "./memberWorkflow.js";
+import {
+  ERROR_CODE_ALREADY_EXISTS,
+  ERROR_CODE_CONFLICT,
+  ERROR_CODE_INTERNAL_SERVER,
+  ERROR_CODE_INVALID_DMP,
+  ERROR_MSG_CONFLICT
+} from "../../../handlers/error.js";
 
-export type CreateDmpResult =
-  | {
-    ok: true;
-    statusCode: 201;
-    data: DMPToolDMPType;
-    }
-  | {
-    ok: false;
-    statusCode: 400 | 500;
-    errorCode: string;
-    message: string;
-    // Allows the route handler to consistently log by severity
-    logLevel?: 'warn' | 'error' | 'fatal' | 'debug';
+/**
+ * Verify that the DMP modification date set in the header matches the current modified timestamp
+ *
+ * @param ifUnmodifiedSince the timestamp of the IfUnmodifiedSinceHeader
+ * @param currentModifiedDate the modified timestamp of the current maDMP
+ */
+const validateModifiedDateMatch = (
+  ifUnmodifiedSince: string,
+  currentModifiedDate: string
+): void => {
+  const requestDate = convertMySQLDateTimeToRFC3339(ifUnmodifiedSince) as string;
+  const currentDate = convertMySQLDateTimeToRFC3339(currentModifiedDate) as string;
+
+  if (requestDate !== currentDate) {
+    throw createError(ERROR_CODE_CONFLICT, ERROR_MSG_CONFLICT);
   }
-
-// Model errors in this allowlist are non-blocking and should not fail the request.
-const LENIENT_MODEL_ERROR_KEYS = new Set<string>(['alternateIdentifiers']);
-
-const serializeModelErrors = (errors: Record<string, string> = {}): string => {
-  return Object.entries(errors)
-    .filter(([key, value]) => key !== '__typename' && !!value)
-    .map(([key, value]) => `${key}: ${value}`)
-    .join('; ');
-}
-
-const splitModelErrors = (errors: Record<string, string> = {}): {
-  strictErrors: Record<string, string>;
-  lenientErrors: Record<string, string>;
-} => {
-  const strictErrors: Record<string, string> = {};
-  const lenientErrors: Record<string, string> = {};
-
-  Object.entries(errors)
-    .filter(([key, value]) => key !== '__typename' && !!value)
-    .forEach(([key, value]) => {
-      if (LENIENT_MODEL_ERROR_KEYS.has(key)) {
-        lenientErrors[key] = value;
-      } else {
-        strictErrors[key] = value;
-      }
-    });
-
-  return { strictErrors, lenientErrors };
-}
+};
 
 /**
  * Normalizes the incoming maDMP by adding the default values and ensuring that
@@ -60,6 +42,7 @@ const splitModelErrors = (errors: Record<string, string> = {}): {
  *
  * @param request the Fastify request
  * @param body the maDMP
+ * @returns the normalized maDMP
  */
 const normalizeIncomingDMP = (
   request: FastifyRequest,
@@ -67,9 +50,11 @@ const normalizeIncomingDMP = (
 ): DMPToolDMPType['dmp'] => {
   const dmp = structuredClone(body.dmp);
 
+  // Make sure we have the provenance set
   dmp.provenance = request.caller || request.dmptoolConfig.defaultCaller;
-  dmp.alternate_identifier ??= [];
 
+  // Move the specified `dmp_id` value into the `alternate_identifier` array
+  dmp.alternate_identifier ??= [];
   const hasAltId = dmp.alternate_identifier.some((id: IdentifierType): boolean => {
     return id.identifier === dmp.dmp_id.identifier;
   });
@@ -111,123 +96,97 @@ const saveNonFatalPlanArtifacts = async (
  *
  * @param request the Fastify request
  * @param body the maDMP
- * @returns either a 201 with an ok flag that is true or a 400/500 with an errorCode and message
+ * @returns the maDMP JSON of the new Plan
+ * @throws Fastify errors if something went wrong
  */
 export async function createPlanWorkflow(
   request: FastifyRequest,
   body: DMPToolDMPType
-): Promise<CreateDmpResult> {
+): Promise<DMPToolDMPType> {
   // Verify that the DMP id specified is not one of ours.
   const dmp = normalizeIncomingDMP(request, body);
-  if (dmp.dmp_id.identifier.includes(request.dmptoolConfig.dmpIdShoulder)) {
-    return {
-      ok: false,
-      statusCode: 400,
-      errorCode: 'dmp_invalid',
-      message: `The ${request.dmptoolConfig.applicationName} is responsible for assigning DMP ids.`,
-      logLevel: 'warn',
-    };
+  const idIn: string = dmp.dmp_id.identifier ?? 'none-defined';
+  request.log.debug({ alternateIdentifier: idIn }, 'Create DMP Workflow started');
+
+  if (idIn.includes(request.dmptoolConfig.dmpIdShoulder)) {
+    request.log.error(
+      { dmpId: idIn, provenance: dmp.provenance },
+      `Attempt to create a DMP using our DOI shoulder.`
+    );
+    throw createError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
   }
 
   // Fetch the specified template OR use the default template
+  const templateId: number | undefined = dmp.narrative.template?.id;
   const template: VersionedTemplate | undefined = await VersionedTemplate.findOrDefault(
     request,
-    dmp.narrative?.template?.id
+    templateId
   );
   if (!template) {
-    request.log.fatal({ templateId: dmp.narrative?.template?.id }, 'Unable to find a template for DMP creation');
-    return {
-      ok: false,
-      statusCode: 500,
-      errorCode: 'generic_error',
-      message: 'Unable to find a template',
-      logLevel: 'fatal',
-    };
+    request.log.fatal({ templateId }, 'Unable to find a template (or default) for DMP creation');
+    throw createError(ERROR_CODE_INTERNAL_SERVER, 'Missing template');
   }
 
+  request.log.debug({ alternateIdentifier: idIn }, 'Initializing Plan');
   // Find the Plan or initialize a new one
   const plan = await Plan.findOrInitialize(request, template, dmp);
   if (plan.id) {
-    request.log.warn({ dmpId: dmp.dmp_id.identifier, planId: plan.id }, 'DMP already exists');
-    return {
-      ok: false,
-      statusCode: 400,
-      errorCode: 'dmp_already_exists',
-      message: 'DMP already exists',
-      logLevel: 'warn',
-    };
+    request.log.warn({ alternateIdentifier: idIn, planId: plan.id }, 'DMP already exists');
+    throw createError(ERROR_CODE_ALREADY_EXISTS, 'DMP already exists');
+  }
+
+  // If the template specified doesn't match what we are using add a warning message
+  if (templateId && template.id !== templateId) {
+    plan.warnings['template'] = 'Unable to find specified DMP Tool template so the default template was used instead.';
   }
 
   // The DMP Tool allows a single project to have multiple plans, so we need to
   // try and find the Project or initialize a new one
+  request.log.debug({ alternateIdentifier: idIn }, 'Initializing Project');
   const project = await Project.findOrInitialize(request, dmp);
   // If the Project was initialized, create it
   if (!project.id && !(await project.save(request))) {
-    const errs = serializeModelErrors(project.errors) || 'Unable to save project';
-    request.log.error({ errors: project.errors, dmpId: dmp.dmp_id.identifier }, 'Unable to save project model');
-    return {
-      ok: false,
-      statusCode: 400,
-      errorCode: 'dmp_invalid',
-      message: errs,
-      logLevel: 'error',
-    };
+    request.log.error({ errors: project.errors, alternateIdentifier: idIn }, 'Unable to save project model');
+    throw createError(ERROR_CODE_INVALID_DMP, project.errorsToString());
   }
 
   // Create the new Plan
   plan.projectId = project.id;
+  request.log.debug({ alternateIdentifier: idIn, projectId: project.id }, 'Saving plan');
   if (!(await plan.save(request))) {
-    const errs = serializeModelErrors(plan.errors) || 'Unable to save plan';
-    request.log.error({ errors: plan.errors, dmpId: dmp.dmp_id.identifier }, 'Unable to save plan model');
-    return {
-      ok: false,
-      statusCode: 400,
-      errorCode: 'dmp_invalid',
-      message: errs,
-      logLevel: 'error',
-    };
+    request.log.error({ errors: plan.errors, alternateIdentifier: idIn }, 'Unable to save plan model');
+    throw createError(ERROR_CODE_INVALID_DMP, plan.errorsToString());
   }
 
   // Something went wrong if the new DMP id was not set
   if (!plan.dmpId) {
-    request.log.fatal({ plan }, 'Plan save completed but no DMP id was assigned');
-    return {
-      ok: false,
-      statusCode: 500,
-      errorCode: 'generic_error',
-      message: 'Unable to assign a DMP id to the new plan',
-      logLevel: 'fatal',
-    };
+    request.log.fatal({ alternateIdentifier: idIn, plan }, 'Plan save completed but no DMP id was assigned');
+    throw createError(ERROR_CODE_INTERNAL_SERVER, 'Unable to generate DMP id.');
   }
 
   // Now save the Project and Plan Members
+  request.log.debug(
+    { alternateIdentifier: idIn, projectId: project.id, dmpId: plan.dmpId },
+    'Saving project and plan members'
+  );
   const finalPlan: Plan = await saveMembersWorkflow(request, project, plan, dmp);
 
   // Now that the Project and Plan have been saved, go through and save all
   // the associated artifacts
+  request.log.debug(
+    { alternateIdentifier: idIn, projectId: project.id, dmpId: finalPlan.dmpId },
+    'Saving non-critical information'
+  );
   await saveNonFatalPlanArtifacts(request, dmp, finalPlan);
 
   // Errors would have been added to the Plan object if any errors occurred while
   // attempting to save the artifacts.
-  if (Plan.hasErrors(finalPlan.errors)) {
-    const { strictErrors, lenientErrors } = splitModelErrors(finalPlan.errors);
-
-    if (Object.keys(lenientErrors).length > 0) {
-      request.log.warn({ errors: lenientErrors, dmpId: finalPlan.dmpId }, 'Non-fatal model errors occurred');
-    }
-
-    if (Object.keys(strictErrors).length > 0) {
-      const errs = serializeModelErrors(strictErrors) || 'Unable to process DMP model errors';
-      request.log.error({ errors: strictErrors, dmpId: finalPlan.dmpId }, 'Strict model errors occurred');
-
-      return {
-        ok: false,
-        statusCode: 400,
-        errorCode: 'dmp_invalid',
-        message: errs,
-        logLevel: 'error',
-      };
-    }
+  if (finalPlan.hasErrors()) {
+    request.log.error(
+      { errors: finalPlan.errors, dmpId: finalPlan.dmpId },
+      'Failed to create Plan.'
+    );
+    throw createError(ERROR_CODE_INVALID_DMP, finalPlan.errorsToString());
   }
 
   // Generate the maDMP JSON so that we can return it
@@ -239,21 +198,54 @@ export async function createPlanWorkflow(
   // TODO: Once the RDA group has decided on a way to convey warnings about
   //       data that could not be supported (e.g. the "cost" section), we will
   //       want to attach those warnings to the response
+  request.log.warn({ warnings: plan.warnings }, 'Non fatal errors occurred.');
 
   if (!newMaDMP) {
-    request.log.fatal({ dmpId: plan.dmpId }, 'Unable to load newly-created maDMP');
-    return {
-      ok: false,
-      statusCode: 500,
-      errorCode: 'generic_error',
-      message: 'Unable to complete your request at this time. Please try again later.',
-      logLevel: 'fatal',
-    };
+    request.log.fatal(
+      { alternateIdentifier: idIn, dmpId: plan.dmpId },
+      'Unable to load newly-created maDMP'
+    );
+    throw createError(
+      ERROR_CODE_INVALID_DMP,
+      `Your DMP was created but we could not generate a valid JSON response. Try "GET /dmps/${encodeURI(finalPlan.dmpId)}"`
+    );
   }
 
-  return {
-    ok: true,
-    statusCode: 201,
-    data: newMaDMP,
-  };
+  request.log.debug(
+    { alternateIdentifier: idIn, projectId: project.id, dmpId: plan.dmpId },
+    'Finished creating new Plan'
+  );
+  return newMaDMP;
 }
+
+/**
+ * Workflow for update route preconditions and response shaping.
+ * Note: the actual update persistence is still TODO in the route layer.
+ */
+export const updateDmpWorkflow = async (
+  request: FastifyRequest,
+  dmpId: string,
+  ifUnmodifiedSince: string,
+  currentDmp: DMPToolDMPType
+): Promise<DMPToolDMPType> => {
+  request.log.debug({ dmpId }, 'Update DMP Workflow started');
+  validateModifiedDateMatch(ifUnmodifiedSince, currentDmp.dmp.modified);
+
+  return currentDmp;
+};
+
+/**
+ * Workflow for delete route preconditions.
+ * Note: the actual deletion persistence is still TODO in the route layer.
+ */
+export const deleteDmpWorkflow = async (
+  request: FastifyRequest,
+  dmpId: string,
+  ifUnmodifiedSince: string,
+  currentDmpModifiedDate: string
+): Promise<boolean> => {
+  request.log.debug({ dmpId }, 'Started delete Plan Workflow');
+  validateModifiedDateMatch(ifUnmodifiedSince, currentDmpModifiedDate);
+
+  return true;
+};

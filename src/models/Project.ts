@@ -17,51 +17,31 @@ import {
 } from "../generated/graphql.js"
 
 /**
- * Represents a Research Project
- */
-export interface ProjectInterface {
-  id: number;
-  title: string;
-  abstractText?: string;
-  endDate?: string;
-  startDate?: string;
-  researchDomain?: ResearchDomain;
-  isTestProject: boolean;
-  created: string;
-  createdById: number;
-  modified: string;
-  modifiedById: number;
-  plans: Plan[];
-  members: ProjectMember[];
-  errors?: Record<string, string>;
-}
-
-/**
  * Representation of the GraphQL query response for a Research Project
  */
 export interface ProjectResponse {
-  project: ProjectInterface
+  project: Project
 }
 
 /**
  * Representation of the GraphQL query response for adding a Project
  */
 export interface AddProjectResponse {
-  addProject: ProjectInterface
+  addProject: Project
 }
 
 /**
  * Representation of the GraphQL query response for updating a Project
  */
 export interface UpdateProjectResponse {
-  updateProject: ProjectInterface
+  updateProject: Project
 }
 
 /**
  * Representation of the GraphQL query response for deleting a Project
  */
 export interface ArchiveProjectResponse {
-  archiveProject: ProjectInterface
+  archiveProject: Project
 }
 
 /**
@@ -69,7 +49,7 @@ export interface ArchiveProjectResponse {
  */
 export interface CallerProjectResponse {
   myProjects: {
-    items: ProjectInterface[]
+    items: Project[]
   };
 }
 
@@ -101,8 +81,6 @@ export class Project extends BaseGraphQLModel {
     this.members = options.members
       ? options.members.map((m: ProjectMember) => new ProjectMember(m))
       : [];
-
-    this.errors = options.errors ?? {};
   }
 
   /**
@@ -167,41 +145,27 @@ export class Project extends BaseGraphQLModel {
       } as MutateOptions
     );
 
-    const data: ProjectInterface | undefined = saved?.data?.addProject;
-    // Process any errors that may have occurred
-    this.handleMutationErrors("create", saved, saved?.data?.addProject?.errors);
+    const data: Project | undefined = saved?.data?.addProject;
+    this.processGQLResponse(saved, data as Project, 'create Project');
 
-    // If data was returned and we have no errors
-    const hadErrors: boolean = Project.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      const primary: ProjectMember | undefined = this.primaryContact();
+    // Verify that the primary contact was set
+    const primary: ProjectMember | undefined = this.primaryContact();
 
-      // We are eventually going to want to figure out how to let a system create
-      // a project on a user's behalf, so adding this stub function for now as
-      // a placeholder for where we will eventually implement that.
-      if (primary && !(await this.setOwnership(request, primary))){
-        this.errors.general = "Project was created but we were unable to set ownership.";
-      }
-
-      // Sync the local object with the saved data
-      this.id = data.id;
-      this.created = data.created;
-      this.createdById = data.createdById;
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
+    // We are eventually going to want to figure out how to let a system create
+    // a project on a user's behalf, so adding this stub function for now as
+    // a placeholder for where we will eventually implement that.
+    if (primary && !(await this.setOwnership(request, primary))){
+      this.errors.general = "Project was created but we were unable to set ownership.";
     }
 
-    // Now that the project has been created, we need to set its other properties,
-    // the ones that Apollo sets by default, or we're not allowed to send in the
-    // mutation to create the project.
-    return hadErrors ? false : await this.update(request);
+    return this.hasErrors() ? false: await this.update(request);
   }
 
   /**
    * Update the current Project
    *
    * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async update(request: FastifyRequest): Promise<boolean> {
     const saved: GQLResponse<UpdateProjectResponse> = await Project.mutate<UpdateProjectResponse>(
@@ -223,27 +187,16 @@ export class Project extends BaseGraphQLModel {
       } as MutateOptions
     );
 
-    const data: ProjectInterface | undefined = saved?.data?.updateProject;
-    // Process any errors that may have occurred
-    this.handleMutationErrors("update", saved, data?.errors);
-
-    // If data was returned and we have no errors
-    const hadErrors: boolean = Project.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      // Sync the local object with the saved data
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
-      this.errors = data.errors ?? {};
-    }
-
-    return !hadErrors;
+    const data: Project | undefined = saved?.data?.updateProject;
+    this.processGQLResponse(saved, data as Project, 'update Project');
+    return !this.hasErrors();
   }
 
   /**
    * Delete this project
    *
    * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
   async delete(request: FastifyRequest): Promise<boolean> {
     const deleted: GQLResponse<ArchiveProjectResponse> = await Project.mutate<ArchiveProjectResponse>(
@@ -254,19 +207,9 @@ export class Project extends BaseGraphQLModel {
         errorPolicy: "all"
       } as MutateOptions
     );
-    const data: ProjectInterface | undefined = deleted?.data?.archiveProject;
-    // Process any errors that may have occurred
-    this.handleMutationErrors("delete", deleted, data?.errors);
-
-    // If data was returned and we have no errors
-    const hadErrors: boolean = Project.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      // Sync the local object with the saved data
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
-    }
-
-    return !hadErrors;
+    const data: Project | undefined = deleted?.data?.archiveProject;
+    this.processGQLResponse(deleted, data as Project, 'delete Project');
+    return !this.hasErrors();
   }
 
   /**
@@ -340,7 +283,7 @@ export class Project extends BaseGraphQLModel {
       errorPolicy: "all"
     });
     return resp.data && Array.isArray(resp.data.myProjects.items)
-      ? resp.data.myProjects.items.map((item: ProjectInterface) => new Project(item))
+      ? resp.data.myProjects.items.map((item: Project) => new Project(item))
       : [];
   }
 

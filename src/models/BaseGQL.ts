@@ -27,34 +27,57 @@ export class BaseGraphQLModel {
   createdById?: number;
   modifiedById?: number;
 
+  graphQLErrorsThatShouldBeWarnings: Set<string> = new Set();
   errors: Record<string, string> = {};
+  warnings: Record<string, string> = {};
 
   constructor(options: Partial<BaseGraphQLModel> = {}) {
     Object.assign(this, options);
   }
 
   /**
-   * Helper function to concatenate all error into a single string
+   * Helper function to determine if the model has any errors
    *
-   * @param errors The errors object
    * @returns a true if any of the error values are present
    */
-  static hasErrors(errors: Record<string, string>): boolean {
-    return Object.keys(errors)
+  hasErrors(): boolean {
+    return Object.keys(this.errors)
       .filter(k => k !== '__typename')
-      .some(k => !!errors[k]);
+      .some(k => !!this.errors[k]);
   }
 
   /**
-   * Helper function to concatenate all error into a single string
+   * Helper function to determine if the model has any warnings
    *
-   * @param errors The errors object
+   * @returns a true if any of the warning values are present
+   */
+  hasWarnings(): boolean {
+    return Object.keys(this.warnings)
+      .filter(k => k !== '__typename')
+      .some(k => !!this.warnings[k]);
+  }
+
+  /**
+   * Helper function to concatenate all errors into a single string
+   *
    * @returns a concatenated string
    */
-  static errorsToString(errors: Record<string, string>): string {
-    return Object.keys(errors)
-      .filter(k => k !== '__typename' && !!errors[k])
-      .map(key => `${key}: ${errors[key]}`)
+  errorsToString(): string {
+    return Object.keys(this.errors)
+      .filter(k => k !== '__typename' && !!this.errors[k])
+      .map(key => `${key}: ${this.errors[key]}`)
+      .join(', ');
+  }
+
+  /**
+   * Helper function to concatenate all warnings into a single string
+   *
+   * @returns a concatenated string
+   */
+  warningsToString(): string {
+    return Object.keys(this.warnings)
+      .filter(k => k !== '__typename' && !!this.warnings[k])
+      .map(key => `${key}: ${this.warnings[key]}`)
       .join(', ');
   }
 
@@ -71,13 +94,24 @@ export class BaseGraphQLModel {
     mutationErrors: Record<string, string> = {}
   ): void {
     if (!gqlResponse) {
-      this.errors.graphQL = `Failed to ${context} project`;
+      this.errors.graphQL = `Failed to ${context}`;
       return;
     }
 
     if (gqlResponse.error) this.errors.graphQL = gqlResponse.error.message;
 
-    if (mutationErrors && BaseGraphQLModel.hasErrors(mutationErrors)) this.errors = mutationErrors;
+    if (mutationErrors) {
+      // Separate out any GraphQL errors that should be treated as warnings
+      Object.entries(mutationErrors)
+        .filter(([key, value]) => key !== '__typename' && !!value)
+        .forEach(([key, value]) => {
+          if (this.graphQLErrorsThatShouldBeWarnings.has(key)) {
+            this.warnings[key] = value;
+          } else {
+            this.errors[key] = value;
+          }
+        });
+    }
   }
 
   /**
@@ -220,7 +254,37 @@ export class BaseGraphQLModel {
   }
 
   /**
-   * Error handler. Not that all errors are first processed by the Errorlink
+   * Sets the id, and timestamps of the current model with the data in the specified object
+   *
+   * @param gqlResponse the GraphQL response from the mutation
+   * @param newObject the newly Saved object
+   * @param context the context for logging purposes
+   */
+  processGQLResponse<T>(
+    gqlResponse: GQLResponse<T>,
+    newObject: BaseGraphQLModel,
+    context: string
+  ): void {
+    // Process any errors that may have occurred
+    this.handleMutationErrors(context, gqlResponse, newObject.errors);
+
+    // If data was returned and we have no errors
+    const hadErrors: boolean = this.hasErrors();
+    if (newObject && !hadErrors) {
+      // We were creating a record if the existing id is not present
+      if (!this.id) {
+        // Sync the local object with the saved data
+        this.id = newObject.id;
+        this.created = newObject.created;
+        this.createdById = newObject.createdById;
+      }
+      this.modified = newObject.modified;
+      this.modifiedById = newObject.modifiedById;
+    }
+  }
+
+  /**
+   * Error handler. Note that all errors are first processed by the Errorlink
    * defined in plugins/graphQL.ts.
    *
    * @param request the Fastify request

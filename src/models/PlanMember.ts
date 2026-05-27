@@ -13,47 +13,31 @@ import {
 } from "../generated/graphql.js";
 
 /**
- * Represents a Plan Member/Contributor
- */
-export interface PlanMemberInterface {
-  id: number;
-  plan: Plan;
-  projectMember: ProjectMember;
-  isPrimaryContact: boolean;
-  memberRoles: MemberRole[];
-  created: string;
-  createdById: number;
-  modified: string;
-  modifiedById: number;
-  errors?: Record<string, string>;
-}
-
-/**
  * The possible response for a Plan Members/Contributors GraphQL query
  */
 export interface PlanMembersResponse {
-  planMembers: PlanMemberInterface[]
+  planMembers: PlanMember[]
 }
 
 /**
  * Representation of the GraphQL query response for adding a Plan Member/Contributor
  */
 export interface AddPlanMemberResponse {
-  addPlanMember: PlanMemberInterface
+  addPlanMember: PlanMember
 }
 
 /**
  * Representation of the GraphQL query response for updating a Plan Member/Contributor
  */
 export interface UpdatePlanMemberResponse {
-  updatePlanMember: PlanMemberInterface
+  updatePlanMember: PlanMember
 }
 
 /**
  * Representation of the GraphQL query response for deleting a Plan Member/Contributor
  */
 export interface DeletePlanMemberResponse {
-  removePlanMember: PlanMemberInterface
+  removePlanMember: PlanMember
 }
 
 /**
@@ -73,7 +57,6 @@ export class PlanMember extends BaseGraphQLModel {
     this.projectMember = options.projectMember;
     this.isPrimaryContact = options.isPrimaryContact ?? false;
     this.memberRoles = options.memberRoles ?? [];
-    this.errors = options.errors ?? {};
   }
 
   /**
@@ -108,8 +91,8 @@ export class PlanMember extends BaseGraphQLModel {
     if (toDelete.length > 0) {
       // Delete each one
       await Promise.all(toDelete.map(async (member: PlanMember): Promise<void> => {
-        const deleted: boolean = await PlanMember.delete(request, member);
-        if (!deleted) deleteErrs.push(PlanMember.errorsToString(member.errors));
+        const deleted: boolean = await member.delete(request);
+        if (!deleted) deleteErrs.push(member.errorsToString());
       }));
     }
     // Log any deletion errors and then continue with the creates/updates to hopefully
@@ -118,120 +101,89 @@ export class PlanMember extends BaseGraphQLModel {
 
     // Loop through and save each member that was in the maDMP
     const errs: string[] = [];
+    const warns: string[] = [];
     await Promise.all(members.map(async (member: PlanMember): Promise<void> => {
       const success: boolean = member.id
-        ? await PlanMember.update(request, member)
-        : await PlanMember.create(request, member);
+        ? await member.update(request)
+        : await member.create(request);
 
-      if (!success) errs.push(ProjectMember.errorsToString(member.errors));
+      // Capture any errors and warnings
+      warns.push(member.warningsToString())
+      if (!success) errs.push(member.errorsToString());
     }));
     if (errs.length > 0) plan.errors['members'] = errs.join('; ');
+    if (warns.length > 0) plan.warnings['members'] = warns.join('; ');
 
-    return !Plan.hasErrors(plan.errors);
+    return !plan.hasErrors();
   }
 
   /**
    * Create the current Plan Member/Contributor
    *
    * @param request the Fastify request
-   * @param member the Plan member/contributor
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
-  static async create(request: FastifyRequest, member: PlanMember): Promise<boolean> {
+  async create(request: FastifyRequest): Promise<boolean> {
     const saved: GQLResponse<AddPlanMemberResponse> = await PlanMember.mutate<AddPlanMemberResponse>(
       request,
       {
         mutation: AddPlanMemberDocument,
         variables: {
-          planId: member.plan?.id,
-          projectMemberId: member.projectMember?.id,
-          roleIds: member.memberRoles.map((r: MemberRole): number | undefined => r.id)
+          planId: this.plan?.id,
+          projectMemberId: this.projectMember?.id,
+          roleIds: this.memberRoles.map((r: MemberRole): number | undefined => r.id)
         },
         errorPolicy: "all"
       } as MutateOptions
     );
-    const data: PlanMemberInterface | undefined = saved?.data?.addPlanMember;
-    // Process any errors that may have occurred
-    member.handleMutationErrors("create", saved, data?.errors);
-
-    // If data was returned and we have no errors
-    const hadErrors: boolean = PlanMember.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      // Sync the local object with the saved data
-      member.id = data.id;
-      member.created = data.created;
-      member.createdById = data.createdById;
-      member.modified = data.modified;
-      member.modifiedById = data.modifiedById;
-    }
-    return !hadErrors;
+    const data: PlanMember | undefined = saved?.data?.addPlanMember;
+    this.processGQLResponse(saved, data as PlanMember, 'create PlanMember');
+    return !this.hasErrors();
   }
 
   /**
    * Update the current Plan Member/Contributor
    *
    * @param request the Fastify request
-   * @param member the Plan member/contributor
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
-  static async update(request: FastifyRequest, member: PlanMember): Promise<boolean> {
+  async update(request: FastifyRequest): Promise<boolean> {
     const saved: GQLResponse<UpdatePlanMemberResponse> = await PlanMember.mutate<UpdatePlanMemberResponse>(
       request,
       {
         mutation: UpdatePlanMemberDocument,
         variables: {
-          planId: member.plan?.id,
-          planMemberId: member.id,
-          isPrimaryContact: member.isPrimaryContact,
-          memberRoleIds: member.memberRoles.map((r: MemberRole): number | undefined => r.id)
+          planId: this.plan?.id,
+          planMemberId: this.id,
+          isPrimaryContact: this.isPrimaryContact,
+          memberRoleIds: this.memberRoles.map((r: MemberRole): number | undefined => r.id)
         },
         errorPolicy: "all"
       } as MutateOptions
     );
-    const data: PlanMemberInterface | undefined = saved?.data?.updatePlanMember;
-    // Process any errors that may have occurred
-    member.handleMutationErrors("update", saved, data?.errors);
-
-    // If data was returned and we have no errors
-    const hadErrors: boolean = PlanMember.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      member.modified = data.modified;
-      member.modifiedById = data.modifiedById;
-      member.errors = data.errors ?? {};
-    }
-    return !hadErrors;
+    const data: PlanMember | undefined = saved?.data?.updatePlanMember;
+    this.processGQLResponse(saved, data as PlanMember, 'update PlanMember');
+    return !this.hasErrors();
   }
 
   /**
    * Delete this Plan Member/Contributor
    *
    * @param request the Fastify request
-   * @param member the Plan member/contributor
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful. If not, any errors are added to the error object
    */
-  static async delete(request: FastifyRequest, member: PlanMember): Promise<boolean> {
+  async delete(request: FastifyRequest): Promise<boolean> {
     const deleted: GQLResponse<DeletePlanMemberResponse> = await PlanMember.mutate<DeletePlanMemberResponse>(
       request,
       {
         mutation: RemovePlanMemberDocument,
-        variables: { planMemberId: member.id },
+        variables: { planMemberId: this.id },
         errorPolicy: "all"
       } as MutateOptions
     );
-    const data: PlanMemberInterface | undefined = deleted?.data?.removePlanMember;
-
-    // Process any errors that may have occurred
-    member.handleMutationErrors("delete", deleted, data?.errors);
-
-    // If data was returned and we have no errors
-    const hadErrors: boolean = PlanMember.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      // Sync the local object with the saved data
-      member.modified = data.modified;
-      member.modifiedById = data.modifiedById;
-    }
-
-    return !hadErrors;
+    const data: PlanMember | undefined = deleted?.data?.removePlanMember;
+    this.processGQLResponse(deleted, data as PlanMember, 'delete PlanMember');
+    return !this.hasErrors();
   }
 
   /**
@@ -275,7 +227,7 @@ export class PlanMember extends BaseGraphQLModel {
     );
 
     return Array.isArray(resp.data?.planMembers)
-      ? resp.data.planMembers.map((p: PlanMemberInterface): PlanMember => new PlanMember(p))
+      ? resp.data.planMembers.map((p: PlanMember): PlanMember => new PlanMember(p))
       : [];
   }
 }
