@@ -1,4 +1,4 @@
-import {ApiError, ConfigurationOptions} from "./types.js";
+import { ConfigurationOptions } from "./types.js";
 
 /**
  * Checks whether the given identifier is a DMP ID (DOI or a URL under the configured domain).

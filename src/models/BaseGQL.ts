@@ -27,7 +27,7 @@ export class BaseGraphQLModel {
   createdById?: number;
   modifiedById?: number;
 
-  graphQLErrorsThatShouldBeWarnings: Set<string> = new Set();
+  graphQLErrorsThatShouldBeWarnings = new Set();
   errors: Record<string, string> = {};
   warnings: Record<string, string> = {};
 
