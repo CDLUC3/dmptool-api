@@ -160,8 +160,8 @@ export const errorHandler = (
 ): FastifyReply => {
   // Unhandled errors are NOT FastifyErrors, so handle them here immediately
   if (!Object.hasOwn(error, 'statusCode') || !Object.hasOwn(error, 'code')) {
+    // Log it and then return a generic 500 error
     request.log.fatal(`Unhandled Exception! ${error.stack}`);
-
     return reply.status(500).send({
       status_code: 500,
       error_code: ERROR_CODE_INTERNAL_SERVER,
