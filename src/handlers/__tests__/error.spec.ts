@@ -34,7 +34,7 @@ describe('notFoundHandler', () => {
     expect(mockReply.send).toHaveBeenCalledWith({
       status_code: '404',
       error_code: 'dmp_not_found',
-      message: 'Route GET:/api/v3/dmps not found.',
+      error_message: 'Route GET:/api/v3/dmps not found.',
     });
   });
 
@@ -54,7 +54,7 @@ describe('notFoundHandler', () => {
     expect(mockReply.send).toHaveBeenCalledWith({
       status_code: '404',
       error_code: 'dmp_not_found',
-      message: 'Route GET:/api/v3/dmps/10.12345/abc123 not found. Make sure the DMP id is URL encoded.',
+      error_message: 'Route GET:/api/v3/dmps/10.12345/abc123 not found. Make sure the DMP id is URL encoded.',
     });
   });
 });
@@ -144,7 +144,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 400,
         error_code: 'bad_request',
-        message: 'Headers: Invalid header value',
+        error_message: 'Headers: Invalid header value',
       });
     });
 
@@ -166,7 +166,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 400,
         error_code: 'invalid_query_string',
-        message: 'Query string: Invalid query parameter',
+        error_message: 'Query string: Invalid query parameter',
       });
     });
 
@@ -188,7 +188,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 400,
         error_code: 'bad_request',
-        message: 'Parameters: Invalid parameter',
+        error_message: 'Parameters: Invalid parameter',
       });
     });
 
@@ -210,7 +210,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 400,
         error_code: 'dmp_invalid',
-        message: 'Invalid DMP record: Invalid body',
+        error_message: 'Invalid DMP record: Invalid body',
       });
     });
   });

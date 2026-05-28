@@ -303,7 +303,7 @@ describe('v3 routes', () => {
       expect(response.statusCode).toBe(404);
       const json = response.json();
       expect(json.error_code).toEqual('dmp_not_found');
-      expect(json.message.endsWith('Make sure the DMP id is URL encoded.')).toBeTruthy();
+      expect(json.error_message.endsWith('Make sure the DMP id is URL encoded.')).toBeTruthy();
     });
   });
 

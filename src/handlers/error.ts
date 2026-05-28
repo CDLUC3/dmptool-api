@@ -141,7 +141,7 @@ export const notFoundHandler = (
   reply.status(404).send({
     status_code: '404',
     error_code: ERROR_CODE_NOT_FOUND,
-    message: `Route ${request.method}:${request.url} not found.${hasDmpId ? ` ${msg}` : ''}`,
+    error_message: `Route ${request.method}:${request.url} not found.${hasDmpId ? ` ${msg}` : ''}`,
   });
   return;
 }
@@ -171,7 +171,7 @@ export const errorHandler = (
 
   const err: FastifyError = error as FastifyError;
 
-  // Handle AJV Validation Errors (Fastify-specific)
+  // Handle Fastify/AJV Validation Errors (Fastify-specific)
   if (err.validation) {
     // Always log the original error with request context for debugging
     request.log.warn({ error: err }, 'Validation exception!');
@@ -179,6 +179,7 @@ export const errorHandler = (
     let errorCode = ERROR_CODE_BAD_REQUEST;
     let messagePrefix = '';
 
+    // Process the different types of validation errors
     switch (err.validationContext) {
       case 'headers':
         messagePrefix = 'Headers: ';
@@ -201,17 +202,19 @@ export const errorHandler = (
 
     // The JSON validator repeats itself sometimes, so we deduplicate here
     const errs = cleanedMessage.split(',').map(err => err.trim());
+    // If no error were identifier, use a generic message
+    if (errs.length === 0) errs.push(ERROR_MSG_BAD_REQUEST)
     const message = Array.from(new Set([...errs])).join(', ');
 
     // Return the validation error in our API error format
     return reply.status(400).send({
       status_code: 400,
       error_code: errorCode,
-      message: `${messagePrefix}${message}`
+      error_message: `${messagePrefix}${message}`
     });
   }
 
-  // Otherwise it's not a validation error
+  // Otherwise it's not an AJV validation error
   const errOut: ApiError = fastifyErrorToApiError(err, request.dmptoolConfig)
   if (errOut.status_code >= 500) {
     request.log.fatal({ error: err, errOut }, 'Fastify fatal exception!');

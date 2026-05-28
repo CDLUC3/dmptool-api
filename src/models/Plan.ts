@@ -345,9 +345,6 @@ export class Plan extends BaseGraphQLModel {
       // Process any errors that may have occurred
       this.handleMutationErrors("create AlternateIdentifier", added, data?.errors);
 
-console.log('ERRORS NOW', this.errors)
-console.log('ALT ID', data)
-
       // If data was returned and we have no errors
       const hadErrors: boolean = this.hasErrors();
       if (!data || hadErrors) {
@@ -360,10 +357,6 @@ console.log('ALT ID', data)
     if (errs.length > 0) {
       this.warnings.alternateIdentifiers = errs.join("\n");
     }
-
-console.log('ERRORS', this.errors)
-console.log('WARNINGS', this.warnings)
-
     return !this.hasErrors();
   }
 
