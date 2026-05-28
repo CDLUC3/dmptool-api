@@ -197,7 +197,7 @@ export const errorHandler = (
         break;
     }
 
-    // Clean up the body error message if necessary
+    // Clean up the body error message if necessary. AJV adds this, but it's just noise for the caller
     const cleanedMessage = error.message.replace(', body must match a schema in anyOf', '');
 
     // The JSON validator repeats itself sometimes, so we deduplicate here
