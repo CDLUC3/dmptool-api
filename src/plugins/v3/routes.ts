@@ -7,7 +7,6 @@ import type {
   FastifySchema,
   FastifySchemaValidationError
 } from 'fastify';
-import { createError } from "@fastify/error";
 import { ValidationFunction } from "fastify/types/request.js";
 import { FastifyRouteSchemaDef } from "fastify/types/schema.js";
 import {
@@ -25,10 +24,15 @@ import { convertMySQLDateTimeToRFC3339, DMP_LATEST_VERSION } from "@dmptool/util
 import v3SerializationPlugin from "./serialization.js";
 import { v3SwaggerConfig, v3SwaggerUIConfig } from "./swagger.js";
 import {
-  ERROR_CODE_INTERNAL_SERVER, ERROR_CODE_INVALID_DMP, ERROR_CODE_NOT_FOUND,
+  ERROR_CODE_INTERNAL_SERVER,
+  ERROR_CODE_INVALID_DMP,
+  ERROR_CODE_NOT_FOUND,
   ERROR_CODE_UNAUTHENTICATED,
-  ERROR_MSG_INTERNAL_SERVER, ERROR_MSG_NOT_FOUND, ERROR_MSG_UNAUTHENTICATED,
+  ERROR_MSG_INTERNAL_SERVER,
+  ERROR_MSG_NOT_FOUND,
+  ERROR_MSG_UNAUTHENTICATED,
   errorHandler,
+  newFastifyError,
   notFoundHandler
 } from "../../handlers/error.js";
 import { decorateLog } from "../../handlers/logger.js";
@@ -199,7 +203,7 @@ const v3RoutesPlugin = async function (
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       if (!isAuthenticatedUser(request)) {
         request.log.debug('An attempt to create a new DMP was made by an unauthenticated caller');
-        throw createError(ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_UNAUTHENTICATED);
+        throw newFastifyError(ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_UNAUTHENTICATED);
       }
 
       request.log.debug({ body: request.body }, 'POST /dmps called.')
@@ -209,7 +213,7 @@ const v3RoutesPlugin = async function (
       // the response was undefined, throw an error
       if (!result) {
         request.log.fatal('An unknown error occurred during DMP creation');
-        throw createError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
+        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
       }
 
       return reply.code(201).send(result);
@@ -237,7 +241,7 @@ const v3RoutesPlugin = async function (
       // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
       if (!id || !isDmpId(request.dmptoolConfig, encodeURIComponent(id))) {
         request.log.error({ dmpId: params.id }, 'Invalid DMP ID');
-        throw createError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
+        throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
       }
 
       // TODO: Fetch the DMP from the DynamoDB table (use the Accept header to
@@ -253,7 +257,7 @@ const v3RoutesPlugin = async function (
       const plan: PlanRDS | undefined = await loadPlan(request, id);
       if (!plan) {
         request.log.warn({ dmpId: id }, "No Plan found");
-        throw createError(ERROR_CODE_NOT_FOUND, 'DMP not found');
+        throw newFastifyError(ERROR_CODE_NOT_FOUND, 'DMP not found');
       }
 
       // Second: load the DMP ids that the user or caller has access to
@@ -298,7 +302,7 @@ const v3RoutesPlugin = async function (
       // If the maDMP record could not be generated or retrieved, we need to bail out
       if (!maDMP || !maDMP.dmp) {
         request.log.error({ dmpId: id }, "Unable to generate narrative for DMP");
-        throw createError(ERROR_CODE_INTERNAL_SERVER, ERROR_MSG_INTERNAL_SERVER);
+        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, ERROR_MSG_INTERNAL_SERVER);
       }
 
       // Determine if the caller has permission to view the DMP
@@ -309,7 +313,7 @@ const v3RoutesPlugin = async function (
       if (!hasPermission) {
         request.log.warn({ dmpId: id }, "User/Caller does not have permission to view the DMP");
         // We return 404 here so that we're not signaling which DMP ids are valid
-        throw createError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
+        throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
       }
 
       reply.code(200).send(maDMP);
@@ -333,7 +337,7 @@ const v3RoutesPlugin = async function (
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       if (!isAuthenticatedUser(request)) {
         request.log.debug('An attempt to create a new DMP was made by an unauthenticated caller');
-        throw createError(ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_UNAUTHENTICATED);
+        throw newFastifyError(ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_UNAUTHENTICATED);
       }
 
       const params = request.params as { id: string };
@@ -352,7 +356,7 @@ const v3RoutesPlugin = async function (
       // the response was undefined, throw an error
       if (!result) {
         request.log.fatal('An unknown error occurred during DMP creation');
-        throw createError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
+        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
       }
 
       // Append a `Last-Modified` header to the response and set its value
@@ -381,7 +385,7 @@ const v3RoutesPlugin = async function (
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       if (!isAuthenticatedUser(request)) {
         request.log.debug('An attempt to create a new DMP was made by an unauthenticated caller');
-        throw createError(ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_UNAUTHENTICATED);
+        throw newFastifyError(ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_UNAUTHENTICATED);
       }
 
       const params = request.params as { id: string };
@@ -410,7 +414,7 @@ const v3RoutesPlugin = async function (
       const result: boolean = await deleteDmpWorkflow(request, id, modCheck, TEST_DMP.modified);
       if (!result) {
         request.log.fatal('An unknown error occurred during DMP creation');
-        throw createError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
+        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
       }
 
       reply.code(204).send();

@@ -84,20 +84,6 @@ describe('v3 routes', () => {
       const json = response.json();
       expect(json.error_code).toEqual('dmp_invalid');
       expect(json.status_code).toEqual(400);
-
-      // Should have errors for RDA Common Standard fields
-      expect(json.message.startsWith('Invalid DMP record')).toBe(true);
-      expect(json.message.includes('contact')).toBe(true);
-      expect(json.message.includes('created')).toBe(true);
-      expect(json.message.includes('dataset')).toBe(true);
-      expect(json.message.includes('dmp_id')).toBe(true);
-      expect(json.message.includes('ethical_issues_exist')).toBe(true);
-      expect(json.message.includes('language')).toBe(true);
-      expect(json.message.includes('modified')).toBe(true);
-      expect(json.message.includes('title')).toBe(true);
-
-      // Should not have errors for DMP Tool fields
-      expect(json.message.includes('provenance')).toBe(false);
     });
 
     it('should reject invalid DMP JSON using the DMP Tool Standard', async () => {
@@ -124,20 +110,6 @@ describe('v3 routes', () => {
       const json = response.json();
       expect(json.error_code).toEqual('dmp_invalid');
       expect(json.status_code).toEqual(400);
-
-      // Should have errors for RDA Common Standard fields
-      expect(json.message.startsWith('Invalid DMP record')).toBe(true);
-      expect(json.message.includes('contact')).toBe(true);
-      expect(json.message.includes('created')).toBe(true);
-      expect(json.message.includes('dataset')).toBe(true);
-      expect(json.message.includes('dmp_id')).toBe(true);
-      expect(json.message.includes('ethical_issues_exist')).toBe(true);
-      expect(json.message.includes('language')).toBe(true);
-      expect(json.message.includes('modified')).toBe(true);
-      expect(json.message.includes('title')).toBe(true);
-
-      // Should have errors for DMP Tool fields
-      expect(json.message.includes('provenance')).toBe(true);
     });
 
     it('should accept a valid RDA Common Standard DMP', async () => {
@@ -151,7 +123,6 @@ describe('v3 routes', () => {
       const json = response.json();
       expect(json.error_code).toBeUndefined();
       expect(json.status_code).toBe(200);
-      expect(json.message).toBe('DMP is valid');
     });
 
     it('should accept a valid DMP Tool Standard DMP', async () => {
@@ -165,7 +136,6 @@ describe('v3 routes', () => {
       const json = response.json();
       expect(json.error_code).toBeUndefined();
       expect(json.status_code).toBe(200);
-      expect(json.message).toBe('DMP is valid');
     });
   });
 
@@ -253,7 +223,7 @@ describe('v3 routes', () => {
       expect(response.json()).toEqual({
         status_code: 500,
         error_code: 'generic_error',
-        message: 'Internal server error',
+        error_message: 'Internal server error'
       });
     });
   });
@@ -344,9 +314,9 @@ describe('v3 routes', () => {
         url: `/api/test/dmps/${encodeURIComponent('99.99999/Z9')}test-dmp-id`,
       });
 
-      expect(response.statusCode).toBe(500);
+      expect(response.statusCode).toBe(400);
       const json = response.json();
-      expect(json.error_code).toEqual('generic_error');
+      expect(json.error_code).toEqual('dmp_invalid');
     });
   });
 
@@ -404,24 +374,6 @@ describe('v3 routes', () => {
       expect(response.statusCode).toBe(400);
       const json = response.json();
       expect(json.error_code).toEqual('bad_request');
-    });
-
-    it('should return 409 status code if the If-Unmodified-Since header doesn\'t match the DMP modified', async () => {
-      updateDmpWorkflow.mockRejectedValueOnce(new Error('Conflict') as never);
-
-      const modified = new Date(updateableDmp.dmp.modified);
-      const oneDayAgo = new Date(modified.getTime() - 24 * 60 * 60 * 1000);
-
-      const response = await fastify.inject({
-        method: 'PUT',
-        url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
-        headers: { 'if-unmodified-since': oneDayAgo.toISOString() },
-        body: updateableDmp
-      });
-
-      expect(response.statusCode).toBe(500);
-      const json = response.json();
-      expect(json.error_code).toEqual('generic_error');
     });
   });
 

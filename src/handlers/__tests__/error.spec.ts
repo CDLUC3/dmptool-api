@@ -165,7 +165,7 @@ describe('errorHandler', () => {
 
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 400,
-        error_code: 'bad_request',
+        error_code: 'invalid_query_string',
         message: 'Query string: Invalid query parameter',
       });
     });
@@ -296,7 +296,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 403,
         error_code: 'insufficient_permissions',
-        error_message: 'The current user has insufficient permissions to perform this action',
+        error_message: 'Insufficient permissions to perform this action',
       });
     });
 
@@ -317,7 +317,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 406,
         error_code: 'not_acceptable',
-        error_message: 'The client has requested a DMP standard that the server cannot fulfill.',
+        error_message: 'Unknown DMP standard, unable to fulfill request.',
       });
     });
 
@@ -338,7 +338,7 @@ describe('errorHandler', () => {
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 415,
         error_code: 'unsupported_media_type',
-        error_message: 'The server cannot process the DMP sent by the client because it does not support th specified MIME type.',
+        error_message: 'Invalid DMP MIME type. Try `Content-Type: application/json` instead.',
       });
     });
 
@@ -378,7 +378,7 @@ describe('errorHandler', () => {
       expect(mockReply.status).toHaveBeenCalledWith(422);
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 422,
-        error_code: 'CUSTOM_ERROR',
+        error_code: 'custom_error',
         error_message: 'The request is invalid.',
       });
     });

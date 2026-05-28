@@ -73,7 +73,7 @@ export class PlanMember extends BaseGraphQLModel {
     members: PlanMember[]
   ): Promise<boolean> {
     if (!plan || !plan.id) return false;
-    // If the members are empty this is an error (we must have a primary contact!)
+    // If the members are empty, this is an error (we must have a primary contact!)
     if (!members || members.length === 0) {
       plan.errors['members'] = "maDMP must have at least one contact"
     }
@@ -84,20 +84,9 @@ export class PlanMember extends BaseGraphQLModel {
     const existing: PlanMember[] = await PlanMember.findByPlanId(request, plan.id);
     // Compare them to the list of new members and see if there are any that should
     // be deleted
-    const deleteErrs: string[] = [];
     const toDelete: PlanMember[] = existing.filter((m: PlanMember): boolean => {
       return m.id ? !memberIds.includes(m.id) : false;
     });
-    if (toDelete.length > 0) {
-      // Delete each one
-      await Promise.all(toDelete.map(async (member: PlanMember): Promise<void> => {
-        const deleted: boolean = await member.delete(request);
-        if (!deleted) deleteErrs.push(member.errorsToString());
-      }));
-    }
-    // Log any deletion errors and then continue with the creates/updates to hopefully
-    // ensure that we set the primary contact one
-    if (deleteErrs.length > 0) plan.errors['members'] = deleteErrs.join('; ');
 
     // Loop through and save each member that was in the maDMP
     const errs: string[] = [];
@@ -113,6 +102,21 @@ export class PlanMember extends BaseGraphQLModel {
     }));
     if (errs.length > 0) plan.errors['members'] = errs.join('; ');
     if (warns.length > 0) plan.warnings['members'] = warns.join('; ');
+
+    // Now that the new members have been added, we can delete any that are no longer
+    // valid. We do this last because otherwise Apollo throws an error because there
+    // must be at least one PlanMember
+    const deleteErrs: string[] = [];
+    if (toDelete.length > 0) {
+      // Delete each one
+      await Promise.all(toDelete.map(async (member: PlanMember): Promise<void> => {
+        const deleted: boolean = await member.delete(request);
+        if (!deleted) deleteErrs.push(member.errorsToString());
+      }));
+    }
+    // Log any deletion errors and then continue with the creates/updates to hopefully
+    // ensure that we set the primary contact one
+    if (deleteErrs.length > 0) plan.errors['members'] = deleteErrs.join('; ');
 
     return !plan.hasErrors();
   }

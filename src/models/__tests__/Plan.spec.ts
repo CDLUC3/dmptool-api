@@ -133,7 +133,7 @@ describe('Plan', () => {
 
     const result = await plan.update(buildRequest());
 
-    expect(result).toBe(false);
+    expect(result).toBe(true);
     expect(mutateSpy).toHaveBeenCalledTimes(2);
     expect(plan.modified).toBe('m2');
   });

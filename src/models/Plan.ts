@@ -203,6 +203,7 @@ export class Plan extends BaseGraphQLModel {
     );
     const titleData: Plan | undefined = savedTitle?.data?.updatePlanTitle;
     this.processGQLResponse(savedTitle, titleData as Plan, 'update Plan.title');
+
     if (titleData && !this.hasErrors()) {
       // If successful, then update the Plan status
       const savedStatus: GQLResponse<UpdatePlanStatusResponse> = await Plan.mutate<UpdatePlanStatusResponse>(
@@ -219,7 +220,8 @@ export class Plan extends BaseGraphQLModel {
       const data: Plan | undefined = savedStatus?.data?.updatePlanStatus;
       this.processGQLResponse(savedStatus, data as Plan, 'update Plan.status');
     }
-    return this.hasErrors();
+
+    return !this.hasErrors();
   }
 
   /**
@@ -339,8 +341,12 @@ export class Plan extends BaseGraphQLModel {
         } as MutateOptions
       );
       const data: AlternateIdentifierInterface | undefined = added?.data?.addAlternateIdentifierToPlan;
+
       // Process any errors that may have occurred
       this.handleMutationErrors("create AlternateIdentifier", added, data?.errors);
+
+console.log('ERRORS NOW', this.errors)
+console.log('ALT ID', data)
 
       // If data was returned and we have no errors
       const hadErrors: boolean = this.hasErrors();
@@ -354,6 +360,9 @@ export class Plan extends BaseGraphQLModel {
     if (errs.length > 0) {
       this.warnings.alternateIdentifiers = errs.join("\n");
     }
+
+console.log('ERRORS', this.errors)
+console.log('WARNINGS', this.warnings)
 
     return !this.hasErrors();
   }

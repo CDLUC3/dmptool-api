@@ -79,11 +79,11 @@ describe('v3 serialization', () => {
       headers: { accept: 'application/xml' },
     });
 
-    expect(response.statusCode).toBe(500);
+    expect(response.statusCode).toBe(406);
     const body = JSON.parse(response.body);
-    expect(body).toHaveProperty('status_code', 500);
-    expect(body).toHaveProperty('error_code', 'generic_error');
-    expect(body).toHaveProperty('message', 'Internal server error');
+    expect(body).toHaveProperty('status_code', 406);
+    expect(body).toHaveProperty('error_code', 'not_acceptable');
+    expect(body).toHaveProperty('error_message', 'Unknown DMP standard, unable to fulfill request.');
   });
 
   it('should set Content-Type to DMPTool header when Accept header matches', async () => {

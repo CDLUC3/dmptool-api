@@ -6,8 +6,10 @@ import type {
   FastifyRequest
 } from "fastify";
 import { Negotiator } from '@fastify/accept-negotiator';
-import { createError } from "@fastify/error";
-import { ERROR_CODE_NOT_ACCEPTABLE } from "../../handlers/error.js";
+import {
+  ERROR_CODE_NOT_ACCEPTABLE,
+  newFastifyError
+} from "../../handlers/error.js";
 import {
   DMP_TOOL_CONTENT_TYPE,
   RDA_COMMON_STANDARD_CONTENT_TYPE,
@@ -91,10 +93,9 @@ const v3SerializationPlugin = fp(async function (
       cache: new Map()
     });
     const acceptHeader: string | null = negotiator.negotiate(request.headers['accept'] || '');
-
     // If it returned null, then an Accept header we don't support was provided
     if (!acceptHeader) {
-      throw createError(ERROR_CODE_NOT_ACCEPTABLE, 'Unsupported Accept Header');
+      throw newFastifyError(ERROR_CODE_NOT_ACCEPTABLE, 'Unsupported Accept Header');
     }
 
     const targetType = acceptHeader === DMP_TOOL_CONTENT_TYPE

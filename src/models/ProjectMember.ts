@@ -380,7 +380,7 @@ export class ProjectMember extends BaseGraphQLModel {
 
     // Check to see if any roles didn't match what was specified
     if (areEqual(member.memberRoles.map((mr: MemberRole) => mr.uri), memberFromMaDMP.role)) {
-      member.errors['memberRoleIds'] = 'Some roles were not recognized so the default was used.';
+      member.warnings['memberRoleIds'] = 'Some roles were not recognized so the default was used.';
     }
     return member;
   }

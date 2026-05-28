@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import type { FastifyRequest } from 'fastify';
+import { FastifyRequest } from 'fastify';
 import { VersionedTemplate } from '../../../../models/VersionedTemplate.js';
 import { Project } from '../../../../models/Project.js';
 import { Plan } from '../../../../models/Plan.js';
+import {newFastifyError} from "../../../../handlers/error.js";
 
 const mockSaveMembersWorkflow = jest.fn();
 const mockLoadMaDMPFromDynamo = jest.fn();
@@ -124,6 +125,10 @@ describe('updateDmpWorkflow', () => {
   });
 
   it('rejects when update modified-date preconditions do not match', async () => {
+    const expected = newFastifyError(
+      'conflict',
+      'The DMP has been modified since the time specified in the If-Unmodified-Since header'
+    );
     await expect(
       updateDmpWorkflow(
         makeRequest(),
@@ -135,7 +140,7 @@ describe('updateDmpWorkflow', () => {
           },
         } as never
       )
-    ).rejects.toEqual(expect.any(Function));
+    ).rejects.toEqual(expected);
   });
 });
 
@@ -152,6 +157,10 @@ describe('deleteDmpWorkflow', () => {
   });
 
   it('rejects when delete modified-date preconditions do not match', async () => {
+    const expected = newFastifyError(
+      'conflict',
+      'The DMP has been modified since the time specified in the If-Unmodified-Since header'
+    );
     await expect(
       deleteDmpWorkflow(
         makeRequest(),
@@ -159,27 +168,30 @@ describe('deleteDmpWorkflow', () => {
         '2021-01-02T00:00:00Z',
         '2021-01-01 00:00:00Z'
       )
-    ).rejects.toEqual(expect.any(Function));
+    ).rejects.toEqual(expected);
   });
 });
 
 describe('createPlanWorkflow', () => {
   it('returns 400 when incoming dmp id belongs to local shoulder', async () => {
+    const expected = newFastifyError('generic_error', 'Invalid DMP id');
     await expect(createPlanWorkflow(makeRequest(), makeBody('10.99999/local-id')))
-      .rejects.toEqual(expect.any(Function));
+      .rejects.toEqual(expected);
   });
 
   it('returns 500 when template cannot be found', async () => {
     jest.spyOn(VersionedTemplate, 'findOrDefault').mockResolvedValue(undefined);
 
-    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expect.any(Function));
+    const expected = newFastifyError('generic_error', 'Missing template');
+    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expected);
   });
 
   it('returns 400 when plan already exists', async () => {
     jest.spyOn(VersionedTemplate, 'findOrDefault').mockResolvedValue({ id: 1 } as never);
     jest.spyOn(Plan, 'findOrInitialize').mockResolvedValue({ id: 99 } as never);
 
-    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expect.any(Function));
+    const expected = newFastifyError('dmp_already_exists', 'DMP already exists');
+    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expected);
   });
 
   it('returns 400 when project save fails for a new project', async () => {
@@ -195,7 +207,8 @@ describe('createPlanWorkflow', () => {
     jest.spyOn(Plan, 'findOrInitialize').mockResolvedValue(plan);
     jest.spyOn(Project, 'findOrInitialize').mockResolvedValue(project);
 
-    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expect.any(Function));
+    const expected = newFastifyError('invalid_dmp', 'title: invalid');
+    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expected);
   });
 
   it('returns 400 when plan save fails', async () => {
@@ -212,7 +225,8 @@ describe('createPlanWorkflow', () => {
     jest.spyOn(Plan, 'findOrInitialize').mockResolvedValue(plan);
     jest.spyOn(Project, 'findOrInitialize').mockResolvedValue(project);
 
-    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expect.any(Function));
+    const expected = newFastifyError('invalid_dmp', 'graphQL: bad plan');
+    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expected);
   });
 
   it('returns 500 when plan save succeeds but dmp id is not assigned', async () => {
@@ -223,7 +237,8 @@ describe('createPlanWorkflow', () => {
     jest.spyOn(Plan, 'findOrInitialize').mockResolvedValue(plan);
     jest.spyOn(Project, 'findOrInitialize').mockResolvedValue(project);
 
-    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expect.any(Function));
+    const expected = newFastifyError('generic_error', 'Unable to generate DMP id.');
+    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expected);
   });
 
   it('continues when non-fatal artifact persistence fails but no model errors are present', async () => {
@@ -265,7 +280,8 @@ describe('createPlanWorkflow', () => {
 
     mockSaveMembersWorkflow.mockResolvedValue(plan as never);
 
-    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expect.any(Function));
+    const expected = newFastifyError('invalid_dmp', 'members: bad data');
+    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expected);
   });
 
   it('returns 500 when maDMP cannot be loaded after successful saves', async () => {
@@ -279,7 +295,11 @@ describe('createPlanWorkflow', () => {
     mockSaveMembersWorkflow.mockResolvedValue(plan as never);
     mockLoadMaDMPFromDynamo.mockResolvedValue(undefined as never);
 
-    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expect.any(Function));
+    const expected = newFastifyError(
+      'generic_error',
+      'Your DMP was created but we could not generate a valid JSON response. Try "GET /dmps/10.99999/abc"'
+    );
+    await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expected);
   });
 
   it('returns 201 with maDMP payload when workflow succeeds', async () => {

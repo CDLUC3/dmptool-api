@@ -1,5 +1,4 @@
 import { FastifyRequest } from "fastify";
-import { createError } from "@fastify/error";
 import { DMPToolDMPType } from "@dmptool/types";
 import { convertMySQLDateTimeToRFC3339 } from "@dmptool/utils";
 import { IdentifierType } from "../../../types.js";
@@ -13,7 +12,8 @@ import {
   ERROR_CODE_CONFLICT,
   ERROR_CODE_INTERNAL_SERVER,
   ERROR_CODE_INVALID_DMP,
-  ERROR_MSG_CONFLICT
+  ERROR_MSG_CONFLICT,
+  newFastifyError
 } from "../../../handlers/error.js";
 
 /**
@@ -30,7 +30,7 @@ const validateModifiedDateMatch = (
   const currentDate = convertMySQLDateTimeToRFC3339(currentModifiedDate) as string;
 
   if (requestDate !== currentDate) {
-    throw createError(ERROR_CODE_CONFLICT, ERROR_MSG_CONFLICT);
+    throw newFastifyError(ERROR_CODE_CONFLICT, ERROR_MSG_CONFLICT);
   }
 };
 
@@ -113,18 +113,18 @@ export async function createPlanWorkflow(
       { dmpId: idIn, provenance: dmp.provenance },
       `Attempt to create a DMP using our DOI shoulder.`
     );
-    throw createError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
+    throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
   }
 
   // Fetch the specified template OR use the default template
-  const templateId: number | undefined = dmp.narrative.template?.id;
+  const templateId: number | undefined = dmp.narrative?.template?.id;
   const template: VersionedTemplate | undefined = await VersionedTemplate.findOrDefault(
     request,
     templateId
   );
   if (!template) {
     request.log.fatal({ templateId }, 'Unable to find a template (or default) for DMP creation');
-    throw createError(ERROR_CODE_INTERNAL_SERVER, 'Missing template');
+    throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Missing template');
   }
 
   request.log.debug({ alternateIdentifier: idIn }, 'Initializing Plan');
@@ -132,7 +132,7 @@ export async function createPlanWorkflow(
   const plan = await Plan.findOrInitialize(request, template, dmp);
   if (plan.id) {
     request.log.warn({ alternateIdentifier: idIn, planId: plan.id }, 'DMP already exists');
-    throw createError(ERROR_CODE_ALREADY_EXISTS, 'DMP already exists');
+    throw newFastifyError(ERROR_CODE_ALREADY_EXISTS, 'DMP already exists', 400);
   }
 
   // If the template specified doesn't match what we are using add a warning message
@@ -147,7 +147,7 @@ export async function createPlanWorkflow(
   // If the Project was initialized, create it
   if (!project.id && !(await project.save(request))) {
     request.log.error({ errors: project.errors, alternateIdentifier: idIn }, 'Unable to save project model');
-    throw createError(ERROR_CODE_INVALID_DMP, project.errorsToString());
+    throw newFastifyError(ERROR_CODE_INVALID_DMP, project.errorsToString());
   }
 
   // Create the new Plan
@@ -155,13 +155,13 @@ export async function createPlanWorkflow(
   request.log.debug({ alternateIdentifier: idIn, projectId: project.id }, 'Saving plan');
   if (!(await plan.save(request))) {
     request.log.error({ errors: plan.errors, alternateIdentifier: idIn }, 'Unable to save plan model');
-    throw createError(ERROR_CODE_INVALID_DMP, plan.errorsToString());
+    throw newFastifyError(ERROR_CODE_INVALID_DMP, plan.errorsToString());
   }
 
   // Something went wrong if the new DMP id was not set
   if (!plan.dmpId) {
     request.log.fatal({ alternateIdentifier: idIn, plan }, 'Plan save completed but no DMP id was assigned');
-    throw createError(ERROR_CODE_INTERNAL_SERVER, 'Unable to generate DMP id.');
+    throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to generate DMP id.');
   }
 
   // Now save the Project and Plan Members
@@ -186,7 +186,7 @@ export async function createPlanWorkflow(
       { errors: finalPlan.errors, dmpId: finalPlan.dmpId },
       'Failed to create Plan.'
     );
-    throw createError(ERROR_CODE_INVALID_DMP, finalPlan.errorsToString());
+    throw newFastifyError(ERROR_CODE_INVALID_DMP, finalPlan.errorsToString());
   }
 
   // Generate the maDMP JSON so that we can return it
@@ -205,7 +205,7 @@ export async function createPlanWorkflow(
       { alternateIdentifier: idIn, dmpId: plan.dmpId },
       'Unable to load newly-created maDMP'
     );
-    throw createError(
+    throw newFastifyError(
       ERROR_CODE_INVALID_DMP,
       `Your DMP was created but we could not generate a valid JSON response. Try "GET /dmps/${encodeURI(finalPlan.dmpId)}"`
     );

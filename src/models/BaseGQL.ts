@@ -63,10 +63,12 @@ export class BaseGraphQLModel {
    * @returns a concatenated string
    */
   errorsToString(): string {
-    return Object.keys(this.errors)
+    const errs = Object.keys(this.errors)
       .filter(k => k !== '__typename' && !!this.errors[k])
       .map(key => `${key}: ${this.errors[key]}`)
-      .join(', ');
+
+    // Cast to a Set to remove any duplicates and then join the array
+    return Array.from(new Set([...errs])).join(', ');
   }
 
   /**
@@ -75,10 +77,12 @@ export class BaseGraphQLModel {
    * @returns a concatenated string
    */
   warningsToString(): string {
-    return Object.keys(this.warnings)
+    const warns = Object.keys(this.warnings)
       .filter(k => k !== '__typename' && !!this.warnings[k])
-      .map(key => `${key}: ${this.warnings[key]}`)
-      .join(', ');
+      .map(key => `${key}: ${this.warnings[key]}`);
+
+    // Cast to a Set to remove any duplicates and then join the array
+    return Array.from(new Set([...warns])).join(', ');
   }
 
   /**
