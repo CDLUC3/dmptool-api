@@ -32,7 +32,7 @@ describe('notFoundHandler', () => {
 
     expect(mockReply.status).toHaveBeenCalledWith(404);
     expect(mockReply.send).toHaveBeenCalledWith({
-      status_code: '404',
+      status_code: 404,
       error_code: 'dmp_not_found',
       error_message: 'Route GET:/api/v3/dmps not found.',
     });
@@ -52,7 +52,7 @@ describe('notFoundHandler', () => {
 
     expect(mockReply.status).toHaveBeenCalledWith(404);
     expect(mockReply.send).toHaveBeenCalledWith({
-      status_code: '404',
+      status_code: 404,
       error_code: 'dmp_not_found',
       error_message: 'Route GET:/api/v3/dmps/10.12345/abc123 not found. Make sure the DMP id is URL encoded.',
     });
@@ -378,7 +378,7 @@ describe('errorHandler', () => {
       expect(mockReply.status).toHaveBeenCalledWith(422);
       expect(mockReply.send).toHaveBeenCalledWith({
         status_code: 422,
-        error_code: 'custom_error',
+        error_code: 'bad_request',
         error_message: 'The request is invalid.',
       });
     });

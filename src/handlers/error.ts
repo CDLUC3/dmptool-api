@@ -52,7 +52,7 @@ export const newFastifyError = (
 ): FastifyError => {
   const err = createError(
     errorCode,
-    message ?? 'Something went wrong.',
+    message ?? ERROR_MSG_INTERNAL_SERVER,
     statusCode ?? 500
   );
   return new err();
@@ -113,7 +113,7 @@ const fastifyErrorToApiError = (
     errorCode = ERROR_CODE_ALREADY_EXISTS;
     message = ERROR_MSG_ALREADY_EXISTS;
   } else if (statusCode < 500) {
-    // For 4xx errors that aren't validation, we can usually trust the error message
+    errorCode = ERROR_CODE_BAD_REQUEST
     message = ERROR_MSG_BAD_REQUEST;
   } else if (statusCode === 500) {
     statusCode = 500;
@@ -139,7 +139,7 @@ export const notFoundHandler = (
   const hasDmpId: boolean = request.url.includes(dmpIdShoulder);
   const msg = 'Make sure the DMP id is URL encoded.'
   reply.status(404).send({
-    status_code: '404',
+    status_code: 404,
     error_code: ERROR_CODE_NOT_FOUND,
     error_message: `Route ${request.method}:${request.url} not found.${hasDmpId ? ` ${msg}` : ''}`,
   });
@@ -201,7 +201,9 @@ export const errorHandler = (
     const cleanedMessage = error.message.replace(', body must match a schema in anyOf', '');
 
     // The JSON validator repeats itself sometimes, so we deduplicate here
-    const errs = cleanedMessage.split(',').map(err => err.trim());
+    const errs = cleanedMessage.split(',')
+      .map(err => err.trim())
+      .filter(err => err !== undefined && err.trim() !== '');
     // If no error were identifier, use a generic message
     if (errs.length === 0) errs.push(ERROR_MSG_BAD_REQUEST)
     const message = Array.from(new Set([...errs])).join(', ');
