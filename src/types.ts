@@ -29,7 +29,7 @@ declare module 'fastify' {
 export interface ApiError {
   status_code: number;
   error_code: string;
-  message: string;
+  error_message: string;
 }
 
 /**

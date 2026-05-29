@@ -29,6 +29,9 @@ const makePlan = () =>
     id: 11,
     dmpId: '10.12345/test',
     errors: {},
+    warnings: {},
+    hasErrors: jest.fn().mockReturnValue(false),
+    hasWarnings: jest.fn().mockReturnValue(false),
   }) as unknown as Plan;
 
 const makeDmp = () =>
@@ -54,7 +57,6 @@ describe('saveMembersWorkflow', () => {
 
     jest.spyOn(MemberRole, 'all').mockResolvedValue(roles as never);
     jest.spyOn(ProjectMember, 'processMembers').mockResolvedValue(projectMembers as never);
-    jest.spyOn(Plan, 'hasErrors').mockReturnValue(false);
     jest.spyOn(ProjectMember, 'save').mockResolvedValue(true);
     jest.spyOn(PlanMember, 'fromProjectMembers').mockResolvedValue(planMembers as never);
     jest.spyOn(PlanMember, 'save').mockResolvedValue(true);
@@ -82,9 +84,11 @@ describe('saveMembersWorkflow', () => {
     const plan = makePlan();
     const dmp = makeDmp();
 
+    plan.errors = { members: 'Unable to process members' };
+    jest.spyOn(plan, 'hasErrors').mockReturnValue(true);
+
     jest.spyOn(MemberRole, 'all').mockResolvedValue([] as never);
     jest.spyOn(ProjectMember, 'processMembers').mockResolvedValue([] as never);
-    jest.spyOn(Plan, 'hasErrors').mockReturnValue(true);
 
     const projectSaveSpy = jest.spyOn(ProjectMember, 'save').mockResolvedValue(true);
     const fromProjectMembersSpy = jest
@@ -96,7 +100,12 @@ describe('saveMembersWorkflow', () => {
 
     expect(result).toBe(plan);
     expect(request.log.error).toHaveBeenCalledWith(
-      { planId: plan.id, contact: dmp.contact, contributors: dmp.contributor },
+      {
+        planId: plan.id,
+        contact: dmp.contact,
+        contributors: dmp.contributor,
+        errors: { members: 'Unable to process members' },
+      },
       'Unable to process contact and contributor information.'
     );
     expect(projectSaveSpy).not.toHaveBeenCalled();
@@ -114,7 +123,6 @@ describe('saveMembersWorkflow', () => {
 
     jest.spyOn(MemberRole, 'all').mockResolvedValue([] as never);
     jest.spyOn(ProjectMember, 'processMembers').mockResolvedValue(projectMembers as never);
-    jest.spyOn(Plan, 'hasErrors').mockReturnValue(false);
     jest.spyOn(ProjectMember, 'save').mockResolvedValue(false);
 
     const fromProjectMembersSpy = jest
@@ -144,7 +152,6 @@ describe('saveMembersWorkflow', () => {
 
     jest.spyOn(MemberRole, 'all').mockResolvedValue([] as never);
     jest.spyOn(ProjectMember, 'processMembers').mockResolvedValue(projectMembers as never);
-    jest.spyOn(Plan, 'hasErrors').mockReturnValue(false);
     jest.spyOn(ProjectMember, 'save').mockResolvedValue(true);
     jest.spyOn(PlanMember, 'fromProjectMembers').mockResolvedValue(planMembers as never);
     jest.spyOn(PlanMember, 'save').mockResolvedValue(false);

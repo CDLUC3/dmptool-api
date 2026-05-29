@@ -34,18 +34,20 @@ describe('BaseGraphQLModel', () => {
   });
 
   it('should detect errors while ignoring __typename', () => {
-    expect(BaseGraphQLModel.hasErrors({ title: 'Missing title' })).toBe(true);
-    expect(BaseGraphQLModel.hasErrors({ __typename: 'Foo' })).toBe(false);
-    expect(BaseGraphQLModel.hasErrors({ title: '' })).toBe(false);
+    const model = new BaseGraphQLModel({ errors: { title: 'Missing title' } });
+
+    expect(model.hasErrors()).toBe(true);
+    expect(new BaseGraphQLModel({ errors: { __typename: 'Foo' } }).hasErrors()).toBe(false);
+    expect(new BaseGraphQLModel({ errors: { title: '' } }).hasErrors()).toBe(false);
   });
 
   it('should stringify errors using current implementation rules', () => {
-    const result = BaseGraphQLModel.errorsToString({
+    const result = new BaseGraphQLModel({ errors: {
       __typename: 'Foo',
       title: 'Missing title',
       note: '',
       other: null as unknown as string,
-    });
+    }}).errorsToString();
 
     expect(typeof result).toBe('string');
   });
@@ -59,7 +61,7 @@ describe('BaseGraphQLModel', () => {
       { title: 'Required' }
     );
 
-    expect(model.errors).toEqual({ title: 'Required' });
+    expect(model.errors).toEqual({ graphQL: 'Boom', title: 'Required' });
   });
 
   it('should set a fallback graphQL error when gql response is missing', () => {
@@ -67,7 +69,7 @@ describe('BaseGraphQLModel', () => {
 
     model.handleMutationErrors('create', undefined as unknown as GQLResponse<unknown>);
 
-    expect(model.errors.graphQL).toBe('Failed to create project');
+    expect(model.errors.graphQL).toBe('Failed to create');
   });
 
   it('should execute successfully without errors', async () => {

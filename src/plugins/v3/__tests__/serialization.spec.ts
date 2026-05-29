@@ -1,10 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
 import { DMP_TOOL_CONTENT_TYPE } from "../routeSchema.js";
 import configPlugin from "../../config.js";
 import { mockMaDMPModule } from "./maDMPMocks.js";
 
 mockMaDMPModule();
+
+jest.unstable_mockModule('../workflows/planWorkflow.js', () => ({
+  createPlanWorkflow: jest.fn(),
+  updateDmpWorkflow: jest.fn(),
+  deleteDmpWorkflow: jest.fn(),
+}));
 
 describe('v3 serialization', () => {
   let fastify: FastifyInstance;
@@ -77,7 +83,7 @@ describe('v3 serialization', () => {
     const body = JSON.parse(response.body);
     expect(body).toHaveProperty('status_code', 406);
     expect(body).toHaveProperty('error_code', 'not_acceptable');
-    expect(body).toHaveProperty('message', 'The server does not support any of the requested content types.');
+    expect(body).toHaveProperty('error_message', 'Unknown DMP standard, unable to fulfill request.');
   });
 
   it('should set Content-Type to DMPTool header when Accept header matches', async () => {

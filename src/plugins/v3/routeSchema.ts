@@ -32,7 +32,7 @@ const errorObjectSchema = {
     error_code: {
       type: 'string'
     },
-    message: {
+    error_message: {
       type: 'string'
     }
   },

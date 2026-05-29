@@ -32,12 +32,29 @@ export const saveMembersWorkflow = async (
     dmp
   );
   // If any errors were encountered while processing the contributor array and contact
-  if (Plan.hasErrors(plan.errors)) {
+  if (plan.hasErrors()) {
     request.log.error(
-      { planId: plan.id, contact: dmp.contact, contributors: dmp.contributor },
+      {
+        planId: plan.id,
+        contact: dmp.contact,
+        contributors: dmp.contributor,
+        errors: plan.errors,
+      },
       'Unable to process contact and contributor information.'
     );
     return plan;
+  }
+
+  if (plan.hasWarnings()) {
+    request.log.warn(
+      {
+        planId: plan.id,
+        contact: dmp.contact,
+        contributors: dmp.contributor,
+        warnings: plan.warnings,
+      },
+      'Member processing warnings occurred.'
+    );
   }
 
   // If any errors were encountered while saving the Project Members

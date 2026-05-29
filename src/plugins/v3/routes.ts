@@ -23,12 +23,26 @@ import { DMPToolDMPType } from "@dmptool/types";
 import { convertMySQLDateTimeToRFC3339, DMP_LATEST_VERSION } from "@dmptool/utils";
 import v3SerializationPlugin from "./serialization.js";
 import { v3SwaggerConfig, v3SwaggerUIConfig } from "./swagger.js";
-import { errorHandler, notFoundHandler } from "../../handlers/error.js";
+import {
+  ERROR_CODE_INTERNAL_SERVER,
+  ERROR_CODE_INVALID_DMP,
+  ERROR_CODE_NOT_FOUND,
+  ERROR_CODE_UNAUTHENTICATED,
+  ERROR_MSG_INTERNAL_SERVER,
+  ERROR_MSG_NOT_FOUND,
+  ERROR_MSG_UNAUTHENTICATED,
+  errorHandler,
+  newFastifyError,
+  notFoundHandler
+} from "../../handlers/error.js";
 import { decorateLog } from "../../handlers/logger.js";
 import { isDmpId } from "../../utils.js";
 import { AccessiblePlan, ConfigurationOptions, User } from "../../types.js";
 import { Plan as PlanRDS } from "../../types.js";
-import { CreateDmpResult, createPlanWorkflow } from "./workflows/planWorkflow.js";
+import {
+  createPlanWorkflow, deleteDmpWorkflow,
+  updateDmpWorkflow
+} from "./workflows/planWorkflow.js";
 import {
   callerHasPermission,
   handleMissingMaDMP,
@@ -38,6 +52,10 @@ import {
   loadPlansForUser,
   userHasPermission,
 } from "../../models/maDMP.js";
+
+const isAuthenticatedUser = (request: FastifyRequest): boolean => {
+  return !!request.user && typeof request.user === 'object' && Object.keys(request.user as object).length > 0;
+}
 
 // TODO: Delete this mock responses once the models and business logic are in place
 const TEST_DMP = {
@@ -183,20 +201,22 @@ const v3RoutesPlugin = async function (
       }
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      const result: CreateDmpResult = await createPlanWorkflow(
-        request,
-        request.body as DMPToolDMPType
-      );
-
-      if (!result.ok) {
-        return reply.code(result.statusCode).send({
-          status_code: result.statusCode,
-          error_code: result.errorCode,
-          message: result.message,
-        });
+      if (!isAuthenticatedUser(request)) {
+        request.log.debug('An attempt to create a new DMP was made by an unauthenticated caller');
+        throw newFastifyError(ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_UNAUTHENTICATED);
       }
 
-      return reply.code(201).send(result.data);
+      request.log.debug({ body: request.body }, 'POST /dmps called.')
+      const result: DMPToolDMPType = await createPlanWorkflow(request, request.body as DMPToolDMPType);
+
+      // Should never happen, an error will normally be thrown, but just in case
+      // the response was undefined, throw an error
+      if (!result) {
+        request.log.fatal('An unknown error occurred during DMP creation');
+        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
+      }
+
+      return reply.code(201).send(result);
     }
   );
 
@@ -220,11 +240,8 @@ const v3RoutesPlugin = async function (
 
       // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
       if (!id || !isDmpId(request.dmptoolConfig, encodeURIComponent(id))) {
-        return reply.code(400).send({
-          status_code: 400,
-          error_code: 'dmp_invalid',
-          message: 'Invalid DMP ID'
-        });
+        request.log.error({ dmpId: params.id }, 'Invalid DMP ID');
+        throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
       }
 
       // TODO: Fetch the DMP from the DynamoDB table (use the Accept header to
@@ -240,13 +257,7 @@ const v3RoutesPlugin = async function (
       const plan: PlanRDS | undefined = await loadPlan(request, id);
       if (!plan) {
         request.log.warn({ dmpId: id }, "No Plan found");
-        // We return 404 here so that we're not signaling which DMP ids are valid
-        reply.code(404).send({
-          status_code: 404,
-          error_code: "dmp_not_found",
-          message: "DMP not found"
-        });
-        return;
+        throw newFastifyError(ERROR_CODE_NOT_FOUND, 'DMP not found');
       }
 
       // Second: load the DMP ids that the user or caller has access to
@@ -291,12 +302,7 @@ const v3RoutesPlugin = async function (
       // If the maDMP record could not be generated or retrieved, we need to bail out
       if (!maDMP || !maDMP.dmp) {
         request.log.error({ dmpId: id }, "Unable to generate narrative for DMP");
-        reply.code(500).send({
-          status_code: 500,
-          error_code: "generic_error",
-          message: "Unable to process your request. Please try again later."
-        });
-        return;
+        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, ERROR_MSG_INTERNAL_SERVER);
       }
 
       // Determine if the caller has permission to view the DMP
@@ -305,14 +311,9 @@ const v3RoutesPlugin = async function (
         : callerHasPermission(maDMP, plans, request.caller || '');
 
       if (!hasPermission) {
-        request.log.debug({ dmpId: id }, "User/Caller does not have permission to view the DMP");
+        request.log.warn({ dmpId: id }, "User/Caller does not have permission to view the DMP");
         // We return 404 here so that we're not signaling which DMP ids are valid
-        reply.code(404).send({
-          status_code: 404,
-          error_code: "dmp_not_found",
-          message: "DMP not found"
-        });
-        return;
+        throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
       }
 
       reply.code(200).send(maDMP);
@@ -334,18 +335,14 @@ const v3RoutesPlugin = async function (
       }
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      const params = request.params as { id: string };
-      let modCheck = request.headers['if-unmodified-since'] as string;
-      const id: string = params ? encodeURIComponent(params.id) : '';
-
-      // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
-      if (!id || !isDmpId(request.dmptoolConfig, id)) {
-        return reply.code(400).send({
-          status_code: 400,
-          error_code: 'dmp_invalid',
-          message: 'Invalid DMP ID'
-        });
+      if (!isAuthenticatedUser(request)) {
+        request.log.debug('An attempt to create a new DMP was made by an unauthenticated caller');
+        throw newFastifyError(ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_UNAUTHENTICATED);
       }
+
+      const params = request.params as { id: string };
+      const id: string = params ? encodeURIComponent(params.id) : '';
+      const modCheck = request.headers['if-unmodified-since'] as string;
 
       // TODO: Fetch the DMP from the DynamoDB table and check authorization
       //       if authorized, update the DMP (use the Accept header to
@@ -354,26 +351,20 @@ const v3RoutesPlugin = async function (
       //       --
       //       FOR NOW - just return a mock DMP based on the Accept header
 
-      // Convert the If-Unmodified-Since date in the header and the DMP modified date to RFC3339 format
-      modCheck = convertMySQLDateTimeToRFC3339(modCheck) as string;
-      const modified = convertMySQLDateTimeToRFC3339(TEST_DMP.modified) as string;
-
-      // Check the `If-Unmodified-Since` header and return a 409 Conflict if the
-      // DMP has been `modified` since the time specified in the header
-      if (modCheck !== modified) {
-        return reply.code(409).send({
-          status_code: 409,
-          error_code: 'conflict',
-          message: 'The DMP has been modified since the time specified in the If-Unmodified-Since header'
-        });
+      const result: DMPToolDMPType = await updateDmpWorkflow(request, id, modCheck, { dmp: TEST_DMP });
+      // Should never happen, an error will normally be thrown, but just in case
+      // the response was undefined, throw an error
+      if (!result) {
+        request.log.fatal('An unknown error occurred during DMP creation');
+        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
       }
 
       // Append a `Last-Modified` header to the response and set its value
       // equal to the `modified` field of the DMP. This is used to verify that
       // the DMP has not changed since the client last fetched it.
       reply.code(200)
-        .header('Last-Modified', TEST_DMP.modified)
-        .send({ dmp: TEST_DMP });
+        .header('Last-Modified', result.dmp.modified)
+        .send(result);
     }
   );
 
@@ -392,7 +383,14 @@ const v3RoutesPlugin = async function (
       }
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      let modCheck = request.headers['if-unmodified-since'] as string;
+      if (!isAuthenticatedUser(request)) {
+        request.log.debug('An attempt to create a new DMP was made by an unauthenticated caller');
+        throw newFastifyError(ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_UNAUTHENTICATED);
+      }
+
+      const params = request.params as { id: string };
+      const id: string = params ? encodeURIComponent(params.id) : '';
+      const modCheck = request.headers['if-unmodified-since'] as string;
 
       // TODO: Fetch the DMP from the DynamoDB table, check authorization and
       //       then delete if authorized
@@ -413,18 +411,10 @@ const v3RoutesPlugin = async function (
       //   return false;
       // }
 
-      // Convert the If-Unmodified-Since date in the header and the DMP modified date to RFC3339 format
-      modCheck = convertMySQLDateTimeToRFC3339(modCheck) as string;
-      const modified = convertMySQLDateTimeToRFC3339(TEST_DMP.modified) as string;
-
-      // Check the `If-Unmodified-Since` header and return a 409 Conflict if the
-      // DMP has been `modified` since the time specified in the header
-      if (modCheck !== modified) {
-        return reply.code(409).send({
-          status_code: 409,
-          error_code: 'conflict',
-          message: 'The DMP has been modified since the time specified in the If-Unmodified-Since header'
-        })
+      const result: boolean = await deleteDmpWorkflow(request, id, modCheck, TEST_DMP.modified);
+      if (!result) {
+        request.log.fatal('An unknown error occurred during DMP creation');
+        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
       }
 
       reply.code(204).send();
@@ -475,10 +465,6 @@ const v3RoutesPlugin = async function (
   fastify.addHook('onReady', async () => {
     fastify.log.info('V3 have been registered.');
   });
-
-  // fastify.addHook('onListen', async () => {
-  //   fastify.swagger();
-  // });
 };
 
 export default v3RoutesPlugin;
