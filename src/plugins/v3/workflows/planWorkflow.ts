@@ -7,6 +7,7 @@ import { Project } from "../../../models/Project.js";
 import { Plan } from "../../../models/Plan.js";
 import { loadMaDMPFromDynamo } from "../../../models/maDMP.js";
 import { saveMembersWorkflow } from "./memberWorkflow.js";
+import { saveFundingWorkflow } from "./fundingWorkflow.js";
 import {
   ERROR_CODE_ALREADY_EXISTS,
   ERROR_CODE_CONFLICT,
@@ -116,6 +117,11 @@ export async function createPlanWorkflow(
     throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
   }
 
+  if (Array.isArray(dmp.project) && dmp.project.length > 1) {
+    request.log.warn('DMP had more than one project.');
+    throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Only one project is currently supported per DMP.');
+  }
+
   // Fetch the specified template OR use the default template
   const templateId: number | undefined = dmp.narrative?.template?.id;
   const template: VersionedTemplate | undefined = await VersionedTemplate.findOrDefault(
@@ -164,12 +170,19 @@ export async function createPlanWorkflow(
     throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to generate DMP id.');
   }
 
-  // Now save the Project and Plan Members
+  // Now save the Project and Plan Funding
   request.log.debug(
     { alternateIdentifier: idIn, projectId: project.id, dmpId: plan.dmpId },
+    'Saving project and plan funding'
+  );
+  const fundedPlan: Plan = await saveFundingWorkflow(request, project, plan, dmp);
+
+  // Now save the Project and Plan Members
+  request.log.debug(
+    { alternateIdentifier: idIn, projectId: project.id, dmpId: fundedPlan.dmpId },
     'Saving project and plan members'
   );
-  const finalPlan: Plan = await saveMembersWorkflow(request, project, plan, dmp);
+  const finalPlan: Plan = await saveMembersWorkflow(request, project, fundedPlan, dmp);
 
   // Now that the Project and Plan have been saved, go through and save all
   // the associated artifacts

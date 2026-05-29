@@ -37,6 +37,11 @@ describe('v3 routes', () => {
       request.user = { id: 1, email: 'tester@example.com', role: 'RESEARCHER' };
     });
 
+    // Mutating endpoints require an authenticated user.
+    fastify.addHook('preValidation', async (request): Promise<void> => {
+      request.user = { id: 1, email: 'tester@example.com', role: 'RESEARCHER' };
+    });
+
     // Import the mocked workflow module first, then routes
     const workflowModule = await import('../workflows/planWorkflow.js');
     createPlanWorkflow = workflowModule.createPlanWorkflow as jest.Mock;

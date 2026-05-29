@@ -1,6 +1,20 @@
 import { ConfigurationOptions } from "./types.js";
 
 /**
+ * Extracts the identifier from an object that may contain an identifier or
+ * an array of identifiers.
+ *
+ * @param idObj the object containing the identifier(s)
+ * @returns the first identifier found, or undefined if no identifier is present
+ */
+export const extractIdentifier = (
+  idObj?: { identifier?: string } | { identifier?: string }[]
+): string | undefined => {
+  if (Array.isArray(idObj)) return idObj[0]?.identifier?.trim();
+  return idObj?.identifier?.trim();
+};
+
+/**
  * Checks whether the given identifier is a DMP ID (DOI or a URL under the configured domain).
  *
  * @param options The configuration options.
@@ -39,4 +53,3 @@ export const stringToInteger = (
 
   return Number.isInteger(parsed) ? parsed : undefined;
 }
-

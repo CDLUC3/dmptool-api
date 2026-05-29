@@ -1,5 +1,27 @@
 # dmptool-api Changelog
 
+## 2026-05-26
+- Added validation for `POST /dmps` to reject payloads containing more than one `dmp.project` with a `dmp_invalid` error
+- Added models and workflows to map `dmp.project[0].funding` plus DMP Tool extensions (`funding_opportunity` and `funding_project`) to `ProjectFunding` and `PlanFunding`
+
+## 2026-05-22
+- Refactored error handling behavior across the API to enforce consistent log severity by failure type (request warning, model error, system fatal)
+- Added route-level auth guards for mutating v3 endpoints (`POST/PUT/DELETE /dmps`) with structured `authentication_required` responses
+- Updated `POST /dmps` flow to consume workflow log metadata and log with explicit severity before returning structured API errors
+- Improved `createPlanWorkflow` model-error handling by distinguishing strict vs lenient model errors and allowing lenient artifacts (e.g. alternate identifiers) without failing successful creates
+- Fixed `planWorkflow` alternate identifier logging typo (`alternat_identifier` -> `alternate_identifier`)
+- Refactored member processing into strict/lenient model-error classification with severity-aware logging in `memberWorkflow`
+- Added new `mutationWorkflow` to encapsulate shared update/delete precondition checks (DMP id validation and `If-Unmodified-Since` conflict handling)
+- Updated `PUT /dmps` and `DELETE /dmps` routes to use workflow results and centralized route-level failure logging
+- Updated GraphQL error conversion to treat upstream 400 responses as fatal internal errors while bubbling 401/403/404 with debug-level logging
+- Updated global Fastify error handler logging to use warning-level logging for request/validation errors and fatal-level logging for system errors
+- Updated route/workflow/error tests to align with ESM-safe mocking (`unstable_mockModule`) and new error handling behavior
+
+## 2026-05-21
+- Renamed versionedTemplate model to VersionedTemplate
+- Uncommented lint, test and audit in CodeBuild file
+- Added codegen GraphQL files to repo
+
 ## 2026-05-22
 - Refactored error handling behavior across the API to enforce consistent log severity by failure type (request warning, model error, system fatal)
 - Added route-level auth guards for mutating v3 endpoints (`POST/PUT/DELETE /dmps`) with structured `authentication_required` responses

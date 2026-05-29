@@ -6,10 +6,15 @@ import { Plan } from '../../../../models/Plan.js';
 import {newFastifyError} from "../../../../handlers/error.js";
 
 const mockSaveMembersWorkflow = jest.fn();
+const mockSaveFundingWorkflow = jest.fn();
 const mockLoadMaDMPFromDynamo = jest.fn();
 
 jest.unstable_mockModule('../memberWorkflow.js', () => ({
   saveMembersWorkflow: mockSaveMembersWorkflow,
+}));
+
+jest.unstable_mockModule('../fundingWorkflow.js', () => ({
+  saveFundingWorkflow: mockSaveFundingWorkflow,
 }));
 
 jest.unstable_mockModule('../../../../models/maDMP.js', () => ({
@@ -93,6 +98,7 @@ let deleteDmpWorkflow: (
 
 beforeEach(async () => {
   mockSaveMembersWorkflow.mockReset();
+  mockSaveFundingWorkflow.mockReset();
   mockLoadMaDMPFromDynamo.mockReset();
   mockSaveMembersWorkflow.mockImplementation(async (_request, _project, plan) => plan);
 
@@ -186,9 +192,19 @@ describe('createPlanWorkflow', () => {
     await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expected);
   });
 
+  it('returns 400 when more than one project is supplied', async () => {
+    const body = makeBody();
+    body.dmp.project = [{ title: 'One' }, { title: 'Two' }] as never;
+
+    const expected = newFastifyError('dmp_invalid', 'Only one project is currently supported per DMP.');
+    await expect(createPlanWorkflow(makeRequest(), body)).rejects.toEqual(expected);
+  });
+
   it('returns 400 when plan already exists', async () => {
     jest.spyOn(VersionedTemplate, 'findOrDefault').mockResolvedValue({ id: 1 } as never);
-    jest.spyOn(Plan, 'findOrInitialize').mockResolvedValue({ id: 99 } as never);
+    jest.spyOn(Plan, 'findOrInitialize').mockResolvedValue({
+      id: 99, dmpId: '10.12345/test' } as never
+    );
 
     const expected = newFastifyError('dmp_already_exists', 'DMP already exists');
     await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expected);
@@ -251,6 +267,7 @@ describe('createPlanWorkflow', () => {
     jest.spyOn(Project, 'findOrInitialize').mockResolvedValue(project);
 
     mockSaveMembersWorkflow.mockResolvedValue(plan as never);
+    mockSaveFundingWorkflow.mockResolvedValue(plan as never);
     mockLoadMaDMPFromDynamo.mockResolvedValue({
       dmp: { dmp_id: { identifier: '10.99999/abc', type: 'other' } },
     } as never);
@@ -279,6 +296,7 @@ describe('createPlanWorkflow', () => {
     jest.spyOn(Project, 'findOrInitialize').mockResolvedValue(project);
 
     mockSaveMembersWorkflow.mockResolvedValue(plan as never);
+    mockSaveFundingWorkflow.mockResolvedValue(plan as never);
 
     const expected = newFastifyError('invalid_dmp', 'members: bad data');
     await expect(createPlanWorkflow(makeRequest(), makeBody())).rejects.toEqual(expected);
@@ -293,6 +311,7 @@ describe('createPlanWorkflow', () => {
     jest.spyOn(Project, 'findOrInitialize').mockResolvedValue(project);
 
     mockSaveMembersWorkflow.mockResolvedValue(plan as never);
+    mockSaveFundingWorkflow.mockResolvedValue(plan as never);
     mockLoadMaDMPFromDynamo.mockResolvedValue(undefined as never);
 
     const expected = newFastifyError(
@@ -318,6 +337,7 @@ describe('createPlanWorkflow', () => {
     jest.spyOn(Project, 'findOrInitialize').mockResolvedValue(project);
 
     mockSaveMembersWorkflow.mockResolvedValue(plan as never);
+    mockSaveFundingWorkflow.mockResolvedValue(plan as never);
     mockLoadMaDMPFromDynamo.mockResolvedValue(newMaDMP as never);
 
     const result = await createPlanWorkflow(makeRequest(), makeBody());
@@ -344,6 +364,7 @@ describe('createPlanWorkflow', () => {
     jest.spyOn(VersionedTemplate, 'findOrDefault').mockResolvedValue({ id: 12 } as never);
     jest.spyOn(Project, 'findOrInitialize').mockResolvedValue(project);
     mockSaveMembersWorkflow.mockResolvedValue(plan as never);
+    mockSaveFundingWorkflow.mockResolvedValue(plan as never);
     mockLoadMaDMPFromDynamo.mockResolvedValue({ dmp: { dmp_id: { identifier: '10.99999/abc', type: 'other' } } } as never);
 
     await createPlanWorkflow(request, body);
@@ -364,6 +385,7 @@ describe('createPlanWorkflow', () => {
     jest.spyOn(Plan, 'findOrInitialize').mockResolvedValue(plan);
     jest.spyOn(Project, 'findOrInitialize').mockResolvedValue(project);
     mockSaveMembersWorkflow.mockResolvedValue(plan as never);
+    mockSaveFundingWorkflow.mockResolvedValue(plan as never);
     mockLoadMaDMPFromDynamo.mockResolvedValue({ dmp: { dmp_id: { identifier: '10.99999/abc', type: 'other' } } } as never);
 
     await createPlanWorkflow(makeRequest(), body);
@@ -392,6 +414,7 @@ describe('createPlanWorkflow', () => {
     jest.spyOn(Plan, 'findOrInitialize').mockResolvedValue(makePlan());
     jest.spyOn(Project, 'findOrInitialize').mockResolvedValue(makeProject());
     mockSaveMembersWorkflow.mockResolvedValue(makePlan() as never);
+    mockSaveFundingWorkflow.mockResolvedValue(makePlan() as never);
     mockLoadMaDMPFromDynamo.mockResolvedValue({ dmp: { dmp_id: { identifier: '10.99999/abc', type: 'other' } } } as never);
 
     await createPlanWorkflow(request, body);
