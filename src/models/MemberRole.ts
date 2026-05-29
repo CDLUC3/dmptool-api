@@ -3,21 +3,10 @@ import { FastifyRequest } from "fastify";
 import { MemberRolesDocument } from "../generated/graphql.js";
 
 /**
- * Represents a Project Member/Contributor Role
- */
-export interface MemberRoleInterface {
-  id: number;
-  uri: string;
-  label: string;
-  description: string;
-  isDefault: boolean;
-}
-
-/**
  * The possible response for a Project Member/Contributor Roles GraphQL query
  */
 export interface MemberRolesResponse {
-  memberRoles: MemberRoleInterface[]
+  memberRoles: MemberRole[]
 }
 
 /**
@@ -62,7 +51,7 @@ export class MemberRoles {
   validateRoles(roles: string[]): MemberRole[] {
     const defaultRole: MemberRole | undefined = this.defaultRole();
 
-    // If there are no available roles return the default role if it exists
+    // If there are no available roles, return the default role if it exists
     if (!this.roles || !roles) return defaultRole ? [defaultRole] : [];
 
     // Figure out which roles are valid and remove any that are not
@@ -91,7 +80,7 @@ export class MemberRole extends BaseGraphQLModel {
   description?: string;
   isDefault?: boolean;
 
-  constructor(options: Partial<MemberRoleInterface> = {}) {
+  constructor(options: Partial<MemberRole> = {}) {
     super(options);
 
     this.uri = options.uri;
@@ -116,7 +105,7 @@ export class MemberRole extends BaseGraphQLModel {
     );
 
     return Array.isArray(resp.data?.memberRoles)
-      ? resp.data.memberRoles.map((r: MemberRoleInterface): MemberRole => new MemberRole(r))
+      ? resp.data.memberRoles.map((r: MemberRole): MemberRole => new MemberRole(r))
       : [];
   }
 }

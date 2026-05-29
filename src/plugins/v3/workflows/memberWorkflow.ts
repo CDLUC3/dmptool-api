@@ -6,29 +6,6 @@ import { MemberRole, MemberRoles } from "../../../models/MemberRole.js";
 import { ProjectMember } from "../../../models/ProjectMember.js";
 import { PlanMember } from "../../../models/PlanMember.js";
 
-// Some member issues may be tolerated during create/update processing.
-const LENIENT_MEMBER_ERROR_KEYS = new Set<string>(['memberWarnings']);
-
-const splitModelErrors = (errors: Record<string, string> = {}): {
-  strictErrors: Record<string, string>;
-  lenientErrors: Record<string, string>;
-} => {
-  const strictErrors: Record<string, string> = {};
-  const lenientErrors: Record<string, string> = {};
-
-  Object.entries(errors)
-    .filter(([key, value]) => key !== '__typename' && !!value)
-    .forEach(([key, value]) => {
-      if (LENIENT_MEMBER_ERROR_KEYS.has(key)) {
-        lenientErrors[key] = value;
-      } else {
-        strictErrors[key] = value;
-      }
-    });
-
-  return { strictErrors, lenientErrors };
-}
-
 /**
  * Workflow to process a mADMP contact and contributor array and convert them into
  * Project and Plan Members, including saving them to the database. Any errors
@@ -55,34 +32,29 @@ export const saveMembersWorkflow = async (
     dmp
   );
   // If any errors were encountered while processing the contributor array and contact
-  if (Plan.hasErrors(plan.errors)) {
-    const { strictErrors, lenientErrors } = splitModelErrors(plan.errors);
-
-    if (Object.keys(strictErrors).length > 0) {
-      request.log.error(
-        {
-          planId: plan.id,
-          contact: dmp.contact,
-          contributors: dmp.contributor,
-          errors: strictErrors,
-        },
-        'Unable to process contact and contributor information.'
-      );
-    }
-
-    if (Object.keys(lenientErrors).length > 0) {
-      request.log.warn(
-        {
-          planId: plan.id,
-          contact: dmp.contact,
-          contributors: dmp.contributor,
-          errors: lenientErrors,
-        },
-        'Lenient member processing warnings occurred.'
-      );
-    }
-
+  if (plan.hasErrors()) {
+    request.log.error(
+      {
+        planId: plan.id,
+        contact: dmp.contact,
+        contributors: dmp.contributor,
+        errors: plan.errors,
+      },
+      'Unable to process contact and contributor information.'
+    );
     return plan;
+  }
+
+  if (plan.hasWarnings()) {
+    request.log.warn(
+      {
+        planId: plan.id,
+        contact: dmp.contact,
+        contributors: dmp.contributor,
+        warnings: plan.warnings,
+      },
+      'Member processing warnings occurred.'
+    );
   }
 
   // If any errors were encountered while saving the Project Members

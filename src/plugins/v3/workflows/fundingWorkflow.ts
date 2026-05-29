@@ -1,4 +1,3 @@
-import { FastifyRequest } from "fastify";
 import { DMPToolDMPType } from "@dmptool/types";
 import { Affiliation } from "../../../models/Affiliation.js";
 import { Plan } from "../../../models/Plan.js";
@@ -8,6 +7,7 @@ import { ProjectFunding } from "../../../models/ProjectFunding.js";
 import { ProjectFundingStatus } from "../../../generated/graphql.js";
 import { extractIdentifier } from "../../../utils.js";
 import { FundingType, ProjectType } from "../../../types.js";
+import {FastifyRequest} from "fastify";
 
 interface FundingExtensionType {
   project_id?: { identifier?: string } | { identifier?: string }[];
@@ -64,6 +64,80 @@ const indexByProjectAndFunder = (
 };
 
 /**
+ * Generate potential Project funding information
+ *
+ * @param request the Fastify request
+ * @param project the research project
+ * @param dmp the maDMP JSON
+ * @param funding the funding information from the maDMP
+ * @returns project funding information
+ */
+const generateFundingCandidate = async (
+  request: FastifyRequest,
+  project: Project,
+  dmp: DMPToolDMPType['dmp'],
+  funding: FundingType
+): Promise<ProjectFunding | null> => {
+  const dmpProject: ProjectType | undefined = dmp.project?.[0];
+
+  const opportunityIndex = indexByProjectAndFunder(
+    dmp.funding_opportunity as FundingExtensionType[],
+    'opportunity_identifier'
+  );
+  const projectNumberIndex = indexByProjectAndFunder(
+    dmp.funding_project as FundingExtensionType[],
+    'project_identifier'
+  );
+
+  const projectIdentifier = extractIdentifier(dmpProject?.project_id);
+
+  const funderIdentifier = Affiliation.normalizeRORId(
+    funding.funder_id?.identifier?.trim()
+  );
+  const extKey = extensionKey(projectIdentifier, funderIdentifier);
+
+  // Build a minimal affiliation object compatible with findOrInitialize so
+  // that we reuse the standard look-up path (ROR URI first, then name fallback).
+  const affiliationLookup = {
+    name: funding.name?.trim(),
+    affiliationId: funderIdentifier
+      ? [{ identifier: funderIdentifier, type: 'ror' }]
+      : [],
+    affiliation_id: funderIdentifier
+      ? { identifier: funderIdentifier }
+      : undefined,
+  } as Parameters<typeof Affiliation.findOrInitialize>[1];
+
+  const affiliation: Affiliation = await Affiliation.findOrInitialize(
+    request,
+    affiliationLookup,
+    true
+  );
+
+  // If the affiliation does not yet exist in the system, persist it now so
+  // that the subsequent ProjectFunding mutation has a valid affiliationId.
+  if (!affiliation.id) {
+    const created = await affiliation.create(request);
+    if (!created) {
+      request.log.warn(
+        { funderIdentifier, name: funding.name, errors: affiliation.errors },
+        'Unable to create funder affiliation; skipping this funding entry'
+      );
+      return null;
+    }
+  }
+
+  return new ProjectFunding({
+    project,
+    affiliation,
+    status: toStatus(funding.funding_status),
+    grantId: funding.grant_id?.identifier?.trim(),
+    funderOpportunityNumber: opportunityIndex[extKey]?.shift(),
+    funderProjectNumber: projectNumberIndex[extKey]?.shift(),
+  });
+}
+
+/**
  * Workflow to convert maDMP funding information into ProjectFunding and PlanFunding
  * records and persist them in GraphQL.
  *
@@ -80,80 +154,17 @@ export const saveFundingWorkflow = async (
   dmp: DMPToolDMPType['dmp']
 ): Promise<Plan> => {
   const dmpProject: ProjectType | undefined = dmp.project?.[0];
+  if (!dmpProject) return plan;
+
   const dmpFundings: FundingType[] = dmpProject?.funding ?? [];
-
-  const opportunityIndex = indexByProjectAndFunder(
-    dmp.funding_opportunity as FundingExtensionType[],
-    'opportunity_identifier'
-  );
-  const projectNumberIndex = indexByProjectAndFunder(
-    dmp.funding_project as FundingExtensionType[],
-    'project_identifier'
-  );
-
-  const projectIdentifier = extractIdentifier(dmpProject?.project_id);
-
-  /**
-   * Generate potential Project funding information
-   *
-   * @param funding the funding information from the maDMP
-   * @returns project funding information
-   */
-  const generateFundingCandidate = async (
-    funding: FundingType
-  ): Promise<ProjectFunding | null> => {
-    const funderIdentifier = Affiliation.normalizeRORId(
-      funding.funder_id?.identifier?.trim()
-    );
-    const extKey = extensionKey(projectIdentifier, funderIdentifier);
-
-    // Build a minimal affiliation object compatible with findOrInitialize so
-    // that we reuse the standard look-up path (ROR URI first, then name fallback).
-    const affiliationLookup = {
-      name: funding.name?.trim(),
-      affiliationId: funderIdentifier
-        ? [{ identifier: funderIdentifier, type: 'ror' }]
-        : [],
-      affiliation_id: funderIdentifier
-        ? { identifier: funderIdentifier }
-        : undefined,
-    } as Parameters<typeof Affiliation.findOrInitialize>[1];
-
-    const affiliation: Affiliation = await Affiliation.findOrInitialize(
-      request,
-      affiliationLookup,
-      true
-    );
-
-    // If the affiliation does not yet exist in the system, persist it now so
-    // that the subsequent ProjectFunding mutation has a valid affiliationId.
-    if (!affiliation.id) {
-      const created = await affiliation.create(request);
-      if (!created) {
-        request.log.warn(
-          { funderIdentifier, name: funding.name, errors: affiliation.errors },
-          'Unable to create funder affiliation; skipping this funding entry'
-        );
-        return null;
-      }
-    }
-
-    return new ProjectFunding({
-      project,
-      affiliation,
-      status: toStatus(funding.funding_status),
-      grantId: funding.grant_id?.identifier?.trim(),
-      funderOpportunityNumber: opportunityIndex[extKey]?.shift(),
-      funderProjectNumber: projectNumberIndex[extKey]?.shift(),
-    });
-  }
+  if (dmpFundings.length === 0) return plan;
 
   // Resolve (or create) each funder affiliation before building ProjectFunding records.
   // null entries indicate that the funder affiliation could not be resolved and should
   // be skipped so that a single bad funder doesn't abort the entire workflow.
   const projectFundingCandidates: (ProjectFunding | null)[] = await Promise.all(
     dmpFundings.map(async (funding: FundingType): Promise<ProjectFunding | null> => {
-      return generateFundingCandidate(funding);
+      return generateFundingCandidate(request, project, dmp, funding);
     })
   );
 
@@ -188,6 +199,3 @@ export const saveFundingWorkflow = async (
 
   return plan;
 };
-
-
-

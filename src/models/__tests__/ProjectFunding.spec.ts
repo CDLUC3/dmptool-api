@@ -44,7 +44,7 @@ describe('ProjectFunding', () => {
       },
     });
 
-    const result = await ProjectFunding.create(buildRequest(), funding);
+    const result = await funding.create(buildRequest());
 
     expect(result).toBe(true);
     expect(funding.id).toBe(10);
@@ -56,7 +56,7 @@ describe('ProjectFunding', () => {
       affiliation: new Affiliation({ name: 'Unknown Funder' }),
     });
 
-    const result = await ProjectFunding.create(buildRequest(), funding);
+    const result = await funding.create(buildRequest());
 
     expect(result).toBe(false);
     expect(funding.errors.affiliationId).toBe('Funding affiliation URI is required');
@@ -118,16 +118,19 @@ describe('ProjectFunding', () => {
       status: 'PLANNED',
     });
 
+    jest.spyOn(Affiliation, 'findByURI').mockResolvedValue(
+      new Affiliation({ uri: 'https://ror.org/c' })
+    );
     jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([existingA, existingB]);
-    const deleteSpy = jest.spyOn(ProjectFunding, 'delete').mockResolvedValue(true);
-    const updateSpy = jest.spyOn(ProjectFunding, 'update').mockResolvedValue(true);
-    const createSpy = jest.spyOn(ProjectFunding, 'create').mockResolvedValue(true);
+    const deleteSpy = jest.spyOn(existingB, 'delete').mockResolvedValue(true);
+    const updateSpy = jest.spyOn(desiredUpdate, 'update').mockResolvedValue(true);
+    const createSpy = jest.spyOn(desiredCreate, 'create').mockResolvedValue(true);
 
     const result = await ProjectFunding.save(request, project, [desiredUpdate, desiredCreate]);
 
     expect(result).toBe(true);
     expect(deleteSpy).toHaveBeenCalledTimes(1);
-    expect(deleteSpy).toHaveBeenCalledWith(request, expect.objectContaining({ id: 22 }));
+    expect(deleteSpy).toHaveBeenCalledWith(request);
     expect(updateSpy).toHaveBeenCalledTimes(1);
     expect(createSpy).toHaveBeenCalledTimes(1);
     expect(desiredUpdate.id).toBe(21);
@@ -143,8 +146,8 @@ describe('ProjectFunding', () => {
     });
 
     jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([]);
-    jest.spyOn(ProjectFunding, 'update').mockResolvedValue(false);
-    jest.spyOn(ProjectFunding, 'errorsToString').mockReturnValue('status: invalid');
+    jest.spyOn(desired, 'update').mockResolvedValue(false);
+    jest.spyOn(desired, 'errorsToString').mockReturnValue('status: invalid');
 
     const result = await ProjectFunding.save(request, project, [desired]);
 
@@ -164,7 +167,7 @@ describe('ProjectFunding', () => {
     });
 
     jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([]);
-    jest.spyOn(ProjectFunding, 'create').mockResolvedValue(true);
+    jest.spyOn(desired, 'create').mockResolvedValue(true);
 
     const result = await ProjectFunding.save(request, project, [desired]);
 
@@ -185,7 +188,7 @@ describe('ProjectFunding', () => {
     });
 
     jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([]);
-    jest.spyOn(ProjectFunding, 'create').mockResolvedValue(true);
+    jest.spyOn(desired, 'create').mockResolvedValue(true);
 
     const result = await ProjectFunding.save(request, project, [desired]);
 
@@ -222,8 +225,9 @@ describe('ProjectFunding', () => {
         },
       },
     });
+    jest.spyOn(ProjectFunding, 'findByProjectId').mockResolvedValue([funding]);
 
-    const result = await ProjectFunding.update(request, funding);
+    const result = await funding.update(request);
 
     expect(result).toBe(true);
     expect(funding.affiliation?.id).toBe(77);
@@ -249,7 +253,7 @@ describe('ProjectFunding', () => {
       },
     });
 
-    const result = await ProjectFunding.delete(buildRequest(), funding);
+    const result = await funding.delete(buildRequest());
 
     expect(result).toBe(false);
   });

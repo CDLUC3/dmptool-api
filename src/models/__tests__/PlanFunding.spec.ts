@@ -34,23 +34,24 @@ describe('PlanFunding', () => {
   });
 
   it('updates plan funding and returns mapped models', async () => {
+    const plan = new Plan({ id: 1, dmpId: '10.12345/A1B2C3-test' });
+    const funding = new PlanFunding({
+      id: 99,
+      plan: new Plan({ id: 1 }),
+      projectFunding: new ProjectFunding({ id: 10 }),
+      created: 'c',
+      createdById: 1,
+      modified: 'm',
+      modifiedById: 1,
+    });
     jest.spyOn(PlanFunding, 'mutate').mockResolvedValue({
       data: {
-        updatePlanFunding: [
-          {
-            id: 99,
-            plan: new Plan({ id: 1 }),
-            projectFunding: new ProjectFunding({ id: 10 }),
-            created: 'c',
-            createdById: 1,
-            modified: 'm',
-            modifiedById: 1,
-          },
-        ],
+        updatePlanFunding: [funding],
       },
     });
+    jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue([funding]);
 
-    const result = await PlanFunding.update(buildRequest(), 1, [10]);
+    const result = await PlanFunding.update(buildRequest(), plan, [10]);
 
     expect(result).toHaveLength(1);
     expect(result?.[0]).toBeInstanceOf(PlanFunding);
@@ -73,7 +74,7 @@ describe('PlanFunding', () => {
       },
     });
 
-    const result = await PlanFunding.delete(buildRequest(), funding);
+    const result = await funding.delete(buildRequest());
 
     expect(result).toBe(true);
     expect(funding.modified).toBe('deleted');
@@ -91,12 +92,14 @@ describe('PlanFunding', () => {
     const existing = [new PlanFunding({ id: 9 }), new PlanFunding({ id: 10 })];
 
     jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue(existing);
-    const deleteSpy = jest.spyOn(PlanFunding, 'delete').mockResolvedValue(true);
+    const deleteSpy = jest.spyOn(existing[0], 'delete').mockResolvedValue(true);
+    const deleteSpy2 = jest.spyOn(existing[1], 'delete').mockResolvedValue(true);
 
     const result = await PlanFunding.save(request, plan, []);
 
     expect(result).toBe(true);
-    expect(deleteSpy).toHaveBeenCalledTimes(2);
+    expect(deleteSpy).toHaveBeenCalled();
+    expect(deleteSpy2).toHaveBeenCalled();
   });
 
   it('save records errors when existing fundings cannot be removed', async () => {
@@ -105,8 +108,8 @@ describe('PlanFunding', () => {
     const existing = [new PlanFunding({ id: 9, errors: { general: 'x' } })];
 
     jest.spyOn(PlanFunding, 'findByPlanId').mockResolvedValue(existing);
-    jest.spyOn(PlanFunding, 'delete').mockResolvedValue(false);
-    jest.spyOn(PlanFunding, 'errorsToString').mockReturnValue('general: x');
+    jest.spyOn(existing[0], 'delete').mockResolvedValue(false);
+    jest.spyOn(existing[0], 'errorsToString').mockReturnValue('general: x');
 
     const result = await PlanFunding.save(request, plan, []);
 
@@ -184,9 +187,10 @@ describe('PlanFunding', () => {
   });
 
   it('create returns undefined when mutation has no data', async () => {
+    const plan = new Plan({ id: 1 });
     jest.spyOn(PlanFunding, 'mutate').mockResolvedValue({ data: undefined });
 
-    const result = await PlanFunding.create(buildRequest(), 1, [10]);
+    const result = await PlanFunding.create(buildRequest(), plan, [10]);
 
     expect(result).toBeUndefined();
   });
@@ -217,7 +221,7 @@ describe('PlanFunding', () => {
       },
     });
 
-    const result = await PlanFunding.delete(buildRequest(), funding);
+    const result = await funding.delete(buildRequest());
 
     expect(result).toBe(false);
   });

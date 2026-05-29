@@ -12,38 +12,20 @@ import {
   UpdateProjectFundingDocument,
 } from "../generated/graphql.js";
 
-/**
- * Funding that supports a Project.
- */
-export interface ProjectFundingInterface {
-  id: number;
-  project: Project;
-  affiliation: Affiliation;
-  status?: ProjectFundingStatus;
-  funderProjectNumber?: string;
-  grantId?: string;
-  funderOpportunityNumber?: string;
-  created: string;
-  createdById: number;
-  modified: string;
-  modifiedById: number;
-  errors?: Record<string, string>;
-}
-
 export interface ProjectFundingsResponse {
-  projectFundings: ProjectFundingInterface[];
+  projectFundings: ProjectFunding[];
 }
 
 export interface AddProjectFundingResponse {
-  addProjectFunding: ProjectFundingInterface;
+  addProjectFunding: ProjectFunding;
 }
 
 export interface UpdateProjectFundingResponse {
-  updateProjectFunding: ProjectFundingInterface;
+  updateProjectFunding: ProjectFunding;
 }
 
 export interface RemoveProjectFundingResponse {
-  removeProjectFunding: ProjectFundingInterface;
+  removeProjectFunding: ProjectFunding;
 }
 
 /**
@@ -57,7 +39,7 @@ export class ProjectFunding extends BaseGraphQLModel {
   grantId?: string;
   funderOpportunityNumber?: string;
 
-  constructor(options: Partial<ProjectFundingInterface> = {}) {
+  constructor(options: Partial<ProjectFunding> = {}) {
     super(options);
 
     this.project = options.project ? new Project(options.project) : undefined;
@@ -128,8 +110,8 @@ export class ProjectFunding extends BaseGraphQLModel {
     // Remove any funding information that is no longer there
     await Promise.all(
       unmatchedExisting.map(async (funding: ProjectFunding): Promise<void> => {
-        const deleted = await ProjectFunding.delete(request, funding);
-        if (!deleted) errs.push(ProjectFunding.errorsToString(funding.errors));
+        const deleted = await funding.delete(request);
+        if (!deleted) errs.push(funding.errorsToString());
       })
     );
 
@@ -139,10 +121,10 @@ export class ProjectFunding extends BaseGraphQLModel {
         funding.project = project;
 
         const success = funding.id
-          ? await ProjectFunding.update(request, funding)
-          : await ProjectFunding.create(request, funding);
+          ? await funding.update(request)
+          : await funding.create(request);
 
-        if (!success) errs.push(ProjectFunding.errorsToString(funding.errors));
+        if (!success) errs.push(funding.errorsToString());
       })
     );
 
@@ -158,14 +140,12 @@ export class ProjectFunding extends BaseGraphQLModel {
    * Add the project funding information
    *
    * @param request the Fastify request
-   * @param funding the funding information
    * @returns true if successful. If not, the error object will have messages
    */
-  static async create(
-    request: FastifyRequest,
-    funding: ProjectFunding
+  async create(
+    request: FastifyRequest
   ): Promise<boolean> {
-    if (!(await this.ensureFunderAffiliation(request, funding))) {
+    if (!(await this.ensureFunderAffiliation(request))) {
       return false;
     }
 
@@ -176,12 +156,12 @@ export class ProjectFunding extends BaseGraphQLModel {
           mutation: AddProjectFundingDocument,
           variables: {
             input: {
-              projectId: funding.project?.id,
-              affiliationId: funding.affiliation?.uri,
-              status: funding.status,
-              funderProjectNumber: funding.funderProjectNumber?.trim(),
-              grantId: funding.grantId?.trim(),
-              funderOpportunityNumber: funding.funderOpportunityNumber?.trim(),
+              projectId: this.project?.id,
+              affiliationId: this.affiliation?.uri,
+              status: this.status,
+              funderProjectNumber: this.funderProjectNumber?.trim(),
+              grantId: this.grantId?.trim(),
+              funderOpportunityNumber: this.funderOpportunityNumber?.trim(),
             },
           },
           errorPolicy: "all",
@@ -189,33 +169,20 @@ export class ProjectFunding extends BaseGraphQLModel {
       );
 
     const data = saved?.data?.addProjectFunding;
-    funding.handleMutationErrors("create", saved, data?.errors);
-
-    const hadErrors = ProjectFunding.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      funding.id = data.id;
-      funding.created = data.created;
-      funding.createdById = data.createdById;
-      funding.modified = data.modified;
-      funding.modifiedById = data.modifiedById;
-    }
-
-
-    return !hadErrors;
+    this.processGQLResponse(saved, data as ProjectFunding, 'create ProjectFunding');
+    return !this.hasErrors();
   }
 
   /**
    * Update the project funding information
    *
    * @param request the Fastify request
-   * @param funding the funding information
    * @returns true if successful. If not, the error object will have messages
    */
-  static async update(
-    request: FastifyRequest,
-    funding: ProjectFunding
+  async update(
+    request: FastifyRequest
   ): Promise<boolean> {
-    if (!(await this.ensureFunderAffiliation(request, funding))) {
+    if (!(await this.ensureFunderAffiliation(request))) {
       return false;
     }
 
@@ -226,11 +193,11 @@ export class ProjectFunding extends BaseGraphQLModel {
           mutation: UpdateProjectFundingDocument,
           variables: {
             input: {
-              projectFundingId: funding.id,
-              status: funding.status,
-              funderProjectNumber: funding.funderProjectNumber?.trim(),
-              grantId: funding.grantId?.trim(),
-              funderOpportunityNumber: funding.funderOpportunityNumber?.trim(),
+              projectFundingId: this.id,
+              status: this.status,
+              funderProjectNumber: this.funderProjectNumber?.trim(),
+              grantId: this.grantId?.trim(),
+              funderOpportunityNumber: this.funderOpportunityNumber?.trim(),
             },
           },
           errorPolicy: "all",
@@ -238,48 +205,32 @@ export class ProjectFunding extends BaseGraphQLModel {
       );
 
     const data = saved?.data?.updateProjectFunding;
-    funding.handleMutationErrors("update", saved, data?.errors);
-
-    const hadErrors = ProjectFunding.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      funding.modified = data.modified;
-      funding.modifiedById = data.modifiedById;
-    }
-
-    return !hadErrors;
+    this.processGQLResponse(saved, data as ProjectFunding, 'update ProjectFunding');
+    return !this.hasErrors();
   }
 
   /**
    * Remove the funding information
    *
    * @param request the Fastify request
-   * @param funding the funding information to remove
    * @returns true if successful. If not, the error object will have messages
    */
-  static async delete(
-    request: FastifyRequest,
-    funding: ProjectFunding
+  async delete(
+    request: FastifyRequest
   ): Promise<boolean> {
     const deleted: GQLResponse<RemoveProjectFundingResponse> =
       await ProjectFunding.mutate<RemoveProjectFundingResponse>(
         request,
         {
           mutation: RemoveProjectFundingDocument,
-          variables: { projectFundingId: funding.id },
+          variables: { projectFundingId: this.id },
           errorPolicy: "all",
         } as MutateOptions
       );
 
     const data = deleted?.data?.removeProjectFunding;
-    funding.handleMutationErrors("delete", deleted, data?.errors);
-
-    const hadErrors = ProjectFunding.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      funding.modified = data.modified;
-      funding.modifiedById = data.modifiedById;
-    }
-
-    return !hadErrors;
+    this.processGQLResponse(deleted, data as ProjectFunding, 'delete ProjectFunding');
+    return !this.hasErrors();
   }
 
   /**
@@ -302,7 +253,7 @@ export class ProjectFunding extends BaseGraphQLModel {
 
     return Array.isArray(resp.data?.projectFundings)
       ? resp.data.projectFundings.map(
-          (funding: ProjectFundingInterface): ProjectFunding =>
+          (funding: ProjectFunding): ProjectFunding =>
             new ProjectFunding(funding)
         )
       : [];
@@ -312,23 +263,21 @@ export class ProjectFunding extends BaseGraphQLModel {
    * Ensure that the funder has been persisted to the DB
    *
    * @param request the Fastify Request
-   * @param funding the funding information
    * @returns true if the affiliation is valid. If not, the funding error object
    * will have messages
    */
-  private static async ensureFunderAffiliation(
-    request: FastifyRequest,
-    funding: ProjectFunding
+  private async ensureFunderAffiliation(
+    request: FastifyRequest
   ): Promise<boolean> {
-    if (!funding.affiliation?.uri) {
-      funding.errors.affiliationId = 'Funding affiliation URI is required';
+    if (!this.affiliation?.uri) {
+      this.errors.affiliationId = 'Funding affiliation URI is required';
       return false;
     }
 
-    if (!funding.affiliation.id) {
-      const existing = await Affiliation.findByURI(request, funding.affiliation.uri);
+    if (!this.affiliation.id) {
+      const existing = await Affiliation.findByURI(request, this.affiliation.uri);
       if (existing?.id) {
-        funding.affiliation = existing;
+        this.affiliation = existing;
       }
     }
 

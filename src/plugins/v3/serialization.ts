@@ -1,7 +1,15 @@
 import fp from 'fastify-plugin';
 import Ajv from 'ajv';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type {
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest
+} from "fastify";
 import { Negotiator } from '@fastify/accept-negotiator';
+import {
+  ERROR_CODE_NOT_ACCEPTABLE,
+  newFastifyError
+} from "../../handlers/error.js";
 import {
   DMP_TOOL_CONTENT_TYPE,
   RDA_COMMON_STANDARD_CONTENT_TYPE,
@@ -85,15 +93,9 @@ const v3SerializationPlugin = fp(async function (
       cache: new Map()
     });
     const acceptHeader: string | null = negotiator.negotiate(request.headers['accept'] || '');
-
     // If it returned null, then an Accept header we don't support was provided
     if (!acceptHeader) {
-      // Use return and send here to short-circuit the rest of the hooks
-      return reply.status(406).send({
-        status_code: 406,
-        error_code: 'not_acceptable',
-        message: 'The server does not support any of the requested content types.'
-      });
+      throw newFastifyError(ERROR_CODE_NOT_ACCEPTABLE, 'Unsupported Accept Header');
     }
 
     const targetType = acceptHeader === DMP_TOOL_CONTENT_TYPE

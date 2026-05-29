@@ -1,4 +1,18 @@
-import {ApiError, ConfigurationOptions} from "./types.js";
+import { ConfigurationOptions } from "./types.js";
+
+/**
+ * Extracts the identifier from an object that may contain an identifier or
+ * an array of identifiers.
+ *
+ * @param idObj the object containing the identifier(s)
+ * @returns the first identifier found, or undefined if no identifier is present
+ */
+export const extractIdentifier = (
+  idObj?: { identifier?: string } | { identifier?: string }[]
+): string | undefined => {
+  if (Array.isArray(idObj)) return idObj[0]?.identifier?.trim();
+  return idObj?.identifier?.trim();
+};
 
 /**
  * Checks whether the given identifier is a DMP ID (DOI or a URL under the configured domain).
@@ -39,37 +53,3 @@ export const stringToInteger = (
 
   return Number.isInteger(parsed) ? parsed : undefined;
 }
-
-/**
- * Convert an error to an ApiError
- *
- * @param statusCode the HTTP status code
- * @param errorCode the error code
- * @param message the error message
- * @returns the error in the ApiError format
- */
-export const toErrorBody = (
-  statusCode: number,
-  errorCode: string,
-  message: string
-): ApiError => {
-  return {
-    status_code: statusCode,
-    error_code: errorCode,
-    message,
-  };
-}
-
-/**
- * Extracts the identifier from an object that may contain an identifier or
- * an array of identifiers.
- *
- * @param idObj the object containing the identifier(s)
- * @returns the first identifier found, or undefined if no identifier is present
- */
-export const extractIdentifier = (
-  idObj?: { identifier?: string } | { identifier?: string }[]
-): string | undefined => {
-  if (Array.isArray(idObj)) return idObj[0]?.identifier?.trim();
-  return idObj?.identifier?.trim();
-};

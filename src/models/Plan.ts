@@ -3,9 +3,8 @@ import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
 import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { DMPToolDMPType } from "@dmptool/types";
-import { ProjectInterface } from "./Project.js";
 import { PlanMember } from "./PlanMember.js";
-import { VersionedTemplate, VersionedTemplateInterface } from "./VersionedTemplate.js";
+import { VersionedTemplate } from "./VersionedTemplate.js";
 import { AlternateIdentifierType } from "../types.js";
 import {
   AddAlternateIdentifierDocument,
@@ -24,27 +23,6 @@ import {
 import { randomHex } from "@dmptool/utils";
 
 /**
- * Represents a Data Management Plan
- */
-export interface PlanInterface {
-  id: number;
-  projectId: number;
-  dmpId: string;
-  title: string;
-  visibility: PlanVisibility;
-  status: PlanStatus;
-  registered: string;
-  project: ProjectInterface;
-  versionedTemplate: VersionedTemplateInterface;
-  alternateIdentifiers: AlternateIdentifierInterface[];
-  created: string;
-  createdById: number;
-  modified: string;
-  modifiedById: number;
-  errors?: Record<string, string>;
-}
-
-/**
  * Represents an alternate identifier for a Data Management Plan
  */
 export interface AlternateIdentifierInterface {
@@ -61,56 +39,56 @@ export interface AlternateIdentifierInterface {
  * The possible response for a Plan GraphQL query
  */
 export interface PlanResponse {
-  plan: PlanInterface
+  plan: Plan
 }
 
 /**
  * The possible response for a Plans GraphQL query
  */
 export interface PlansResponse {
-  plans: PlanInterface[]
+  plans: Plan[]
 }
 
 /**
  * The response from the planByDMPId GraphQL query
  */
 export interface PlanByDMPIdResponse {
-  planByDMPId: PlanInterface
+  planByDMPId: Plan
 }
 
 /**
  * The response from the planByAlternateIdentifier GraphQL query
  */
 export interface PlanByAlternateIdentifierResponse {
-  planByAlternateIdentifier: PlanInterface
+  planByAlternateIdentifier: Plan
 }
 
 /**
  * Representation of the GraphQL query response for adding a Plan
  */
 export interface AddPlanResponse {
-  addPlan: PlanInterface
+  addPlan: Plan
 }
 
 /**
  * Representation of the GraphQL query response for updating a Plan title
  */
 export interface UpdatePlanTitleResponse {
-  updatePlanTitle: PlanInterface
+  updatePlanTitle: Plan
 }
 
 /**
  * Representation of the GraphQL query response for updating a Plan status
  */
 export interface UpdatePlanStatusResponse {
-  updatePlanStatus: PlanInterface
+  updatePlanStatus: Plan
 }
 
 /**
  * Representation of the GraphQL query response for deleting a Plan
  */
 export interface ArchivePlanResponse {
-  archivePlan: PlanInterface
+  archivePlan: Plan
 }
 
 /**
@@ -132,7 +110,7 @@ export interface RemoveAlternateIdentifierResponse {
  */
 export class Plan extends BaseGraphQLModel {
   projectId?: number;
-  versionedTemplate?: VersionedTemplateInterface;
+  versionedTemplate?: VersionedTemplate;
 
   dmpId: string;
   title?: string;
@@ -154,9 +132,13 @@ export class Plan extends BaseGraphQLModel {
     this.registered = options.registered;
     this.alternateIdentifiers = options.alternateIdentifiers ?? [];
 
-    this.members = options.members ? options.members.map((m: PlanMember) => new PlanMember(m)) : [];
+    this.members = options.members
+      ? options.members.map((m: PlanMember) => new PlanMember(m))
+      : [];
 
-    this.errors = options.errors ?? {};
+    this.graphQLErrorsThatShouldBeWarnings = new Set<string>([
+      'alternateIdentifiers'
+    ]);
   }
 
   /**
@@ -195,23 +177,9 @@ export class Plan extends BaseGraphQLModel {
         errorPolicy: "all"
       } as MutateOptions
     );
-    const data: PlanInterface | undefined = saved?.data?.addPlan;
-    // Process any errors that may have occurred
-    this.handleMutationErrors("create", saved, data?.errors);
-
-    // If data was returned and we have no errors
-    const hadErrors: boolean = Plan.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      // Sync the local object with the saved data
-      this.id = data.id;
-      this.created = data.created;
-      this.createdById = data.createdById;
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
-      this.dmpId = data.dmpId;
-    }
-
-    return !hadErrors;
+    const data: Plan | undefined = saved?.data?.addPlan;
+    this.processGQLResponse(saved, data as Plan, 'create Plan');
+    return !this.hasErrors();
   }
 
   /**
@@ -233,13 +201,10 @@ export class Plan extends BaseGraphQLModel {
         errorPolicy: "all"
       } as MutateOptions
     );
-    const titleData: PlanInterface | undefined = savedTitle?.data?.updatePlanTitle;
-    // Process any errors that may have occurred
-    this.handleMutationErrors("update title", savedTitle, titleData?.errors);
+    const titleData: Plan | undefined = savedTitle?.data?.updatePlanTitle;
+    this.processGQLResponse(savedTitle, titleData as Plan, 'update Plan.title');
 
-    // If data was returned and we have no errors
-    let hadErrors: boolean = Plan.hasErrors(titleData?.errors ?? {});
-    if (titleData && !hadErrors) {
+    if (titleData && !this.hasErrors()) {
       // If successful, then update the Plan status
       const savedStatus: GQLResponse<UpdatePlanStatusResponse> = await Plan.mutate<UpdatePlanStatusResponse>(
         request,
@@ -252,20 +217,11 @@ export class Plan extends BaseGraphQLModel {
           errorPolicy: "all"
         } as MutateOptions
       );
-      const data: PlanInterface | undefined = savedStatus?.data?.updatePlanStatus;
-      // Process any errors that may have occurred
-      this.handleMutationErrors("update status", savedStatus, data?.errors);
-
-      // If data was returned and we have no errors
-      hadErrors = Plan.hasErrors(data?.errors ?? {});
-      if (data && !hadErrors) {
-        this.modified = data.modified;
-        this.modifiedById = data.modifiedById;
-        this.errors = data.errors ?? {};
-      }
+      const data: Plan | undefined = savedStatus?.data?.updatePlanStatus;
+      this.processGQLResponse(savedStatus, data as Plan, 'update Plan.status');
     }
 
-    return !hadErrors;
+    return !this.hasErrors();
   }
 
   /**
@@ -283,19 +239,9 @@ export class Plan extends BaseGraphQLModel {
         errorPolicy: "all"
       } as MutateOptions
     );
-    const data: PlanInterface | undefined = deleted?.data?.archivePlan;
-    // Process any errors that may have occurred
-    this.handleMutationErrors("delete", deleted, data?.errors);
-
-    // If data was returned and we have no errors
-    const hadErrors: boolean = Plan.hasErrors(data?.errors ?? {});
-    if (data && !hadErrors) {
-      // Sync the local object with the saved data
-      this.modified = data.modified;
-      this.modifiedById = data.modifiedById;
-    }
-
-    return !hadErrors;
+    const data: Plan | undefined = deleted?.data?.archivePlan;
+    this.processGQLResponse(deleted, data as Plan, 'delete Plan');
+    return !this.hasErrors();
   }
 
   /**
@@ -371,21 +317,15 @@ export class Plan extends BaseGraphQLModel {
       );
       const data: AlternateIdentifierInterface | undefined = deleted?.data?.removeAlternateIdentifierFromPlan;
       // Process any errors that may have occurred
-      this.handleMutationErrors("delete", deleted, data?.errors);
+      this.handleMutationErrors("delete AlternateIdentifier", deleted, data?.errors);
 
       // If data was returned and we have no errors
-      const hadErrors: boolean = Plan.hasErrors(data?.errors ?? {});
+      const hadErrors: boolean = this.hasErrors();
       if (!data || hadErrors) {
         // The removal failed so record the error
         errs.push(`Unable to remove old alternate identifier: ${oldId}`);
       }
     }));
-
-    // If any errors occurred, return false
-    if (errs.length > 0) {
-      this.errors.alternateIdentifiers = errs.join("\n");
-      return false;
-    }
 
     // Add all new alternate identifiers
     await Promise.all(newIds.map(async (newId: string): Promise<void> => {
@@ -401,18 +341,23 @@ export class Plan extends BaseGraphQLModel {
         } as MutateOptions
       );
       const data: AlternateIdentifierInterface | undefined = added?.data?.addAlternateIdentifierToPlan;
+
       // Process any errors that may have occurred
-      this.handleMutationErrors("create", added, data?.errors);
+      this.handleMutationErrors("create AlternateIdentifier", added, data?.errors);
 
       // If data was returned and we have no errors
-      const hadErrors: boolean = Plan.hasErrors(data?.errors ?? {});
+      const hadErrors: boolean = this.hasErrors();
       if (!data || hadErrors) {
         // The removal failed so record the error
         errs.push(`Unable to add new alternate identifier: ${newId}`);
       }
     }));
 
-    return errs.length === 0;
+    // If any errors occurred, add them to the warnings
+    if (errs.length > 0) {
+      this.warnings.alternateIdentifiers = errs.join("\n");
+    }
+    return !this.hasErrors();
   }
 
   /**
@@ -492,7 +437,7 @@ export class Plan extends BaseGraphQLModel {
       }
     );
     return Array.isArray(resp.data?.plans)
-      ? resp.data.plans.map((plan: PlanInterface) => new Plan(plan))
+      ? resp.data.plans.map((plan: Plan) => new Plan(plan))
       : [];
   }
 }

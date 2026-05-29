@@ -82,7 +82,7 @@ describe('Plan', () => {
 
     expect(result).toBe(true);
     expect(plan.id).toBe(11);
-    expect(plan.dmpId).toBe('doi:10.12345/abc');
+    expect(plan.dmpId).toMatch(/^tmp-dmps-/);
   });
 
   it('should update title and status on success', async () => {
