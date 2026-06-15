@@ -1,5 +1,10 @@
 # dmptool-api Changelog
 
+## 2026-06-15
+- Updated dependencies
+- Added overrides for shell-quote and esbuild
+- Removed old overrides for ws and brace-expansion
+
 ## 2026-05-26
 - Added validation for `POST /dmps` to reject payloads containing more than one `dmp.project` with a `dmp_invalid` error
 - Added models and workflows to map `dmp.project[0].funding` plus DMP Tool extensions (`funding_opportunity` and `funding_project`) to `ProjectFunding` and `PlanFunding`
