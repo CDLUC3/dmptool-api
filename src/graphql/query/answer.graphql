@@ -1,0 +1,7 @@
+
+query AnswerForQuestion($projectId: Int!, $planId: Int!, $versionedQuestionId: Int!, $versionedCustomQuestionId: Int) {
+  answerByVersionedQuestionId(projectId: $projectId, planId: $planId, versionedQuestionId: $versionedQuestionId, versionedCustomQuestionId: $versionedCustomQuestionId) {
+    id
+    json
+  }
+}

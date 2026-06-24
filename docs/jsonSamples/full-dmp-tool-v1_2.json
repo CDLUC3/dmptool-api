@@ -188,25 +188,19 @@
     "narrative": {
       "download_url": "https://example.com/dmps/123/narrative",
       "template": {
-        "id": 1234567,
-        "title": "Funder Template",
-        "description": "This is a test funder template for a DMP narrative",
-        "version": "v1",
+        "title": "Digital Curation Centre",
+        "version": "v3",
         "section": [{
-          "id": 9876,
-          "title": "Section one",
-          "description": "The first section of the narrative",
+          "title": "Data Collection",
           "order": 1,
           "question": [
             {
-              "id": 1234,
-              "text": "Please describe your primary research output.",
+              "text": "What data will you collect or create?",
               "order": 1,
               "answer": {
-                "id": 543,
                 "json": {
                   "type": "textArea",
-                  "answer": "This is a description of the primary research output.",
+                  "answer": "We will collect data from the ocean buoy 2345325, including temperature, salinity, and wave height measurements.",
                   "meta": {
                     "schemaVersion": "1.0"
                   }
@@ -214,19 +208,12 @@
               }
             },
             {
-              "id": 5678,
-              "text": "Where will you deposit this output?",
-              "order": 1,
+              "text": "How will the data be collected or created?",
+              "order": 2,
               "answer": {
-                "id": 543,
                 "json": {
-                  "type": "repositorySearch",
-                  "answer": [
-                    {
-                      "repositoryId": "https://example.com/repository/123456789",
-                      "repositoryName": "Example Repository"
-                    }
-                  ],
+                  "type": "textArea",
+                  "answer": "The data will be collected using sensors on the ocean buoy 2345325, which will transmit the data to a central server for processing and storage.",
                   "meta": {
                     "schemaVersion": "1.0"
                   }
@@ -234,7 +221,415 @@
               }
             }
           ]
-        }]
+        }, {
+          "title": "Documentation and Metadata",
+          "order": 2,
+          "question": [
+            {
+              "text": "What documentation and metadata will accompany the data?",
+              "order": 1,
+              "answer": {
+                "json": {
+                  "type": "textArea",
+                  "answer": "The data will be accompanied by metadata in the form of a JSON file that includes information about the data collection methods, sensor specifications, and data processing steps.",
+                  "meta": {
+                    "schemaVersion": "1.0"
+                  }
+                }
+              }
+            }
+          ]
+        }, {
+          "title": "Ethics and Legal Compliance",
+          "order": 3,
+          "question": [
+            {
+              "text": "How will you manage any ethical issues?",
+              "order": 1,
+              "answer": {
+                "json": {
+                  "type": "textArea",
+                  "answer": "We will ensure that all data collection and processing activities comply with relevant ethical guidelines and regulations, including obtaining necessary permits and approvals.",
+                  "meta": {
+                    "schemaVersion": "1.0"
+                  }
+                }
+              }
+            },
+            {
+              "text": "How will you manage copyright and Intellectual Property Rights (IP/IPR) issues?",
+              "order": 2,
+              "answer": {
+                "json": {
+                  "type": "textArea",
+                  "answer": "We will ensure that all data and associated materials are properly licensed and attributed, and we will obtain necessary permissions for any third-party content used in the project.",
+                  "meta": {
+                    "schemaVersion": "1.0"
+                  }
+                }
+              }
+            }
+          ]
+        }, {
+          "title": "Storage and Backup",
+          "order": 4,
+          "question": [
+            {
+              "text": "How will the data be stored and backed up during the research?",
+              "order": 1,
+              "answer": {
+                "json": {
+                  "type": "textArea",
+                  "answer": "The data will be stored on secure servers with regular backups to ensure data integrity and availability. We will also implement access controls to protect sensitive data.",
+                  "meta": {
+                    "schemaVersion": "1.0"
+                  }
+                }
+              }
+            },
+            {
+              "text": "How will you manage access and security?",
+              "order": 2,
+              "answer": {
+                "json": {
+                  "type": "textArea",
+                  "answer": "We will implement role-based access controls and encryption to protect the data from unauthorized access. Regular security audits will be conducted to identify and mitigate potential vulnerabilities.",
+                  "meta": {
+                    "schemaVersion": "1.0"
+                  }
+                }
+              }
+            }
+          ]
+        }, {
+          "title": "Selection and Preservation",
+          "order": 5,
+          "question": [
+            {
+              "text": "Which data are of long-term value and should be retained, shared, and/or preserved?",
+              "order": 1,
+              "answer": {
+                "json": {
+                  "type": "textArea",
+                  "answer": "The data collected from the ocean buoy, including temperature, salinity, and wave height measurements, are of long-term value and will be retained, shared, and preserved for future research and analysis.",
+                  "meta": {
+                    "schemaVersion": "1.0"
+                  }
+                }
+              }
+            },
+            {
+              "text": "What is the long-term preservation plan for the dataset?",
+              "order": 2,
+              "answer": {
+                "json": {
+                  "type": "textArea",
+                  "answer": "The long-term preservation plan includes depositing the dataset in a trusted digital repository that adheres to best practices for data preservation, ensuring that the data remains accessible and usable for future researchers.",
+                  "meta": {
+                    "schemaVersion": "1.0"
+                  }
+                }
+              }
+            }
+          ]
+        }, {
+          "title": "Data Sharing",
+          "order": 6,
+          "question": [
+            {
+              "text": "How will you share the data?",
+              "order": 1,
+              "answer": {
+                "json": {
+                  "type": "textArea",
+                  "answer": "The data will be shared through a public data repository with appropriate metadata and documentation to facilitate reuse by other researchers.",
+                  "meta": {
+                    "schemaVersion": "1.0"
+                  }
+                }
+              }
+            },
+            {
+              "text": "Are any restrictions on data sharing required?",
+              "order": 2,
+              "answer": {
+                "json": {
+                  "type": "textArea",
+                  "answer": "There are no restrictions on data sharing, and the dataset will be made available under an open license to encourage reuse and collaboration.",
+                  "meta": {
+                    "schemaVersion": "1.0"
+                  }
+                }
+              }
+            }
+          ]
+        }, {
+          "title": "Responsibilities and Resources",
+          "order": 7,
+          "question": [
+            {
+              "text": "Who will be responsible for data management?",
+              "order": 1,
+              "answer": {
+                "json": {
+                  "type": "textArea",
+                  "answer": "The principal investigator will be responsible for overseeing data management activities, with support from the research team and data management specialists.",
+                  "meta": {
+                    "schemaVersion": "1.0"
+                  }
+                }
+              }
+            },
+            {
+              "text": "What resources will you require to deliver your plan?",
+              "order": 2,
+              "answer": {
+                "json": {
+                  "type": "textArea",
+                  "answer": "The resources required to deliver the data management plan include funding for data storage and backup, access to secure servers, data management software, and personnel with expertise in data management and curation.",
+                  "meta": {
+                    "schemaVersion": "1.0"
+                  }
+                }
+              }
+            }
+          ]
+        }, {
+            "title": "Research Outputs",
+            "order": 8,
+            "question": [
+              {
+                "text": "Please list all research outputs that you intend to create as part of your project.",
+                "order": 1,
+                "answer": {
+                  "json": {
+                    "meta": {
+                      "schemaVersion": "1.0"
+                    },
+                    "type": "researchOutputTable",
+                    "answer": [
+                      {
+                        "columns": [
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "text",
+                            "answer": "Buoy data",
+                            "commonStandardId": "title"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "textArea",
+                            "answer": "<p>Sensor data collected by the sea buoy</p>",
+                            "commonStandardId": "description"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "selectBox",
+                            "answer": "dataset",
+                            "commonStandardId": "type"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "checkBoxes",
+                            "answer": [],
+                            "commonStandardId": "data_flags"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "repositorySearch",
+                            "answer": [
+                              {
+                                "repositoryId": "https://www.re3data.org/repository/r3d100014682",
+                                "repositoryName": "Open-archeOcsean"
+                              }
+                            ],
+                            "commonStandardId": "host"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "metadataStandardSearch",
+                            "answer": [
+                              {
+                                "metadataStandardId": "https://rdamsc.bath.ac.uk/api2/m15",
+                                "metadataStandardName": "Dublin Core"
+                              }
+                            ],
+                            "commonStandardId": "metadata"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "licenseSearch",
+                            "answer": [
+                              {
+                                "licenseId": "https://spdx.org/licenses/CC0-1.0.json",
+                                "licenseName": "CC0-1.0"
+                              }
+                            ],
+                            "commonStandardId": "license_ref"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "radioButtons",
+                            "answer": "open",
+                            "commonStandardId": "data_access"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "date",
+                            "answer": "2026-06-20",
+                            "commonStandardId": "issued"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "numberWithContext",
+                            "answer": {
+                              "value": 4,
+                              "context": "MB"
+                            },
+                            "commonStandardId": "byte_size"
+                          }
+                        ]
+                      },
+                      {
+                        "columns": [
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "text",
+                            "answer": "Time lapse visualizations"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "textArea",
+                            "answer": "<p>Visualizations of the buoy data over time</p>"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "selectBox",
+                            "answer": "software"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "checkBoxes",
+                            "answer": [
+                              "sensitive"
+                            ]
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "repositorySearch",
+                            "answer": [
+                              {
+                                "repositoryId": "https://www.re3data.org/repository/https://www.re3data.org/api/v1/repository/r3d100010375",
+                                "repositoryName": "GitHub",
+                                "repositoryType": [
+                                  "other"
+                                ],
+                                "repositoryWebsite": "https://github.com",
+                                "repositoryKeywords": [
+                                  "open source software",
+                                  "social networking",
+                                  "web-based hosting service"
+                                ],
+                                "repositoryDescription": "GitHub is the best place to share code with friends, co-workers, classmates, and complete strangers. Over three million people use GitHub to build amazing things together. With the collaborative features of GitHub.com, our desktop and mobile apps, and Git"
+                              }
+                            ]
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "metadataStandardSearch",
+                            "answer": [
+                              {
+                                "metadataStandardId": "",
+                                "metadataStandardName": ""
+                              }
+                            ]
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "licenseSearch",
+                            "answer": [
+                              {
+                                "licenseId": "https://spdx.org/licenses/MIT.json",
+                                "licenseName": "MIT"
+                              }
+                            ]
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "radioButtons",
+                            "answer": "open"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "text",
+                            "answer": "2026-07-11"
+                          },
+                          {
+                            "meta": {
+                              "schemaVersion": "1.0"
+                            },
+                            "type": "text",
+                            "answer": "125 kb"
+                          }
+                        ]
+                      }
+                    ],
+                    "columnHeadings": [
+                      "Title",
+                      "Description",
+                      "Output Type",
+                      "Data Flags",
+                      "Repositories",
+                      "Metadata Standards",
+                      "Licenses",
+                      "Initial Access Levels",
+                      "Anticipated Release Date",
+                      "Anticipated file size"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
       }
     },
     "project": [{

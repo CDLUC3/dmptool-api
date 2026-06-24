@@ -21,6 +21,7 @@ mutation UpdatePlanStatus($planId: Int!, $status: PlanStatus!) {
       status
     }
     id
+    dmpId
     modified
     modifiedById
     status
@@ -35,6 +36,7 @@ mutation UpdatePlanTitle($planId: Int!, $title: String!) {
       title
     }
     id
+    dmpId
     modified
     modifiedById
     title
