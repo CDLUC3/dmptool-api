@@ -7,28 +7,16 @@ import {
   AnswerForQuestionDocument,
   UpdateAnswerDocument,
 } from "../generated/graphql.js";
-import { VersionedQuestion } from "./VersionedTemplate.js";
 import {
   AnswerDefaultMap,
   AnswerSchemaMap,
   AnyAnswerSchema,
-  AnyAnswerType, AnyResearchOutputTableColumnAnswerSchema,
-  AnyResearchOutputTableColumnAnswerType, DefaultResearchOutputTableRowAnswer,
+  AnyAnswerType,
   QuestionFormatsEnum,
-  ResearchOutputTableAnswerType, ResearchOutputTableQuestionType,
-  ResearchOutputTableRowAnswerSchema,
-  ResearchOutputTableRowAnswerType, TextAnswerType,
   TextAreaAnswerType
 } from "@dmptool/types";
 import { Plan } from "./Plan.js";
 import { ZodSafeParseResult } from "zod";
-import {
-  DatasetsType,
-  DatasetType,
-  DistributionType, LicenseType, MetadataType,
-  NarrativeQuestionType
-} from "../types.js";
-import { convertMySQLDateTimeToRFC3339 } from "@dmptool/utils";
 
 /**
  * The possible response for an Answer lookup GraphQL query
@@ -94,247 +82,6 @@ export class Answer extends BaseGraphQLModel {
 
     this.json = JSON.stringify(this.validatedJSON);
   }
-
-  /**
-   * Convert an entry from the maDMP narrative section into an answer
-   *
-   * @param request the Fastify request
-   * @param plan the Plan
-   * @param question the maDMP narrative question
-   * @returns the Answer to the Versioned Question
-   */
-  static fromMaDMPNarrative = (
-    request: FastifyRequest,
-    plan: Plan,
-    question: NarrativeQuestionType
-  ): Answer | undefined => {
-    const logBase = { planId: plan.id, title: plan.title };
-
-    // The Plan must have a versioned template
-    if (!plan.versionedTemplate) {
-      request.log.error(logBase, 'Plan does not have a versioned template!');
-      return undefined;
-    }
-
-    // Find the question within the Plan's versioned template
-    const versionedQuestion: VersionedQuestion | undefined = plan.versionedTemplate.findNarrativeQuestion(question);
-    if (!versionedQuestion) {
-      request.log.error({ ...logBase, question }, 'Specified question does not exist on versioned template');
-      return undefined;
-    }
-
-    return new Answer({
-      plan,
-      versionedSectionId: versionedQuestion.versionedSectionId,
-      versionedQuestionId: versionedQuestion.id,
-      json: question.answer?.json,
-    });
-  }
-
-  /**
-   * Convert maDMP dataset entries into a Research Output Table Answer
-   *
-   * @param request the Fastify request
-   * @param plan the Plan
-   * @param question the Versioned Question
-   * @param existingAnswer the current ResearchOutputTableAnswer derived from the maDMP narrative
-   * @param datasets the maDMP dataset array
-   * @returns the updated research output table answer
-   */
-  static fromMaDMPDatasets = (
-    request: FastifyRequest,
-    plan: Plan,
-    question: VersionedQuestion,
-    existingAnswer: ResearchOutputTableAnswerType,
-    datasets: DatasetsType,
-  ): ResearchOutputTableAnswerType | undefined => {
-    const logBase = { planId: plan.id, title: plan.title };
-    const newAnswer: ResearchOutputTableAnswerType = structuredClone(existingAnswer);
-    const roQuestion = JSON.parse(question.json) as ResearchOutputTableQuestionType;
-
-    // The Plan must have a versioned template
-    if (!plan.versionedTemplate) {
-      request.log.error(logBase, 'Plan does not have a versioned template!');
-      return undefined;
-    }
-
-    // Find the question within the Plan's versioned template
-    const versionedQuestion: VersionedQuestion | undefined = plan.versionedTemplate.findQuestionById(question.id);
-    if (!versionedQuestion) {
-      request.log.error({ ...logBase, question }, 'Specified question does not exist on versioned template');
-      return undefined;
-    }
-
-    // Convert the existing rows into a Map of title => row
-    const existingTitles = new Map<string, ResearchOutputTableRowAnswerType>();
-    for (const row of newAnswer.answer) {
-      for (const column of row.columns) {
-        if (column.commonStandardId === 'title') {
-          existingTitles.set((column as TextAnswerType).answer.toLowerCase().trim(), row);
-          break;
-        }
-      }
-    }
-
-    // Loop through the datasets
-    for (const dataset of datasets) {
-      // Try to find a match by the dataset title (since it is the only required column)
-      // in the existing research output table answer
-      const existingRow: ResearchOutputTableRowAnswerType | undefined = existingTitles.get(dataset.title.toLowerCase().trim());
-      const workingRow = existingRow
-        || Answer.initializeResearchOutputTableRow(request, roQuestion as ResearchOutputTableQuestionType);
-
-      if (!existingRow) {
-        newAnswer.answer.push(workingRow);
-      }
-
-      // Update the row
-      Answer.researchOutputTableColumnFromMaDMPDataset(workingRow, 'title', dataset);
-      Answer.researchOutputTableColumnFromMaDMPDataset(workingRow, 'description', dataset);
-      Answer.researchOutputTableColumnFromMaDMPDataset(workingRow, 'type', dataset);
-      Answer.researchOutputTableColumnFromMaDMPDataset(workingRow, 'data_flags', dataset);
-      Answer.researchOutputTableColumnFromMaDMPDataset(workingRow, 'data_access', dataset);
-      Answer.researchOutputTableColumnFromMaDMPDataset(workingRow, 'byte_size', dataset);
-      Answer.researchOutputTableColumnFromMaDMPDataset(workingRow, 'issued', dataset);
-      Answer.researchOutputTableColumnFromMaDMPDataset(workingRow, 'host', dataset);
-      Answer.researchOutputTableColumnFromMaDMPDataset(workingRow, 'metadata', dataset);
-      Answer.researchOutputTableColumnFromMaDMPDataset(workingRow, 'license_ref', dataset);
-
-      request.log.debug(
-        { ...logBase, researchOutputTableRow: workingRow },
-        'fromMaDMPDatasets - done processing dataset info'
-      );
-    }
-
-    return newAnswer;
-  }
-
-  /**
-   * Generate a new empty row for a research output table answer
-   *
-   * @param request the Fastify request
-   * @param question the maDMP Research Output question
-   * @returns a new Resource Output table answer row
-   */
-  private static initializeResearchOutputTableRow = (
-    request: FastifyRequest,
-    question: ResearchOutputTableQuestionType,
-  ): ResearchOutputTableRowAnswerType => {
-    const row: ResearchOutputTableRowAnswerType = ResearchOutputTableRowAnswerSchema.parse(DefaultResearchOutputTableRowAnswer);
-
-    // Loop through each of the columns and generate a default answer column
-    for (const column of question.columns) {
-      const columnType = column.content.type ?? 'textArea';
-      const answer = AnyResearchOutputTableColumnAnswerSchema.parse(AnswerDefaultMap[columnType]);
-      row.columns.push(answer);
-    }
-
-    return row;
-  }
-
-  /**
-   * Convert the specified column (referenced by commonStandardId) in the maDMP
-   * dataset entry into a RersearchOutputTableColumnAnswerType
-   *
-   * @param row the Research Output table row
-   * @param commonStandardId the identifier of the field in the maDMP
-   * @param dataset the maDMP dataset record
-   * @returns the dataset information as a research output column
-   */
-  private static researchOutputTableColumnFromMaDMPDataset = (
-    row: ResearchOutputTableRowAnswerType,
-    commonStandardId: string,
-    dataset: DatasetType
-  ): AnyResearchOutputTableColumnAnswerType => {
-    // Find the column with the matching commonStandardId
-    const column = row.columns.find((col: AnyResearchOutputTableColumnAnswerType): boolean => {
-      return col.commonStandardId === commonStandardId;
-    });
-
-    if (column) {
-      // Process Sensitive and Personal info data flags
-      if (commonStandardId === 'data_flags') {
-        const dataFlags: string[] = [];
-        if (dataset.sensitive_data === 'yes') dataFlags.push('sensitive')
-        if (dataset.personal_data === 'yes') dataFlags.push('personal')
-
-        column.answer = dataFlags;
-      }
-
-      if (commonStandardId === 'host') {
-        column.answer = dataset.distribution
-          ?.filter((dist: DistributionType) => !!dist.host && !!dist.host.url)
-          ?.map((dist: DistributionType) => ({
-            repositoryId: dist.host.host_id?.identifier || dist.host.url,
-            repositoryName: dist.host.title || '',
-          }));
-      }
-
-      if (commonStandardId === 'metadata') {
-        column.answer = dataset.metadata
-          ?.filter((meta: MetadataType) => !!meta.metadata_standard_id?.identifier)
-          ?.map((meta: MetadataType) => ({
-            metadataStandardId: meta.metadata_standard_id.identifier,
-            repositoryName: meta.description?.slice(0, 50) || '',
-          }));
-      }
-
-      if (commonStandardId === 'license_ref') {
-        const licenses = dataset.distribution?.flatMap((dist: DistributionType) => dist.license_ref || []);
-        const now = new Date();
-        const mostRecent = licenses
-          ?.filter((lic: LicenseType) => !!lic.license_ref)
-          ?.sort((licA: LicenseType, licB: LicenseType) => licB.start_date - licA.start_date) // sort descending
-          ?.find((lic: LicenseType) => lic.start_date <= now);
-
-        // The DMP Tool only allows one License, so use the one that is effective today
-        column.answer = [{
-          licenseId: mostRecent.license_ref || '',
-          licenseName: ''
-        }];
-      }
-
-      const distribution: DistributionType = dataset.distribution?.[0];
-      switch (commonStandardId) {
-        case 'title':
-          column.answer = dataset.title?.trim() || dataset.description?.trim()?.slice(0, 15) || 'Default Dataset';
-          break;
-        case 'description':
-          column.answer = dataset.description?.trim() || '';
-          break;
-        case 'type':
-          column.answer = dataset.type?.trim()?.toLowerCase() || 'dataset';
-          break;
-        case 'data_access':
-          switch (distribution?.data_access?.trim()?.toLowerCase()) {
-            case 'open':
-              column.answer = 'open';
-              break;
-            case 'shared':
-              column.answer = 'restricted';
-              break;
-            default:
-              column.answer = 'closed';
-              break;
-          }
-          break;
-        case 'issued':
-          column.answer = convertMySQLDateTimeToRFC3339(distribution?.issued) || '';
-          break;
-        case 'byte_size':
-          column.answer = {
-            value: distribution?.byte_size?.toString() || '',
-            context: 'bytes'
-          }
-          break;
-        default:
-          column.answer = dataset[commonStandardId]?.trim()?.trim() || '';
-          break;
-      }
-    }
-
-    return column as AnyResearchOutputTableColumnAnswerType;
-  };
 
   /**
    * Shortcut helper function to save or update the current Answer
@@ -429,9 +176,6 @@ export class Answer extends BaseGraphQLModel {
         errorPolicy: "all"
       }
     );
-
-    return Array.isArray(resp.data?.answerByVersionedQuestionId)
-      ? new Answer(resp.data.answerByVersionedQuestionId[0])
-      : undefined;
+    return resp.data?.answerByVersionedQuestionId ? new Answer(resp.data.answerByVersionedQuestionId) : undefined;
   }
 }
