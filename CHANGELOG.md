@@ -1,5 +1,8 @@
 # dmptool-api Changelog
 
+## 2026-06-29
+- Fixed issue with buildspec. It needs to run `npm install` not `npm ci`
+
 ## 2026-06-15
 - Updated dependencies
 - Added overrides for shell-quote and esbuild
