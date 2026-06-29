@@ -84,7 +84,7 @@ export class Affiliation extends BaseGraphQLModel {
         mutation: AddAffiliationDocument,
         variables: {
           input: {
-            name: this.name,
+            displayName: this.name,
             funder: this.funder ?? false,
             active: true
           }

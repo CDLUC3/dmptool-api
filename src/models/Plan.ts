@@ -117,6 +117,7 @@ export class Plan extends BaseGraphQLModel {
   visibility?: PlanVisibility;
   status?: PlanStatus;
   registered?: string;
+
   alternateIdentifiers?: AlternateIdentifierInterface[];
   members?: PlanMember[];
 
@@ -124,7 +125,7 @@ export class Plan extends BaseGraphQLModel {
     super(options);
 
     this.projectId = options.projectId;
-    this.versionedTemplate = options.versionedTemplate;
+    this.versionedTemplate = options.versionedTemplate ? new VersionedTemplate(options.versionedTemplate) : undefined;
     this.dmpId = options.dmpId ?? `tmp-dmps-${randomHex(12)}`;
     this.title = options.title;
     this.visibility = options.visibility ?? 'PRIVATE';
@@ -179,6 +180,11 @@ export class Plan extends BaseGraphQLModel {
     );
     const data: Plan | undefined = saved?.data?.addPlan;
     this.processGQLResponse(saved, data as Plan, 'create Plan');
+
+    // Update the dmpId if it is set to a temporary value
+    if (data?.dmpId && this.dmpId.startsWith('tmp-dmps-')) {
+      this.dmpId = data.dmpId
+    }
     return !this.hasErrors();
   }
 

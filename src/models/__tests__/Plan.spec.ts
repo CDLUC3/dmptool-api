@@ -82,7 +82,7 @@ describe('Plan', () => {
 
     expect(result).toBe(true);
     expect(plan.id).toBe(11);
-    expect(plan.dmpId).toMatch(/^tmp-dmps-/);
+    expect(plan.dmpId).toBe('doi:10.12345/abc');
   });
 
   it('should update title and status on success', async () => {
@@ -229,7 +229,8 @@ describe('Plan', () => {
 
     expect(result).toBeInstanceOf(Plan);
     expect(result.id).toBeUndefined();
-    expect(result.versionedTemplate).toBe(template);
+    expect(result.versionedTemplate).toBeInstanceOf(VersionedTemplate);
+    expect(result.versionedTemplate?.id).toBe(template.id);
     expect(result.title).toBe('New Plan');
   });
 

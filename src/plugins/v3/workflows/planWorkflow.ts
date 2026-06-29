@@ -16,6 +16,7 @@ import {
   ERROR_MSG_CONFLICT,
   newFastifyError
 } from "../../../handlers/error.js";
+import {createNarrativeWorkflow} from "./narrativeWorkflow.js";
 
 /**
  * Verify that the DMP modification date set in the header matches the current modified timestamp
@@ -87,6 +88,15 @@ const saveNonFatalPlanArtifacts = async (
     request.log.error(
       { planId: plan.id, alternateIdentifiers: dmp.alternate_identifier },
       'Unable to save alternate identifiers for the new plan'
+    );
+  }
+
+  // Save the narrative
+  const planWithNarrative: Plan = await createNarrativeWorkflow(request, plan, dmp);
+  if (!planWithNarrative || planWithNarrative.hasErrors()) {
+    request.log.error(
+      { planId: plan.id, errors: planWithNarrative.errors },
+      'Unable to save the plan narrative'
     );
   }
 }
@@ -170,6 +180,8 @@ export async function createPlanWorkflow(
     throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to generate DMP id.');
   }
 
+  // Refetch the plan from the database to pick up its assigned DMP id.
+
   // Now save the Project and Plan Funding
   request.log.debug(
     { alternateIdentifier: idIn, projectId: project.id, dmpId: plan.dmpId },
@@ -205,7 +217,7 @@ export async function createPlanWorkflow(
   // Generate the maDMP JSON so that we can return it
   const newMaDMP: DMPToolDMPType | undefined = await loadMaDMPFromDynamo(
     request,
-    plan.dmpId
+    finalPlan.dmpId
   );
 
   // TODO: Once the RDA group has decided on a way to convey warnings about

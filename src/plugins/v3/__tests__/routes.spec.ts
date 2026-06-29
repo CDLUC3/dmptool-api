@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import Fastify, { FastifyInstance } from 'fastify';
+import Fastify, {FastifyInstance, LightMyRequestResponse} from 'fastify';
 import { DMPToolDMPType } from "@dmptool/types";
 import { DMP_TOOL_CONTENT_TYPE, RDA_COMMON_STANDARD_CONTENT_TYPE } from "../routeSchema.js";
 import configPlugin from "../../config.js";
@@ -271,13 +271,13 @@ describe('v3 routes', () => {
     });
 
     it('should return the DMP in RDA Common Standard format by default', async () => {
-      const response = await fastify.inject({
+      const response: LightMyRequestResponse = await fastify.inject({
         method: 'GET',
         url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       });
 
       expect(response.statusCode).toBe(200);
-      const contentType: string | undefined = response.headers['content-type'];
+      const contentType: string | undefined = response.headers['content-type']?.toString();
       expect(contentType).toEqual(`${RDA_COMMON_STANDARD_CONTENT_TYPE}; charset=utf-8`);
       const dmp: DMPToolDMPType = response.json();
       expect(dmp.dmp).toHaveProperty('dmp_id');
@@ -292,7 +292,7 @@ describe('v3 routes', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      const contentType: string | undefined = response.headers['content-type'];
+      const contentType: string | undefined = response.headers['content-type']?.toString();
       expect(contentType).toEqual(`${DMP_TOOL_CONTENT_TYPE}; charset=utf-8`);
       const dmp: DMPToolDMPType = response.json();
       expect(dmp.dmp).toHaveProperty('dmp_id');
