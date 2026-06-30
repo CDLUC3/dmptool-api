@@ -13,8 +13,8 @@ ENV CI=true
 # to the /app working directory
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies in /app (excluding devDependencies)
+RUN npm ci
 
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS builder
 
