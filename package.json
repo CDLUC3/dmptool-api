@@ -16,15 +16,16 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "rm -rf ./dist && npm run compile",
+    "compile": "tsc -p tsconfig.json",
     "dev": "tsx watch src/server.ts",
     "generate": "graphql-codegen --config codegen.ts",
     "lint": "npx eslint . --ignore-pattern dist/ --ignore-pattern src/generated",
+    "prepare": "is-ci || npx husky install",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "trivy-high": "sh ./src/scripts/trivy-high.sh",
     "trivy-med": "sh ./src/scripts/trivy-med.sh",
-    "trivy-all": "npm run trivy-high && npm run trivy-med",
-    "prepare": "husky"
+    "trivy-all": "npm run trivy-high && npm run trivy-med"
   },
   "overrides": {
     "@babel/core": "8.0.1",
