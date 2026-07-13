@@ -20,16 +20,12 @@ import {
   RDA_COMMON_STANDARD_CONTENT_TYPE,
 } from "./routeSchema.js";
 import { DMPToolDMPType } from "@dmptool/types";
-import { convertMySQLDateTimeToRFC3339, DMP_LATEST_VERSION } from "@dmptool/utils";
 import v3SerializationPlugin from "./serialization.js";
 import { v3SwaggerConfig, v3SwaggerUIConfig } from "./swagger.js";
 import {
   ERROR_CODE_INTERNAL_SERVER,
   ERROR_CODE_INVALID_DMP,
-  ERROR_CODE_NOT_FOUND,
-  ERROR_CODE_UNAUTHENTICATED,
-  ERROR_MSG_INTERNAL_SERVER,
-  ERROR_MSG_NOT_FOUND,
+  ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_INTERNAL_SERVER,
   ERROR_MSG_UNAUTHENTICATED,
   errorHandler,
   newFastifyError,
@@ -37,21 +33,11 @@ import {
 } from "../../handlers/error.js";
 import { decorateLog } from "../../handlers/logger.js";
 import { isDmpId } from "../../utils.js";
-import { AccessiblePlan, ConfigurationOptions, User } from "../../types.js";
-import { Plan as PlanRDS } from "../../types.js";
+import { ConfigurationOptions } from "../../types.js";
 import {
-  createPlanWorkflow, deleteDmpWorkflow,
+  createPlanWorkflow, deleteDmpWorkflow, getPlanWorkflow,
   updateDmpWorkflow
 } from "./workflows/planWorkflow.js";
-import {
-  callerHasPermission,
-  handleMissingMaDMP,
-  loadMaDMPFromDynamo,
-  loadPlan,
-  loadPlansForCaller,
-  loadPlansForUser,
-  userHasPermission,
-} from "../../models/maDMP.js";
 
 const isAuthenticatedUser = (request: FastifyRequest): boolean => {
   return !!request.user && typeof request.user === 'object' && Object.keys(request.user as object).length > 0;
@@ -208,6 +194,10 @@ const v3RoutesPlugin = async function (
 
       request.log.debug({ body: request.body }, 'POST /dmps called.')
       const result: DMPToolDMPType = await createPlanWorkflow(request, request.body as DMPToolDMPType);
+      request.log.debug(
+        { dmpId: result?.dmp?.dmp_id?.identifier, title: result?.dmp?.title },
+        'POST: maDMP has been created'
+      );
 
       // Should never happen, an error will normally be thrown, but just in case
       // the response was undefined, throw an error
@@ -244,79 +234,12 @@ const v3RoutesPlugin = async function (
         throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
       }
 
-      // TODO: Fetch the DMP from the DynamoDB table (use the Accept header to
-      //       determine whether we should return the RDA Common Standard or
-      //       the full DMP with DMP Tool extensions)
-      //       Only return "public" DMPs if the user is not authenticated
-      //       --
-      //       FOR NOW - just return a mock DMP based on the Accept header
+      const maDMP = await getPlanWorkflow(request, id, version);
 
-      // TODO: Implement authorization check if its not a public DMP
-
-      // First: load high-level info about the DMP from the MySQL database
-      const plan: PlanRDS | undefined = await loadPlan(request, id);
-      if (!plan) {
-        request.log.warn({ dmpId: id }, "No Plan found");
-        throw newFastifyError(ERROR_CODE_NOT_FOUND, 'DMP not found');
-      }
-
-      // Second: load the DMP ids that the user or caller has access to
-      const plans: AccessiblePlan[] = request.user
-        ? await loadPlansForUser(request)
-        : await loadPlansForCaller(request);
-
-      request.log.debug(
-        { dmpId: id, planId: plan.id, nbrAccessiblePlans: plans.length },
-        'Retrieved Plan data from RDS'
-      );
-
-      // Third: fetch the latest maDMP record for the Plan from the DynamoDB table
-      let maDMP: DMPToolDMPType | undefined = await loadMaDMPFromDynamo(
-        request,
-        plan.dmpId,
-        version || DMP_LATEST_VERSION
-      );
-      request.log.debug(
-        { dmpId: id, maDMPModified: maDMP?.dmp?.modified },
-        'Retrieved maDMP metadata from DynamoDB'
-      );
-
-      // Four: Determine if the maDMP was missing or is out of date or missing the narrative.
-      // If so, generate the current maDMP and update the DynamoDB record.
-      const rdsDate: string | null = convertMySQLDateTimeToRFC3339(plan?.modified);
-
-      request.log.debug(
-        { dmpId: id, rdsDate, maDMPModified: maDMP?.dmp?.modified, hasNarrative: !!maDMP?.dmp?.narrative },
-        'Comparing DMP metadata from RDS and DynamoDB'
-      )
-
-      if (!maDMP || !maDMP.dmp || rdsDate !== maDMP.dmp.modified || !maDMP.dmp.narrative) {
-        const outdated: boolean = maDMP?.dmp?.modified && rdsDate !== maDMP?.dmp?.modified
-        request.log.debug(
-          { dmpId: id },
-          `DMP metadata is ${outdated ? 'outdated' : 'missing'}`
-        );
-        maDMP = await handleMissingMaDMP(request, plan, outdated);
-      }
-
-      // If the maDMP record could not be generated or retrieved, we need to bail out
-      if (!maDMP || !maDMP.dmp) {
-        request.log.error({ dmpId: id }, "Unable to generate narrative for DMP");
-        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, ERROR_MSG_INTERNAL_SERVER);
-      }
-
-      // Determine if the caller has permission to view the DMP
-      const hasPermission = request.user
-        ? userHasPermission(maDMP, plans, request.user as User)
-        : callerHasPermission(maDMP, plans, request.caller || '');
-
-      if (!hasPermission) {
-        request.log.warn({ dmpId: id }, "User/Caller does not have permission to view the DMP");
-        // We return 404 here so that we're not signaling which DMP ids are valid
-        throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
-      }
-
-      reply.code(200).send(maDMP);
+      // Return the maDMP record along with the Last-Modified header so the caller can send a subsequent update
+      reply.code(200)
+        .header('Last-Modified', maDMP.dmp.modified)
+        .send(maDMP);
     }
   );
 
@@ -336,35 +259,31 @@ const v3RoutesPlugin = async function (
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       if (!isAuthenticatedUser(request)) {
-        request.log.debug('An attempt to create a new DMP was made by an unauthenticated caller');
+        request.log.debug('An attempt to update an existing DMP was made by an unauthenticated caller');
         throw newFastifyError(ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_UNAUTHENTICATED);
       }
 
       const params = request.params as { id: string };
-      const id: string = params ? encodeURIComponent(params.id) : '';
+      const id: string = params ? params.id : '';
+      const payload = request.body as DMPToolDMPType;
       const modCheck = request.headers['if-unmodified-since'] as string;
 
-      // TODO: Fetch the DMP from the DynamoDB table and check authorization
-      //       if authorized, update the DMP (use the Accept header to
-      //       determine whether we should return the RDA Common Standard or
-      //       the full DMP with DMP Tool extensions)
-      //       --
-      //       FOR NOW - just return a mock DMP based on the Accept header
+      request.log.debug({ dmpId: id }, 'PUT /dmps/:id(.+) called.')
 
-      const result: DMPToolDMPType = await updateDmpWorkflow(request, id, modCheck, { dmp: TEST_DMP });
-      // Should never happen, an error will normally be thrown, but just in case
-      // the response was undefined, throw an error
-      if (!result) {
-        request.log.fatal('An unknown error occurred during DMP creation');
-        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
+      // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
+      if (!id || !isDmpId(request.dmptoolConfig, encodeURIComponent(id))) {
+        request.log.error({ dmpId: params.id }, 'Invalid DMP ID');
+        throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
       }
 
-      // Append a `Last-Modified` header to the response and set its value
-      // equal to the `modified` field of the DMP. This is used to verify that
-      // the DMP has not changed since the client last fetched it.
+      // Replace the maDMP record
+      const updatedDMP: DMPToolDMPType = await updateDmpWorkflow(request, id, modCheck, payload);
+      request.log.debug({ dmpId: id, title: updatedDMP.dmp?.title }, 'PUT: maDMP has been replaced');
+
+      // Return the maDMP record along with the Last-Modified timestamp
       reply.code(200)
-        .header('Last-Modified', result.dmp.modified)
-        .send(result);
+        .header('Last-Modified', updatedDMP.dmp.modified)
+        .send(updatedDMP);
     }
   );
 
@@ -384,39 +303,29 @@ const v3RoutesPlugin = async function (
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       if (!isAuthenticatedUser(request)) {
-        request.log.debug('An attempt to create a new DMP was made by an unauthenticated caller');
+        request.log.debug('An attempt to delete an existing DMP was made by an unauthenticated caller');
         throw newFastifyError(ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_UNAUTHENTICATED);
       }
 
       const params = request.params as { id: string };
-      const id: string = params ? encodeURIComponent(params.id) : '';
+      const id: string = params ? params.id : '';
       const modCheck = request.headers['if-unmodified-since'] as string;
 
-      // TODO: Fetch the DMP from the DynamoDB table, check authorization and
-      //       then delete if authorized
-      //       --
-      //       FOR NOW - just return a mock success code
+      request.log.debug({ dmpId: id }, 'DELETE /dmps/:id(.+) called.')
 
-      // TODO: Uncomment this logic to delete a Project after the Plan is deleted
-      // // See if the associated Project has other Plans
-      // const plans: Plan[] = await Plan.findByProjectId(request, this.project.id);
-      // if (!plans || plans.length < 1) {
-      //  // It doesn't, so let's delete the project too
-      //   const project = new Project(this.project);
-      //   const projectWasDeleted: boolean = await project.delete(request);
-      // if (!projectWasDeleted) {
-      //   // If something went wrong, add the errors to this Plan
-      //   const errs: string = Plan.errorsToString(project.errors);
-      //   this.errors.projectId = `Plan was deleted but could not delete Project: ${errs}`;
-      //   return false;
-      // }
-
-      const result: boolean = await deleteDmpWorkflow(request, id, modCheck, TEST_DMP.modified);
-      if (!result) {
-        request.log.fatal('An unknown error occurred during DMP creation');
-        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
+      // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
+      if (!id || !isDmpId(request.dmptoolConfig, encodeURIComponent(id))) {
+        request.log.error({ dmpId: params.id }, 'Invalid DMP ID');
+        throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
       }
 
+      // Replace the maDMP record
+      if (!(await deleteDmpWorkflow(request, id, modCheck))) {
+        request.log.error({ dmpId: id }, 'Unable to delete the maDMP');
+        throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, ERROR_MSG_INTERNAL_SERVER);
+      }
+
+      request.log.debug({ dmpId: id }, 'DELETE: maDMP has been deleted');
       reply.code(204).send();
     }
   );

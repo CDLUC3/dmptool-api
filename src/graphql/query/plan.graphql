@@ -45,7 +45,7 @@ query Plan($planId: Int!) {
 }
 
 query Plans($projectId: Int!) {
-  plans(projectId: $projectId) {
+  plansByProjectId(projectId: $projectId) {
     id
     title
   }

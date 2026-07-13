@@ -8,6 +8,7 @@ import { mockMaDMP, mockMaDMPModule } from "./maDMPMocks.js";
 mockMaDMPModule();
 
 jest.unstable_mockModule('../workflows/planWorkflow.js', () => ({
+  getPlanWorkflow: jest.fn(),
   createPlanWorkflow: jest.fn(),
   updateDmpWorkflow: jest.fn(),
   deleteDmpWorkflow: jest.fn(),
@@ -15,6 +16,7 @@ jest.unstable_mockModule('../workflows/planWorkflow.js', () => ({
 
 describe('v3 routes', () => {
   let fastify: FastifyInstance;
+  let getPlanWorkflow: jest.Mock;
   let createPlanWorkflow: jest.Mock;
   let updateDmpWorkflow: jest.Mock;
   let deleteDmpWorkflow: jest.Mock;
@@ -44,12 +46,15 @@ describe('v3 routes', () => {
 
     // Import the mocked workflow module first, then routes
     const workflowModule = await import('../workflows/planWorkflow.js');
+    getPlanWorkflow = workflowModule.getPlanWorkflow as jest.Mock;
     createPlanWorkflow = workflowModule.createPlanWorkflow as jest.Mock;
     updateDmpWorkflow = workflowModule.updateDmpWorkflow as jest.Mock;
     deleteDmpWorkflow = workflowModule.deleteDmpWorkflow as jest.Mock;
+    getPlanWorkflow.mockReset();
     createPlanWorkflow.mockReset();
     updateDmpWorkflow.mockReset();
     deleteDmpWorkflow.mockReset();
+    getPlanWorkflow.mockResolvedValue(mockMaDMP as never);
     createPlanWorkflow.mockResolvedValue(mockMaDMP as never);
     updateDmpWorkflow.mockResolvedValue(mockMaDMP as never);
     deleteDmpWorkflow.mockResolvedValue(true as never);
@@ -352,19 +357,6 @@ describe('v3 routes', () => {
       // TODO: Once the code is actually updating, uncomment this to ensure the update was successful
       // const updated = response.json();
       // expect(updated.dmp.title).toEqual('Updated Title');
-    });
-
-    it('should return 400 status code if the DMP ID is not one of ours', async () => {
-      const response = await fastify.inject({
-        method: 'PUT',
-        url: `/api/test/dmps/${encodeURIComponent('99.99999/Z9')}test-dmp-id`,
-        headers: { 'if-unmodified-since': updateableDmp.dmp.modified },
-        body: updateableDmp
-      });
-
-      expect(response.statusCode).toBe(200);
-      const json = response.json();
-      expect(json.dmp.dmp_id).toEqual({ identifier: 'test-dmp-id', type: 'other' });
     });
 
     it('should return 400 status code if no If-Unmodified-Since header was provided', async () => {

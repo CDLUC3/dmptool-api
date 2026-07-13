@@ -85,14 +85,14 @@ describe('Plan', () => {
     expect(plan.dmpId).toBe('doi:10.12345/abc');
   });
 
-  it('should update title and status on success', async () => {
+  it('should update on success', async () => {
     const plan = new Plan({ id: 12, title: 'Updated', status: 'COMPLETE' as never });
 
     const mutateSpy = jest.spyOn(Plan, 'mutate');
     mutateSpy
       .mockResolvedValueOnce({
         data: {
-          updatePlanTitle: {
+          updatePlan: {
             id: 12,
             projectId: 10,
             dmpId: 'dmp-id',
@@ -105,28 +105,8 @@ describe('Plan', () => {
             alternateIdentifiers: [],
             created: 'c',
             createdById: 1,
-            modified: 'm1',
-            modifiedById: 2,
-          },
-        },
-      })
-      .mockResolvedValueOnce({
-        data: {
-          updatePlanStatus: {
-            id: 12,
-            projectId: 10,
-            dmpId: 'dmp-id',
-            title: 'Updated',
-            visibility: 'PRIVATE',
-            status: 'COMPLETE',
-            registered: 'r',
-            project: {} as never,
-            versionedTemplate: {} as never,
-            alternateIdentifiers: [],
-            created: 'c',
-            createdById: 1,
             modified: 'm2',
-            modifiedById: 3,
+            modifiedById: 2,
           },
         },
       });
@@ -134,7 +114,7 @@ describe('Plan', () => {
     const result = await plan.update(buildRequest());
 
     expect(result).toBe(true);
-    expect(mutateSpy).toHaveBeenCalledTimes(2);
+    expect(mutateSpy).toHaveBeenCalledTimes(1);
     expect(plan.modified).toBe('m2');
   });
 

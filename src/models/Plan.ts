@@ -3,9 +3,11 @@ import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
 import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { DMPToolDMPType } from "@dmptool/types";
+import { randomHex } from "@dmptool/utils";
 import { PlanMember } from "./PlanMember.js";
 import { VersionedTemplate } from "./VersionedTemplate.js";
 import { AlternateIdentifierType } from "../types.js";
+import { DEFAULT_LANGUAGE, LangISO5 } from "../utils.js";
 import {
   AddAlternateIdentifierDocument,
   AddPlanDocument,
@@ -17,10 +19,8 @@ import {
   PlanStatus,
   PlanVisibility,
   RemoveAlternateIdentifierDocument,
-  UpdatePlanStatusDocument,
-  UpdatePlanTitleDocument
+  UpdatePlanDocument
 } from "../generated/graphql.js";
-import { randomHex } from "@dmptool/utils";
 
 /**
  * Represents an alternate identifier for a Data Management Plan
@@ -71,17 +71,10 @@ export interface AddPlanResponse {
 }
 
 /**
- * Representation of the GraphQL query response for updating a Plan title
+ * Representation of the GraphQL query response for updating a Plan
  */
-export interface UpdatePlanTitleResponse {
-  updatePlanTitle: Plan
-}
-
-/**
- * Representation of the GraphQL query response for updating a Plan status
- */
-export interface UpdatePlanStatusResponse {
-  updatePlanStatus: Plan
+export interface UpdatePlanResponse {
+  updatePlan: Plan
 }
 
 /**
@@ -116,6 +109,7 @@ export class Plan extends BaseGraphQLModel {
   title?: string;
   visibility?: PlanVisibility;
   status?: PlanStatus;
+  languageId: LangISO5;
   registered?: string;
 
   alternateIdentifiers?: AlternateIdentifierInterface[];
@@ -130,6 +124,7 @@ export class Plan extends BaseGraphQLModel {
     this.title = options.title;
     this.visibility = options.visibility ?? 'PRIVATE';
     this.status = options.status ?? 'DRAFT';
+    this.languageId = options.languageId ? options.languageId : DEFAULT_LANGUAGE;
     this.registered = options.registered;
     this.alternateIdentifiers = options.alternateIdentifiers ?? [];
 
@@ -195,37 +190,24 @@ export class Plan extends BaseGraphQLModel {
    * @returns true if successful. If not, any errors are added to the error object
    */
   async update(request: FastifyRequest): Promise<boolean> {
-    // First update the Plan title
-    const savedTitle: GQLResponse<UpdatePlanTitleResponse> = await Plan.mutate<UpdatePlanTitleResponse>(
+    const updated: GQLResponse<UpdatePlanResponse> = await Plan.mutate<UpdatePlanResponse>(
       request,
       {
-        mutation: UpdatePlanTitleDocument,
+        mutation: UpdatePlanDocument,
         variables: {
-          planId: this.id,
-          title: this.title
+          input: {
+            id: this.id,
+            title: this.title,
+            status: this.status,
+            visibility: this.visibility,
+            languageId: this.languageId,
+          }
         },
         errorPolicy: "all"
       } as MutateOptions
     );
-    const titleData: Plan | undefined = savedTitle?.data?.updatePlanTitle;
-    this.processGQLResponse(savedTitle, titleData as Plan, 'update Plan.title');
-
-    if (titleData && !this.hasErrors()) {
-      // If successful, then update the Plan status
-      const savedStatus: GQLResponse<UpdatePlanStatusResponse> = await Plan.mutate<UpdatePlanStatusResponse>(
-        request,
-        {
-          mutation: UpdatePlanStatusDocument,
-          variables: {
-            planId: this.id,
-            status: this.status
-          },
-          errorPolicy: "all"
-        } as MutateOptions
-      );
-      const data: Plan | undefined = savedStatus?.data?.updatePlanStatus;
-      this.processGQLResponse(savedStatus, data as Plan, 'update Plan.status');
-    }
+    const data: Plan | undefined = updated?.data?.updatePlan;
+    this.processGQLResponse(updated, data as Plan, 'update Plan');
 
     return !this.hasErrors();
   }

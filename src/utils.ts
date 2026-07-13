@@ -1,5 +1,23 @@
 import { ConfigurationOptions } from "./types.js";
 
+export const DEFAULT_LANGUAGE = 'en-US' as const;
+
+export const LanguageMapThreeToFive = {
+  'eng': 'en-US',
+  'ptb': 'pt-BR'
+} as const
+
+export type LangISO3 = keyof typeof LanguageMapThreeToFive; // 'eng' | 'ptb'
+export type LangISO5 = typeof LanguageMapThreeToFive[LangISO3]; // 'en-US' | 'pt-BR'
+
+export const LanguageMapFiveToThree = Object.fromEntries(
+  Object.entries(LanguageMapThreeToFive).map(([k, v]) => [v, k])
+) as Record<LangISO5, LangISO3>;
+
+export const isValidISO3 = (lang: string): lang is LangISO3 => {
+  return lang in LanguageMapThreeToFive;
+}
+
 /**
  * Extracts the identifier from an object that may contain an identifier or
  * an array of identifiers.

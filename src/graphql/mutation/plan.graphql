@@ -14,32 +14,23 @@ mutation AddPlan($projectId: Int!, $versionedTemplateId: Int!) {
   }
 }
 
-mutation UpdatePlanStatus($planId: Int!, $status: PlanStatus!) {
-  updatePlanStatus(planId: $planId, status: $status) {
-    errors {
-      general
-      status
-    }
-    id
-    dmpId
-    modified
-    modifiedById
-    status
-    visibility
-  }
-}
-
-mutation UpdatePlanTitle($planId: Int!, $title: String!) {
-  updatePlanTitle(planId: $planId, title: $title) {
+mutation UpdatePlan($input: UpdatePlanInput!) {
+  updatePlan(input: $input) {
     errors {
       general
       title
+      status
+      visibility
+      languageId
     }
     id
     dmpId
     modified
     modifiedById
     title
+    status
+    visibility
+    languageId
   }
 }
 
