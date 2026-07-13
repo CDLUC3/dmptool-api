@@ -1,9 +1,9 @@
 import { FastifyRequest } from "fastify";
 import {
-  AnswerDefaultMap,
   AnyResearchOutputTableColumnAnswerSchema,
   AnyResearchOutputTableColumnAnswerType,
   DefaultResearchOutputTableAnswer,
+  DefaultResearchOutputTableColumnAnswerMap,
   DefaultResearchOutputTableRowAnswer,
   DMPToolDMPType,
   QuestionFormatsEnum,
@@ -162,9 +162,9 @@ const initializeResearchOutputTableRow = (
 
   // Loop through each of the columns and generate a default answer column
   for (const column of question.columns) {
-    const columnType = column.content.type ?? 'textArea';
+    const commonStandardId = column.commonStandardId ?? 'custom';
     const answer = AnyResearchOutputTableColumnAnswerSchema.parse(
-      AnswerDefaultMap[columnType]
+      DefaultResearchOutputTableColumnAnswerMap[commonStandardId as keyof typeof DefaultResearchOutputTableColumnAnswerMap]
     );
     row.columns.push(answer);
   }

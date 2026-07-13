@@ -1,5 +1,9 @@
 # dmptool-api Changelog
 
+## 2026-07-13
+- Upgrade to latest versions of `@dmptool` packages
+- Switch `narrativeWorkflow` to use the new `DefaultResearchOutputTableColumnAnswerMap` with the `commonStandardId`
+
 ## 2026-06-29
 - Fixed issue with buildspec. It needs to run `npm install` not `npm ci`
 
