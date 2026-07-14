@@ -34,7 +34,7 @@ describe('v3 serialization', () => {
     getPlanWorkflow = workflowModule.getPlanWorkflow as jest.Mock;
     getPlanWorkflow.mockReset();
     getPlanWorkflow.mockResolvedValue(mockMaDMP as never);
-    
+
     // Must import the routes plugin here because the maDMP functions we need to
     // mock are called in the routes plugin and would override the mocks otherwise
     const v3RoutesPlugin = (await import('../routes.js')).default;
