@@ -174,6 +174,21 @@ export class Project extends BaseGraphQLModel {
    * @returns true if successful. If not, any errors are added to the error object
    */
   async update(request: FastifyRequest): Promise<boolean> {
+
+console.log('INPUT VARS', {
+  variables: {
+    input: {
+      id: this.id,
+      title: this.title,
+      abstractText: this.abstractText?.trim() || null,
+      startDate: this.startDate?.trim() || null,
+      endDate: this.endDate?.trim() || null,
+      researchDomainId: this.researchDomain?.id || null,
+      isTestProject: this.isTestProject ?? false
+    }
+  }
+})
+
     const saved: GQLResponse<UpdateProjectResponse> = await Project.mutate<UpdateProjectResponse>(
       request,
       {
@@ -182,10 +197,10 @@ export class Project extends BaseGraphQLModel {
           input: {
             id: this.id,
             title: this.title,
-            abstractText: this.abstractText?.trim(),
-            startDate: this.startDate?.trim(),
-            endDate: this.endDate?.trim(),
-            researchDomainId: this.researchDomain?.id,
+            abstractText: this.abstractText?.trim() || null,
+            startDate: this.startDate?.trim() || null,
+            endDate: this.endDate?.trim() || null,
+            researchDomainId: this.researchDomain?.id || null,
             isTestProject: this.isTestProject ?? false
           }
         },
@@ -194,6 +209,9 @@ export class Project extends BaseGraphQLModel {
     );
 
     const data: Project | undefined = saved?.data?.updateProject;
+
+console.log('BACK?', saved?.data?.updateProject);
+
     this.processGQLResponse(saved, data as Project, 'update Project');
     return !this.hasErrors();
   }

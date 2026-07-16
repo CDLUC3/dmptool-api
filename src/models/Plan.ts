@@ -21,6 +21,7 @@ import {
   RemoveAlternateIdentifierDocument,
   UpdatePlanDocument
 } from "../generated/graphql.js";
+import {Project} from "./Project.js";
 
 /**
  * Represents an alternate identifier for a Data Management Plan
@@ -112,13 +113,21 @@ export class Plan extends BaseGraphQLModel {
   languageId: LangISO5;
   registered?: string;
 
+  project?: Project | null;
   alternateIdentifiers?: AlternateIdentifierInterface[];
   members?: PlanMember[];
 
   constructor(options: Partial<Plan> = {}) {
     super(options);
 
-    this.projectId = options.projectId;
+    // If a Project was passed in then use that otherwise just set the integer
+    if (options.project) {
+      this.project = new Project(options.project);
+      this.projectId = this.project.id;
+    } else {
+      this.projectId = options.projectId;
+    }
+
     this.versionedTemplate = options.versionedTemplate ? new VersionedTemplate(options.versionedTemplate) : undefined;
     this.dmpId = options.dmpId ?? `tmp-dmps-${randomHex(12)}`;
     this.title = options.title;
@@ -190,6 +199,21 @@ export class Plan extends BaseGraphQLModel {
    * @returns true if successful. If not, any errors are added to the error object
    */
   async update(request: FastifyRequest): Promise<boolean> {
+
+console.log('UPDATE GRAPHQL MUTATION', {
+  mutation: UpdatePlanDocument,
+  variables: {
+    input: {
+      id: this.id,
+      title: this.title,
+      status: this.status,
+      visibility: this.visibility,
+      languageId: this.languageId,
+    }
+  },
+  errorPolicy: "all"
+})
+
     const updated: GQLResponse<UpdatePlanResponse> = await Plan.mutate<UpdatePlanResponse>(
       request,
       {

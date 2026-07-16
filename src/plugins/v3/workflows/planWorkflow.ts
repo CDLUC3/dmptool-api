@@ -28,6 +28,10 @@ import {
   LangISO3,
   LanguageMapThreeToFive
 } from "../../../utils.js";
+import {
+  DMP_TOOL_CONTENT_TYPE,
+  RDA_COMMON_STANDARD_CONTENT_TYPE
+} from "../routeSchema.js";
 
 /**
  * Verify that the DMP modification date set in the header matches the current modified timestamp
@@ -41,6 +45,8 @@ const validateModifiedDateMatch = (
 ): void => {
   const requestDate = convertMySQLDateTimeToRFC3339(ifUnmodifiedSince) as string;
   const currentDate = convertMySQLDateTimeToRFC3339(currentModifiedDate) as string;
+
+console.log('REQUEST DATE', requestDate, 'CURRENT DATE', currentDate);
 
   if (requestDate !== currentDate) {
     throw newFastifyError(ERROR_CODE_CONFLICT, ERROR_MSG_CONFLICT);
@@ -102,11 +108,11 @@ const saveNonFatalPlanArtifacts = async (
     );
   }
 
-  // Save the narrative
+  // Save the narrative if it was provided
   const planWithNarrative: Plan = await createNarrativeWorkflow(request, plan, dmp);
   if (!planWithNarrative || planWithNarrative.hasErrors()) {
     request.log.error(
-      { planId: plan.id, errors: planWithNarrative.errors },
+      {planId: plan.id, errors: planWithNarrative.errors},
       'Unable to save the plan narrative'
     );
   }
@@ -163,6 +169,8 @@ export const getPlanWorkflow = async (
     request.log.error({ dmpId }, "Unable to generate narrative for DMP");
     throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, ERROR_MSG_INTERNAL_SERVER);
   }
+
+console.log('RETURNING', maDMP)
 
   return maDMP;
 }
@@ -313,48 +321,72 @@ export async function createPlanWorkflow(
  */
 export const updateDmpWorkflow = async (
   request: FastifyRequest,
-  dmpId: string,
+  id: string,
   ifUnmodifiedSince: string,
   payload: DMPToolDMPType['dmp']
 ): Promise<DMPToolDMPType> => {
   // Fetch the maDMP record
-  const currentDMP: DMPToolDMPType = await getPlanWorkflow(request, dmpId);
-  request.log.debug({ dmpId }, 'Update DMP Workflow started');
+  const currentDMP: DMPToolDMPType = await getPlanWorkflow(request, id);
+  request.log.debug({ id }, 'Update DMP Workflow started');
+
+console.log('CURRENT', currentDMP);
+
+  // Convert the DOI specified in the path into a full DMP id
+  const cleanId = id.startsWith('/') ? id.replace('/', '') : id;
+  const dmpId = `${request.dmptoolConfig.dmpIdBaseUrl}/${cleanId}`;
+  const contentType: string = request.headers['content-type'] || RDA_COMMON_STANDARD_CONTENT_TYPE;
 
   // Validate that the modification timestamps match
   validateModifiedDateMatch(ifUnmodifiedSince, currentDMP.dmp.modified);
 
   // First: find the Project and Plan
   const plan: Plan | undefined = await Plan.findByDMPId(request, dmpId);
-  if (!plan || !plan.projectId) {
+  if (!plan) {
     request.log.error({ dmpId }, 'Unable to load plan information');
     throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
   }
 
-  const project: Project | undefined = await Project.findById(request, plan.projectId);
+  const projectId: number | undefined = plan.project ? plan.project.id : plan.projectId;
+  if (!projectId) {
+    request.log.error({ dmpId, planId: plan.id }, 'Unable to determine project ID');
+    throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
+  }
+  const project: Project | undefined = await Project.findById(request, projectId);
   // If the Project was initialized, create it
   if (!project) {
-    request.log.error({ dmpId, projectId: plan.projectId, planId: plan.id }, 'Unable to load project information');
+    request.log.error(
+      { dmpId, projectId: plan.projectId, planId: plan.id },
+      'Unable to load project information');
     throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
   }
 
   const logBase = { dmpId, projectId: project.id, planId: plan.id };
 
+console.log('PAYLOAD', payload)
+
   // Second Replace the Project information
   request.log.debug(logBase, 'Replacing project information');
-  const payloadProject: ProjectType = payload.project[0];
+  const payloadProject: ProjectType = payload.dmp.project[0];
   const researchDomain: string | null = payloadProject.researchDomain
     ? payloadProject.researchDomain?.research_domain_identifier?.identifier
     : null;
 
-  project.title = payloadProject.title ?? payload.title;
-  project.abstractText = payloadProject.description ?? payload.description;
+  // Process the standard project level information
+  project.title = payloadProject.title ?? payload.dmp.title;
+  project.abstractText = payloadProject.description ?? payload.dmp.description;
   project.startDate = payloadProject.start;
   project.endDate = payloadProject.end;
-  project.isTestProject = payload.isTestProject || false;
-  project.researchDomain = researchDomain
-    ? await ResearchDomain.findByURI(request, researchDomain)
-    : undefined;
+
+  // Only process the following fields if the incoming content type was fpr the
+  // DMP Tool extended schema format (otherwise we are inadvertently blanking out data)
+  if (contentType === DMP_TOOL_CONTENT_TYPE) {
+    project.isTestProject = payload.isTestProject || false;
+    project.researchDomain = researchDomain
+      ? await ResearchDomain.findByURI(request, researchDomain)
+      : undefined;
+  }
+
+console.log('PROJECT PRE SAVE', project)
 
   if (!(await project.save(request))) {
     request.log.error({ ...logBase, errors: project.errors }, 'Unable to replace project information');
@@ -365,11 +397,18 @@ export const updateDmpWorkflow = async (
   request.log.debug(logBase, 'Replacing plan information');
 
   plan.title = payload.title;
-  plan.status = payload.status;
-  plan.visibility = payload.visibility;
   plan.languageId = isValidISO3(payload.language)
     ? LanguageMapThreeToFive[payload.language as LangISO3]
     : DEFAULT_LANGUAGE;
+
+  // Only process the following fields if the incoming content type was fpr the
+  // DMP Tool extended schema format (otherwise we are inadvertently blanking out data)
+  if (contentType === DMP_TOOL_CONTENT_TYPE) {
+    plan.status = payload.status;
+    plan.visibility = payload.visibility;
+  }
+
+console.log('PLAN PRE SAVE', plan)
 
   if (!(await plan.save(request))) {
     request.log.error({ ...logBase, errors: plan.errors }, 'Unable to replace plan information');

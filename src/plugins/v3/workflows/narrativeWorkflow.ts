@@ -27,6 +27,7 @@ import {
 import { VersionedQuestion } from "../../../models/VersionedTemplate.js";
 import { Answer } from "../../../models/Answer.js";
 import { convertMySQLDateTimeToRFC3339 } from "@dmptool/utils";
+import {DMP_TOOL_CONTENT_TYPE} from "../routeSchema.js";
 
 interface ProcessNarrativeResponse {
   question?: VersionedQuestion;
@@ -346,13 +347,16 @@ export const createNarrativeWorkflow = async (
 
   const narrative: NarrativeTemplateType | undefined = dmp.narrative;
   const datasets: DatasetType[] = dmp.dataset || [];
+  let processedNarrative: ProcessNarrativeResponse[] = [];
 
   // First process the narrative portion of the maDMP
-  const processedNarrative: ProcessNarrativeResponse[] = processNarrative(request, plan, narrative.template);
-  request.log.debug(
-    { planId: plan.id, narrative: processedNarrative },
-    'createNarrativeWorkflow - Narrative extracted from the narrative portion of the maDMP record.'
-  )
+  if (request.headers['accept'] === DMP_TOOL_CONTENT_TYPE && narrative && narrative.template) {
+    processedNarrative = processNarrative(request, plan, narrative.template);
+    request.log.debug(
+      {planId: plan.id, narrative: processedNarrative},
+      'createNarrativeWorkflow - Narrative extracted from the narrative portion of the maDMP record.'
+    )
+  }
 
   // Locate the research output table question
   const researchOutputQuestion: VersionedQuestion | undefined = plan.versionedTemplate.researchOutputTableQuestion();

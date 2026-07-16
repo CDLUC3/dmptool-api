@@ -19,6 +19,12 @@ mutation UpdateProject($input: UpdateProjectInput!) {
     createdById
     modified
     modifiedById
+    title
+    abstractText
+    startDate
+    endDate
+    researchDomainId
+    isTestProject
     errors {
       general
       title
@@ -26,6 +32,7 @@ mutation UpdateProject($input: UpdateProjectInput!) {
       endDate
       startDate
       researchDomainId
+      isTestProject
     }
   }
 }

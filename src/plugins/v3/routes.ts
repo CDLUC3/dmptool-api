@@ -165,6 +165,8 @@ const v3RoutesPlugin = async function (
     },
     async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
 
+      console.log("⚠️ CAUGHT BY THE SEARCH ROUTE, NOT THE ID ROUTE!");
+
       // TODO: Query for DMPs matching the filters provided (use the Accept
       //       header to determine whether we should return the RDA Common Standard
       //       or the full DMP with DMP Tool extensions)
@@ -219,6 +221,19 @@ const v3RoutesPlugin = async function (
     {
       ...GET_DMP_OPTIONS,
       logLevel: fastify.dmptoolConfig.logLevel,
+      // Bypasses internal mapping completely and outputs raw pruned string
+      /*
+      serializerCompiler: ({ schema, method, url, httpStatus, contentType }) => {
+        // Return a robust serializer function
+        return (data) => {
+          if (data === undefined || data === null) {
+            // If this triggers, your handler or preSerialization hook sent nothing!
+            return JSON.stringify({ error: "Payload was completely empty before serialization" });
+          }
+          return JSON.stringify(data);
+        };
+      },
+       */
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       const params = request.params as { id: string };
@@ -234,7 +249,10 @@ const v3RoutesPlugin = async function (
         throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
       }
 
-      const maDMP = await getPlanWorkflow(request, id, version);
+      const maDMP: DMPToolDMPType = await getPlanWorkflow(request, id, version);
+
+console.log('REQUEST HEADER', request.headers['accept']);
+console.log(maDMP);
 
       // Return the maDMP record along with the Last-Modified header so the caller can send a subsequent update
       reply.code(200)

@@ -64,6 +64,7 @@ query PlanByDmpId($dmpId: String!) {
     modifiedById
     registered
     project {
+      id
       title
       abstractText
       startDate
@@ -104,6 +105,7 @@ query PlanByAlternateIdentifier($alternateIdentifier: String!) {
     modifiedById
     registered
     project {
+      id
       title
       abstractText
       startDate

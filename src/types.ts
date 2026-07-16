@@ -54,6 +54,7 @@ export interface ConfigurationOptions {
   port: number;
 
   applicationName: string;
+  logoFile: string;
   defaultCaller: string;
 
   domainWithProtocol: string;
