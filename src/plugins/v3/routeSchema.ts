@@ -278,6 +278,21 @@ const allowableQueryParameters = {
   }
 };
 
+// The preSerialization hooks handle content negotiation and the ultimate
+// structure of the response. This is here because Fastify has difficulty
+// working with non-standard MIME types so we give it just the top level
+// structure of the response which is the same regardless of the MIME type
+const genericDmpResponse = {
+  type: 'object',
+  properties: {
+    dmp: {
+      type: 'object',
+      additionalProperties: true
+    }
+  },
+  required: ['dmp']
+};
+
 // GET /dmps/:id
 export const GET_DMP_OPTIONS: RouteShorthandOptions = {
   schema: {
@@ -308,10 +323,11 @@ export const GET_DMP_OPTIONS: RouteShorthandOptions = {
     },
     response: {
       200: {
-        // 1. Give Fastify a fallback root schema so it doesn't default to empty
-        type: 'object',
-        additionalProperties: true,
-        // 2. Keep the content block as-is so Swagger UI can continue to document both models perfectly!
+        // Define the generic type here, the serializationPlugin will return the
+        // correct object
+        ...genericDmpResponse,
+
+        // This content block helps the Swagger UI display the correct MIME types we support
         content: {
           [RDA_COMMON_STANDARD_CONTENT_TYPE]: {
             schema: negotiatedDmpContent[RDA_COMMON_STANDARD_CONTENT_TYPE]
@@ -394,6 +410,11 @@ export const POST_DMP_OPTIONS: DMPToolRouteOptions = {
     body: maDMPBody,
     response: {
       201: {
+        // Define the generic type here, the serializationPlugin will return the
+        // correct object
+        ...genericDmpResponse,
+
+        // This content block helps the Swagger UI display the correct MIME types we support
         content: {
           [RDA_COMMON_STANDARD_CONTENT_TYPE]: {
             schema: negotiatedDmpContent[RDA_COMMON_STANDARD_CONTENT_TYPE]
@@ -453,6 +474,11 @@ export const PUT_DMP_OPTIONS: DMPToolRouteOptions = {
     body: maDMPBody,
     response: {
       200: {
+        // Define the generic type here, the serializationPlugin will return the
+        // correct object
+        ...genericDmpResponse,
+
+        // This content block helps the Swagger UI display the correct MIME types we support
         content: {
           [RDA_COMMON_STANDARD_CONTENT_TYPE]: {
             schema: negotiatedDmpContent[RDA_COMMON_STANDARD_CONTENT_TYPE]

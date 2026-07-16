@@ -165,15 +165,13 @@ const v3RoutesPlugin = async function (
     },
     async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
 
-      console.log("⚠️ CAUGHT BY THE SEARCH ROUTE, NOT THE ID ROUTE!");
-
       // TODO: Query for DMPs matching the filters provided (use the Accept
       //       header to determine whether we should return the RDA Common Standard
       //       or the full DMP with DMP Tool extensions)
       //       Only return "public" DMPs if the user is not authenticated
       //       --
       //       FOR NOW - just return a mock DMP based on the Accept header
-      reply.code(200).send({ total_count: 1, items: [{ dmp: TEST_DMP }]})
+      await reply.code(200).send({ total_count: 1, items: [{ dmp: TEST_DMP }]})
     }
   );
 
@@ -208,7 +206,7 @@ const v3RoutesPlugin = async function (
         throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
       }
 
-      return reply.code(201).send(result);
+      await reply.code(201).send(result);
     }
   );
 
@@ -221,19 +219,6 @@ const v3RoutesPlugin = async function (
     {
       ...GET_DMP_OPTIONS,
       logLevel: fastify.dmptoolConfig.logLevel,
-      // Bypasses internal mapping completely and outputs raw pruned string
-      /*
-      serializerCompiler: ({ schema, method, url, httpStatus, contentType }) => {
-        // Return a robust serializer function
-        return (data) => {
-          if (data === undefined || data === null) {
-            // If this triggers, your handler or preSerialization hook sent nothing!
-            return JSON.stringify({ error: "Payload was completely empty before serialization" });
-          }
-          return JSON.stringify(data);
-        };
-      },
-       */
     },
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       const params = request.params as { id: string };
@@ -249,13 +234,11 @@ const v3RoutesPlugin = async function (
         throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
       }
 
+      // Fetch the requested maDMP record
       const maDMP: DMPToolDMPType = await getPlanWorkflow(request, id, version);
 
-console.log('REQUEST HEADER', request.headers['accept']);
-console.log(maDMP);
-
       // Return the maDMP record along with the Last-Modified header so the caller can send a subsequent update
-      reply.code(200)
+      await reply.code(200)
         .header('Last-Modified', maDMP.dmp.modified)
         .send(maDMP);
     }
@@ -299,7 +282,7 @@ console.log(maDMP);
       request.log.debug({ dmpId: id, title: updatedDMP.dmp?.title }, 'PUT: maDMP has been replaced');
 
       // Return the maDMP record along with the Last-Modified timestamp
-      reply.code(200)
+      await reply.code(200)
         .header('Last-Modified', updatedDMP.dmp.modified)
         .send(updatedDMP);
     }
@@ -344,7 +327,7 @@ console.log(maDMP);
       }
 
       request.log.debug({ dmpId: id }, 'DELETE: maDMP has been deleted');
-      reply.code(204).send();
+      await reply.code(204).send();
     }
   );
 
@@ -381,7 +364,7 @@ console.log(maDMP);
       }
     },
     async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-      reply.code(200).send({
+      await reply.code(200).send({
         status_code: 200,
         message: 'DMP is valid'
       });

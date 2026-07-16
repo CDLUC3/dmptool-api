@@ -119,54 +119,17 @@ const v3SerializationPlugin = fp(async function (
       return payload;
     }
 
-    // If we are not in prod mode, send headers telling the client not to aggressively cache
-    /*
-    if (process.env.NODE_ENV !== 'production') {
-      await reply.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      await reply.header('Pragma', 'no-cache');
-      await reply.header('Expires', '0');
-    }
-    */
-
     // If the payload is a DMP
     if (payload && typeof payload === 'object' && 'dmp' in payload) {
-      // Fastify will always use the default content-type regardless of what the
-      // caller requested, so we need to re-negotiate it here
-      const rawAcceptHeader: string | undefined = request.headers['accept'];
-      let targetType: string = RDA_COMMON_STANDARD_CONTENT_TYPE;
-
-console.log('RAW ACCEPT', rawAcceptHeader);
-
-      if (rawAcceptHeader && rawAcceptHeader !== '*/*') {
-        const negotiator = new Negotiator({
-          supportedValues: supportedAcceptHeaders,
-          cache: new Map()
-        });
-        const negotiated = negotiator.negotiate(rawAcceptHeader);
-        if (negotiated === DMP_TOOL_CONTENT_TYPE) {
-          targetType = DMP_TOOL_CONTENT_TYPE;
-        }
-      }
-
-console.log('NEGOTIATED ACCEPT', targetType);
-
-      // Explicitly force the reply type here so Fastify uses the correct output
-      // serialization schema
-      await reply.type(targetType);
+      const targetType = (reply.getHeader('content-type') as string)?.split(';')[0]
+        || RDA_COMMON_STANDARD_CONTENT_TYPE;
 
       const schema = negotiatedDmpContent[targetType as keyof typeof negotiatedDmpContent];
       // Use the target type to determine which Ajv validator to use
       const ajv = targetType === DMP_TOOL_CONTENT_TYPE ? ajvDMPTool : ajvRDA;
 
       if (schema) {
-
-console.log('BEFORE PRUNING:', JSON.stringify(payload).substring(0, 200));
-
-        const pruned = pruneDataWithAjv(ajv, payload, schema);
-
-console.log('AFTER PRUNING:', JSON.stringify(pruned));
-
-        return JSON.stringify(pruned);
+        return pruneDataWithAjv(ajv, payload, schema);
       }
     }
 
