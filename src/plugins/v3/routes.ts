@@ -20,7 +20,7 @@ import {
   RDA_COMMON_STANDARD_CONTENT_TYPE,
 } from "./routeSchema.js";
 import { DMPToolDMPType } from "@dmptool/types";
-import v3SerializationPlugin from "./serialization.js";
+import v3SerializationPlugin from "./outboundSerialization.js";
 import { v3SwaggerConfig, v3SwaggerUIConfig } from "./swagger.js";
 import {
   ERROR_CODE_INTERNAL_SERVER,
@@ -278,7 +278,7 @@ const v3RoutesPlugin = async function (
       }
 
       // Replace the maDMP record
-      const updatedDMP: DMPToolDMPType = await updateDmpWorkflow(request, id, modCheck, payload);
+      const updatedDMP: DMPToolDMPType = await updateDmpWorkflow(request, id, modCheck, payload['dmp']);
       request.log.debug({ dmpId: id, title: updatedDMP.dmp?.title }, 'PUT: maDMP has been replaced');
 
       // Return the maDMP record along with the Last-Modified timestamp

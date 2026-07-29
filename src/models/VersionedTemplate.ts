@@ -23,6 +23,39 @@ const PRESERVATION_TAG = 'preservation';
 const SECURITY_PRIVACY_TAGS = ['ethics-&-privacy', 'storage-security'];
 
 /**
+ * The shape of a VersionedQuestion within a GraphQL query response
+ */
+export interface VersionedQuestionQueryResponse {
+  id: number;
+  questionText: string;
+  json: string;
+}
+
+/**
+ * The shape of a VersionedSection within a GraphQL query response
+ */
+export interface VersionedSectionQueryResponse {
+  id: number;
+  name: string;
+  displayOrder: number;
+  versionedQuestions?: VersionedQuestionQueryResponse[];
+}
+
+/**
+ * The shape of a VersionedTemplate within a GraphQL query response
+ */
+export interface VersionedTemplateQueryResponse {
+  id: number;
+  name: string;
+  description?: string;
+  version?: string;
+  template: {
+    id: number;
+  }
+  versionedSections?: VersionedSectionQueryResponse[];
+}
+
+/**
  * Representation of the GraphQL query results for versionedTemplates
  */
 export interface VersionedTemplatesResponse {
@@ -134,7 +167,6 @@ export class VersionedTemplate extends BaseGraphQLModel {
   name?: string;
   description?: string;
   version?: string;
-  active?: boolean;
 
   versionedSections: VersionedSection[];
 
@@ -145,11 +177,51 @@ export class VersionedTemplate extends BaseGraphQLModel {
     this.name = options.name;
     this.description = options.description;
     this.version = options.version;
-    this.active = options.active ?? false;
 
     this.versionedSections = options.versionedSections?.map((s: VersionedSection) => {
       return new VersionedSection(s);
     }) ?? [];
+  }
+
+  /**
+   * Convert a versioned template from a GraphQL query response
+   *
+   * @param graphQLResponse the shape of the versionedTemplate within a GraphQL query response
+   * @returns a new VersionedTemplate object
+   */
+  static fromGraphQL(graphQLResponse: VersionedTemplateQueryResponse): VersionedTemplate {
+    if (!graphQLResponse.versionedSections) {
+      throw new Error('No versionedSection found!');
+    }
+
+    const versionedSections: VersionedSection[] = graphQLResponse.versionedSections.map((section: VersionedSectionQueryResponse): VersionedSection => {
+      const versionedQuestions: VersionedQuestion[] = section.versionedQuestions?.map((question: VersionedQuestionQueryResponse): VersionedQuestion => {
+        return new VersionedQuestion({
+          id: question.id,
+          questionText: question.questionText,
+          json: question.json,
+          versionedSectionId: section.id,
+        });
+      }) ?? [];
+
+      return new VersionedSection({
+        id: section.id,
+        name: section.name,
+        displayOrder: section.displayOrder,
+        versionedQuestions
+      });
+    });
+
+    return new VersionedTemplate({
+      id: graphQLResponse.id,
+      template: {
+        id: graphQLResponse.template.id
+      },
+      name: graphQLResponse.name,
+      description: graphQLResponse.description,
+      version: graphQLResponse.version,
+      versionedSections
+    });
   }
 
   // Locate the VersionedSection by its parent sectionId

@@ -1,4 +1,3 @@
-import { FastifyRequest } from "fastify";
 import {
   AnyResearchOutputTableColumnAnswerSchema,
   AnyResearchOutputTableColumnAnswerType,
@@ -27,7 +26,6 @@ import {
 import { VersionedQuestion } from "../../../models/VersionedTemplate.js";
 import { Answer } from "../../../models/Answer.js";
 import { convertMySQLDateTimeToRFC3339 } from "@dmptool/utils";
-import {DMP_TOOL_CONTENT_TYPE} from "../routeSchema.js";
 
 interface ProcessNarrativeResponse {
   question?: VersionedQuestion;
@@ -37,28 +35,22 @@ interface ProcessNarrativeResponse {
 /**
  * Convert an entry from the maDMP narrative section into an answer
  *
- * @param request the Fastify request
  * @param plan the Plan
  * @param question the maDMP narrative question
  * @returns the Answer to the Versioned Question
  */
 const fromMaDMPNarrative = (
-  request: FastifyRequest,
   plan: Plan,
   question: NarrativeQuestionType
 ): Answer | undefined => {
-  const logBase = { planId: plan.id, title: plan.title };
-
   // The Plan must have a versioned template
   if (!plan.versionedTemplate) {
-    request.log.error(logBase, 'Plan does not have a versioned template!');
     return undefined;
   }
 
   // Find the question within the Plan's versioned template
   const versionedQuestion: VersionedQuestion | undefined = plan.versionedTemplate.findNarrativeQuestion(question);
   if (!versionedQuestion) {
-    request.log.error({ ...logBase, question }, 'Specified question does not exist on versioned template');
     return undefined;
   }
 
@@ -73,7 +65,6 @@ const fromMaDMPNarrative = (
 /**
  * Convert maDMP dataset entries into a Research Output Table Answer
  *
- * @param request the Fastify request
  * @param plan the Plan
  * @param question the Versioned Question
  * @param existingAnswer the current ResearchOutputTableAnswer derived from the maDMP narrative
@@ -81,26 +72,22 @@ const fromMaDMPNarrative = (
  * @returns the updated research output table answer
  */
 const fromMaDMPDatasets = (
-  request: FastifyRequest,
   plan: Plan,
   question: VersionedQuestion,
   existingAnswer: ResearchOutputTableAnswerType,
   datasets: DatasetsType,
 ): ResearchOutputTableAnswerType | undefined => {
-  const logBase = { planId: plan.id, title: plan.title };
   const newAnswer: ResearchOutputTableAnswerType = structuredClone(existingAnswer);
   const roQuestion = JSON.parse(question.json) as ResearchOutputTableQuestionType;
 
   // The Plan must have a versioned template
   if (!plan.versionedTemplate) {
-    request.log.error(logBase, 'Plan does not have a versioned template!');
     return undefined;
   }
 
   // Find the question within the Plan's versioned template
   const versionedQuestion: VersionedQuestion | undefined = plan.versionedTemplate.findQuestionById(question.id);
   if (!versionedQuestion) {
-    request.log.error({ ...logBase, question }, 'Specified question does not exist on versioned template');
     return undefined;
   }
 
@@ -138,11 +125,6 @@ const fromMaDMPDatasets = (
     researchOutputTableColumnFromMaDMPDataset(workingRow, 'host', dataset);
     researchOutputTableColumnFromMaDMPDataset(workingRow, 'metadata', dataset);
     researchOutputTableColumnFromMaDMPDataset(workingRow, 'license_ref', dataset);
-
-    request.log.debug(
-      { ...logBase, researchOutputTableRow: workingRow },
-      'fromMaDMPDatasets - done processing dataset info'
-    );
   }
 
   return newAnswer;
@@ -283,7 +265,6 @@ const researchOutputTableColumnFromMaDMPDataset = (
 
 // Convert all the incoming answers and find their matching Question in the Versioned Template
 const processNarrative = (
-  request: FastifyRequest,
   plan: Plan,
   narrative: NarrativeTemplateType,
 ): ProcessNarrativeResponse[] => {
@@ -295,7 +276,6 @@ const processNarrative = (
     (s: NarrativeSectionType) => s.question
   );
 
-  const logBase = { planId: plan.id, versionedTemplateId: plan.versionedTemplate.id };
   // Loop through all the questions sent in, validate and parse them and find their
   // matching question within the actual template
   const warnings: string[] = [];
@@ -305,17 +285,9 @@ const processNarrative = (
     if (matched) {
       questions.push({
         question: matched,
-        answer: fromMaDMPNarrative(request, plan, questionIn)
+        answer: fromMaDMPNarrative(plan, questionIn)
       });
-      request.log.debug(
-        { ...logBase, versionedQuestionId: matched.id },
-        'processNarrative - Found matching question'
-      );
     } else {
-      request.log.debug(
-        { planId: plan.id, versionedTemplateId: plan.versionedTemplate.id, question: questionIn },
-        'processNarrative - No matching question found'
-      );
       warnings.push(`Unable to find question for narrative question "${questionIn.text}"`);
     }
   }
@@ -330,33 +302,21 @@ const processNarrative = (
 /**
  * Workflow to transform the `narrative` portion of the maDMP into Answers on a Plan
  *
- * @param request the Fastify request
  * @param plan the Plan to update with the narrative content
  * @param dmp the maDMP
  * @returns the updated Plan with answers
- * @throws Fastify errors if something went wrong
  */
-export const createNarrativeWorkflow = async (
-  request: FastifyRequest,
+export const createNarrativeWorkflow = (
   plan: Plan,
   dmp: DMPToolDMPType['dmp']
-): Promise<Plan> => {
+): Answer[] => {
   // This should never occur because we have a default, but if the VersionedTemplate
   // is not defined we should bail out immediately
-  if (!plan.versionedTemplate) return plan;
+  if (!plan.versionedTemplate) return [];
 
   const narrative: NarrativeTemplateType | undefined = dmp.narrative;
   const datasets: DatasetType[] = dmp.dataset || [];
-  let processedNarrative: ProcessNarrativeResponse[] = [];
-
-  // First process the narrative portion of the maDMP
-  if (request.headers['accept'] === DMP_TOOL_CONTENT_TYPE && narrative && narrative.template) {
-    processedNarrative = processNarrative(request, plan, narrative.template);
-    request.log.debug(
-      {planId: plan.id, narrative: processedNarrative},
-      'createNarrativeWorkflow - Narrative extracted from the narrative portion of the maDMP record.'
-    )
-  }
+  const processedNarrative: ProcessNarrativeResponse[] = processNarrative(plan, narrative.template);
 
   // Locate the research output table question
   const researchOutputQuestion: VersionedQuestion | undefined = plan.versionedTemplate.researchOutputTableQuestion();
@@ -371,7 +331,6 @@ export const createNarrativeWorkflow = async (
     // Convert the dataset into a row in the research output table format
     const roAnswer: ResearchOutputTableAnswerType = roEntry?.answer?.validatedJSON as ResearchOutputTableAnswerType || DefaultResearchOutputTableAnswer;
     const researchOutputAnswer: ResearchOutputTableAnswerType | undefined = fromMaDMPDatasets(
-      request,
       plan,
       researchOutputQuestion,
       roAnswer,
@@ -401,25 +360,9 @@ export const createNarrativeWorkflow = async (
     }
   }
 
-  request.log.debug(
-    { planId: plan.id, narrative: processedNarrative },
-    'createNarrativeWorkflow - Saving narrative information to the plan answers.'
-  );
-
   // Persist the plan answers to the DB
-  const saveErrs: string[] = [];
-  for (const entry of processedNarrative) {
-    if (!entry) continue;
-
-    const saved: boolean | undefined = await entry.answer?.save(request);
-    if (!saved) {
-      saveErrs.push(`Unable to save answer for question ${entry.question?.id}`);
-    }
-  }
-
-  // If any errors occurred add them to the plan
-  if (saveErrs.length > 0) {
-    plan.errors['narrative'] = saveErrs.join('; ');
-  }
-  return plan;
+  return processedNarrative
+    ? processedNarrative.map((entry: ProcessNarrativeResponse): Answer | undefined => entry.answer)
+      .filter((answer: Answer | undefined): answer is Answer => !!answer)
+    : [];
 }

@@ -1,39 +1,47 @@
-import { FastifyRequest } from "fastify";
-import { ApolloClient } from "@apollo/client";
-import MutateOptions = ApolloClient.MutateOptions;
-import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
-import { Project } from "./Project.js";
-import { Affiliation } from "./Affiliation.js";
-import {
-  AddProjectFundingDocument,
-  ProjectFundingStatus,
-  ProjectFundingsDocument,
-  RemoveProjectFundingDocument,
-  UpdateProjectFundingDocument,
-} from "../generated/graphql.js";
+import { BaseGraphQLModel } from "./BaseGQL.js";
+import { ProjectFundingStatus, EntirePlanFundingFragment } from "../generated/graphql.js";
+import { DMPToolDMPType } from "@dmptool/types";
+import { FundingType, ProjectType } from "../types.js";
 
-export interface ProjectFundingsResponse {
-  projectFundings: ProjectFunding[];
+/**
+ * The shape of a project funding within a GraphQL query response
+ */
+export interface ProjectFundingQueryResponse {
+  id?: number;
+  affiliation?: {
+    uri: string;
+  }
+  status?: string;
+  funderProjectNumber?: string;
+  funderOpportunityNumber?: string;
+  grantId?: string;
 }
 
-export interface AddProjectFundingResponse {
-  addProjectFunding: ProjectFunding;
-}
-
-export interface UpdateProjectFundingResponse {
-  updateProjectFunding: ProjectFunding;
-}
-
-export interface RemoveProjectFundingResponse {
-  removeProjectFunding: ProjectFunding;
+/**
+ * Converts a maDMP funding_status value into a ProjectFundingStatus for the DMP Tool
+ *
+ * @param maDMPStatus the maDMP funding_status
+ * @returns a ProjectFundingStatus value
+ */
+const maDMPFundingStatusToProjectFundingStatus = (
+  maDMPStatus: string
+): ProjectFundingStatus => {
+  switch (maDMPStatus) {
+    case "granted":
+      return "GRANTED";
+    case "rejected":
+      return "DENIED";
+    default:
+      return "PLANNED";
+  }
 }
 
 /**
  * Represents funding information for a Project
  */
 export class ProjectFunding extends BaseGraphQLModel {
-  project?: Project;
-  affiliation?: Affiliation;
+  projectId?: number;
+  affiliationId: string;
   status?: ProjectFundingStatus;
   funderProjectNumber?: string;
   grantId?: string;
@@ -42,10 +50,12 @@ export class ProjectFunding extends BaseGraphQLModel {
   constructor(options: Partial<ProjectFunding> = {}) {
     super(options);
 
-    this.project = options.project ? new Project(options.project) : undefined;
-    this.affiliation = options.affiliation
-      ? new Affiliation(options.affiliation)
-      : undefined;
+    if (!options.affiliationId) {
+      throw new Error("affiliationId is required");
+    }
+
+    this.projectId = options.projectId;
+    this.affiliationId = options.affiliationId;
     this.status = options.status;
     this.funderProjectNumber = options.funderProjectNumber;
     this.grantId = options.grantId;
@@ -54,250 +64,107 @@ export class ProjectFunding extends BaseGraphQLModel {
   }
 
   /**
-   * Create or update the Project funding information
-   *
-   * @param request the Fastify request
-   * @param project the Project
-   * @param fundings the funding information
-   * @returns true if the save was successful. The Project will have errors if not
+   * Response the shape of the project funding within a GraphQL query response
+   * @returns a new ProjectFunding object
    */
-  static async save(
-    request: FastifyRequest,
-    project: Project,
-    fundings: ProjectFunding[]
-  ): Promise<boolean> {
-    if (!project?.id) return false;
+  static fromGraphQL(graphQLResponse: ProjectFundingQueryResponse): ProjectFunding {
+    return new ProjectFunding({
+      id: graphQLResponse.id,
+      affiliationId: graphQLResponse.affiliation?.uri,
+      status: graphQLResponse.status ? maDMPFundingStatusToProjectFundingStatus(graphQLResponse.status) : undefined,
+      funderProjectNumber: graphQLResponse.funderProjectNumber,
+      grantId: graphQLResponse.grantId,
+      funderOpportunityNumber: graphQLResponse.funderOpportunityNumber
+    });
+  }
 
-    // Reset stale funding-specific errors before re-synchronizing.
-    delete project.errors.fundings;
+  /**
+   * Convert the ProjectFunding object into the expected GraphQL input
+   *
+   * @returns the answer's info as an EntirePlanFundingFragment for GraphQL
+   */
+  toGraphQLInput(): EntirePlanFundingFragment {
+    return {
+      projectFundingId: this.id,
+      funder: this.affiliationId,
+      status: this.status,
+      funderProjectNumber: this.funderProjectNumber,
+      funderOpportunityNumber: this.funderOpportunityNumber,
+      grantId: this.grantId,
+    };
+  }
 
-    const existing: ProjectFunding[] = await ProjectFunding.findByProjectId(
-      request,
-      project.id
-    );
-    const desired: ProjectFunding[] = [...(fundings ?? [])];
-    const unmatchedExisting: ProjectFunding[] = [...existing];
+  /**
+   * Convert a maDMP ProjectFunding entry
+   *
+   * @param maDMP the maDMP record
+   * @param currentFunding the current list of ProjectFunding objects
+   * @returns an array of ProjectFunding objects
+   */
+  static reconcileFromMaDMP(
+    maDMP: DMPToolDMPType['dmp'],
+    currentFunding: ProjectFunding[] = []
+  ): ProjectFunding[] {
+    if (!maDMP.project || !maDMP.project[0] || !maDMP.project[0].funding) {
+      return [];
+    }
 
-    // Match by stable attributes so we can avoid unnecessary deletes/creates.
-    for (const funding of desired) {
-      const exactMatch: ProjectFunding | undefined = unmatchedExisting.find(
-        (existingFunding: ProjectFunding): boolean => {
-          return ProjectFunding.fingerprint(existingFunding)
-            === ProjectFunding.fingerprint(funding);
-        }
-      );
+    const newFunding: (ProjectFunding | undefined)[] = [];
+    const maDMPProject: ProjectType = maDMP.project[0];
 
-      if (exactMatch) {
-        funding.id = exactMatch.id;
-        unmatchedExisting.splice(unmatchedExisting.indexOf(exactMatch), 1);
-        continue;
+    // Gather all the project numbers from the maDMP
+    const projectNumbers: Map<string, string> = new Map<string, string>();
+    for (const projectNumber of maDMP.funder_project || []) {
+      if (projectNumber
+        && projectNumber.funder_id && projectNumber.funder_id.identifier
+        && projectNumber.project_identifier && projectNumber.project_identifier.identifier
+      ) {
+        projectNumbers.set(
+          projectNumber.funder_id.identifier.toLowerCase().trim(),
+          projectNumber.project_identifier.identifier.trim()
+        );
       }
+    }
 
-      const sameFunder: ProjectFunding | undefined = unmatchedExisting.find(
-        (existingFunding: ProjectFunding): boolean => {
-          return existingFunding.affiliation?.uri === funding.affiliation?.uri;
-        }
-      );
-
-      if (sameFunder) {
-        funding.id = sameFunder.id;
-        unmatchedExisting.splice(unmatchedExisting.indexOf(sameFunder), 1);
+    // Gather all the project opportunities from the maDMP
+    const opportunityNumbers: Map<string, string> = new Map<string, string>();
+    for (const opportunityNumber of maDMP.funder_opportunity || []) {
+      if (opportunityNumber
+        && opportunityNumber.funder_id && opportunityNumber.funder_id.identifier
+        && opportunityNumber.opportunity_identifier && opportunityNumber.opportunity_identifier.identifier
+      ) {
+        opportunityNumbers.set(
+          opportunityNumber.funder_id.identifier.toLowerCase().trim(),
+          opportunityNumber.opportunity_identifier.identifier.trim()
+        );
       }
     }
 
-    const errs: string[] = [];
-
-    // Remove any funding information that is no longer there
-    await Promise.all(
-      unmatchedExisting.map(async (funding: ProjectFunding): Promise<void> => {
-        const deleted = await funding.delete(request);
-        if (!deleted) errs.push(funding.errorsToString());
-      })
-    );
-
-    // Add or update the funding information
-    await Promise.all(
-      desired.map(async (funding: ProjectFunding): Promise<void> => {
-        funding.project = project;
-
-        const success = funding.id
-          ? await funding.update(request)
-          : await funding.create(request);
-
-        if (!success) errs.push(funding.errorsToString());
-      })
-    );
-
-    if (errs.length > 0) {
-      project.errors.fundings = errs.join('; ');
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Add the project funding information
-   *
-   * @param request the Fastify request
-   * @returns true if successful. If not, the error object will have messages
-   */
-  async create(
-    request: FastifyRequest
-  ): Promise<boolean> {
-    if (!(await this.ensureFunderAffiliation(request))) {
-      return false;
-    }
-
-    const saved: GQLResponse<AddProjectFundingResponse> =
-      await ProjectFunding.mutate<AddProjectFundingResponse>(
-        request,
-        {
-          mutation: AddProjectFundingDocument,
-          variables: {
-            input: {
-              projectId: this.project?.id,
-              affiliationId: this.affiliation?.uri,
-              status: this.status,
-              funderProjectNumber: this.funderProjectNumber?.trim(),
-              grantId: this.grantId?.trim(),
-              funderOpportunityNumber: this.funderOpportunityNumber?.trim(),
-            },
-          },
-          errorPolicy: "all",
-        } as MutateOptions
-      );
-
-    const data = saved?.data?.addProjectFunding;
-    this.processGQLResponse(saved, data as ProjectFunding, 'create ProjectFunding');
-    return !this.hasErrors();
-  }
-
-  /**
-   * Update the project funding information
-   *
-   * @param request the Fastify request
-   * @returns true if successful. If not, the error object will have messages
-   */
-  async update(
-    request: FastifyRequest
-  ): Promise<boolean> {
-    if (!(await this.ensureFunderAffiliation(request))) {
-      return false;
-    }
-
-    const saved: GQLResponse<UpdateProjectFundingResponse> =
-      await ProjectFunding.mutate<UpdateProjectFundingResponse>(
-        request,
-        {
-          mutation: UpdateProjectFundingDocument,
-          variables: {
-            input: {
-              projectFundingId: this.id,
-              status: this.status,
-              funderProjectNumber: this.funderProjectNumber?.trim(),
-              grantId: this.grantId?.trim(),
-              funderOpportunityNumber: this.funderOpportunityNumber?.trim(),
-            },
-          },
-          errorPolicy: "all",
-        } as MutateOptions
-      );
-
-    const data = saved?.data?.updateProjectFunding;
-    this.processGQLResponse(saved, data as ProjectFunding, 'update ProjectFunding');
-    return !this.hasErrors();
-  }
-
-  /**
-   * Remove the funding information
-   *
-   * @param request the Fastify request
-   * @returns true if successful. If not, the error object will have messages
-   */
-  async delete(
-    request: FastifyRequest
-  ): Promise<boolean> {
-    const deleted: GQLResponse<RemoveProjectFundingResponse> =
-      await ProjectFunding.mutate<RemoveProjectFundingResponse>(
-        request,
-        {
-          mutation: RemoveProjectFundingDocument,
-          variables: { projectFundingId: this.id },
-          errorPolicy: "all",
-        } as MutateOptions
-      );
-
-    const data = deleted?.data?.removeProjectFunding;
-    this.processGQLResponse(deleted, data as ProjectFunding, 'delete ProjectFunding');
-    return !this.hasErrors();
-  }
-
-  /**
-   * Fetch all the funding information for the specified Project
-   *
-   * @param request the Fastify request
-   * @param projectId the Project id
-   * @returns an array of Project funding information
-   */
-  static async findByProjectId(
-    request: FastifyRequest,
-    projectId: number
-  ): Promise<ProjectFunding[]> {
-    const resp: GQLResponse<ProjectFundingsResponse> =
-      await this.query<ProjectFundingsResponse>(request, {
-        query: ProjectFundingsDocument,
-        variables: { projectId },
-        errorPolicy: "all",
+    // Find or initialize all other contributors
+    const funding: FundingType[] = maDMPProject.funding ?? [];
+    for (const entry of funding) {
+      const current: ProjectFunding | undefined = currentFunding.find((funding: ProjectFunding): boolean => {
+        return funding.affiliationId === entry.funder_id?.identifier?.trim();
       });
 
-    return Array.isArray(resp.data?.projectFundings)
-      ? resp.data.projectFundings.map(
-          (funding: ProjectFunding): ProjectFunding =>
-            new ProjectFunding(funding)
-        )
-      : [];
-  }
+      const funderProjectNumber: string | undefined = projectNumbers
+        .get(entry.funder_id?.identifier?.trim() ?? '') || undefined
+      const funderOpportunityNumber: string | undefined = opportunityNumbers
+        .get(entry.funder_id?.identifier?.trim() ?? '') || undefined
 
-  /**
-   * Ensure that the funder has been persisted to the DB
-   *
-   * @param request the Fastify Request
-   * @returns true if the affiliation is valid. If not, the funding error object
-   * will have messages
-   */
-  private async ensureFunderAffiliation(
-    request: FastifyRequest
-  ): Promise<boolean> {
-    if (!this.affiliation?.uri) {
-      this.errors.affiliationId = 'Funding affiliation URI is required';
-      return false;
+      // If the current funding is present, we are replacing it, so always return
+      // a new object.
+      newFunding.push(new ProjectFunding({
+        id: current?.id,
+        affiliationId: current?.affiliationId ?? entry.funder_id?.identifier?.trim(),
+        status: entry.funding_status ? maDMPFundingStatusToProjectFundingStatus(entry.funding_status) : undefined,
+        funderProjectNumber,
+        funderOpportunityNumber,
+        grantId: entry.grant_id?.identifier?.trim(),
+      }));
     }
 
-    if (!this.affiliation.id) {
-      const existing = await Affiliation.findByURI(request, this.affiliation.uri);
-      if (existing?.id) {
-        this.affiliation = existing;
-      }
-    }
-
-    return true;
-  }
-
-  /**
-   * Create a unique identifier for the project funding to facilitate matches
-   *
-   * @param funding the funding information
-   * @returns a unique fingerprint for the funding
-   */
-  private static fingerprint(funding: ProjectFunding): string {
-    return [
-      funding.affiliation?.uri ?? '',
-      funding.status ?? '',
-      funding.funderProjectNumber?.trim() ?? '',
-      funding.funderOpportunityNumber?.trim() ?? '',
-      funding.grantId?.trim() ?? '',
-    ].join('|');
+    return newFunding.filter((m): m is ProjectFunding => Boolean(m));
   }
 }
 

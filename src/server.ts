@@ -1,4 +1,4 @@
-import Fastify, {FastifyInstance, FastifyReply, FastifyRequest} from 'fastify';
+import Fastify, { FastifyInstance } from 'fastify';
 import { toErrorMessage } from "@dmptool/utils";
 import { baseConfigurationOptions } from './configuration.js';
 import { ConfigurationOptions } from "./types.js";

@@ -1,48 +1,40 @@
 import { FastifyRequest } from "fastify";
-import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
-import { ApolloClient } from "@apollo/client";
-import MutateOptions = ApolloClient.MutateOptions;
 import { DMPToolDMPType } from "@dmptool/types";
 import { isValidDate } from "@dmptool/utils";
-import { Plan } from "./Plan.js";
-import { ProjectMember } from "./ProjectMember.js";
-import { ProjectFunding } from "./ProjectFunding.js";
-import { ResearchDomain } from "./ResearchDomain.js";
-import { stringToInteger } from "../utils.js";
-import { ContactType } from "../types.js";
 import {
-  AddProjectDocument,
-  ArchiveProjectDocument, MyProjectsDocument,
+  EntirePlanProjectFragment,
+  MyProjectsDocument,
   ProjectDocument,
-  UpdateProjectDocument,
 } from "../generated/graphql.js"
+import { stringToInteger } from "../utils.js";
+import {ContactType, ProjectType} from "../types.js";
+import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
+import { ProjectMember, ProjectMemberQueryResponse } from "./ProjectMember.js";
+import { ProjectFunding, ProjectFundingQueryResponse } from "./ProjectFunding.js";
+import { ResearchDomain } from "./ResearchDomain.js";
+
+/**
+ * The shape of a Project within a GraphQL query response
+ */
+export interface ProjectQueryResponse {
+  id?: number;
+  title?: string;
+  abstractText?: string;
+  startDate?: string;
+  endDate?: string;
+  isTestProject?: boolean;
+  researchDomain?: {
+    uri?: string;
+  }
+  members?: ProjectMemberQueryResponse[];
+  fundings?: ProjectFundingQueryResponse[];
+}
 
 /**
  * Representation of the GraphQL query response for a Research Project
  */
 export interface ProjectResponse {
   project: Project
-}
-
-/**
- * Representation of the GraphQL query response for adding a Project
- */
-export interface AddProjectResponse {
-  addProject: Project
-}
-
-/**
- * Representation of the GraphQL query response for updating a Project
- */
-export interface UpdateProjectResponse {
-  updateProject: Project
-}
-
-/**
- * Representation of the GraphQL query response for deleting a Project
- */
-export interface ArchiveProjectResponse {
-  archiveProject: Project
 }
 
 /**
@@ -60,40 +52,117 @@ export interface CallerProjectResponse {
 export class Project extends BaseGraphQLModel {
   title: string;
   abstractText?: string;
-  researchDomain?: ResearchDomain;
   startDate?: string;
   endDate?: string;
+  researchDomainURI?: string;
   isTestProject: boolean;
-  plans: Plan[] = [];
+
   members: ProjectMember[] = [];
-  fundings: ProjectFunding[] = [];
+  funding: ProjectFunding[] = [];
 
   constructor(options: Partial<Project> = {}) {
     super(options);
 
-    this.title = options.title ?? 'Research Project';
+    this.title = options.title || 'Research Project';
     this.abstractText = options.abstractText;
-    this.researchDomain = options.researchDomain ? new ResearchDomain(options.researchDomain) : undefined;
     this.startDate = options.startDate;
     this.endDate = options.endDate;
-    this.isTestProject = options.isTestProject ?? false;
-
-    this.plans = options.plans ? options.plans.map((p: Plan) => new Plan(p)) : [];
+    this.researchDomainURI = options.researchDomainURI;
+    this.isTestProject = options.isTestProject || false;
 
     this.members = options.members
       ? options.members.map((m: ProjectMember) => new ProjectMember(m))
       : [];
 
-    this.fundings = options.fundings
-      ? options.fundings.map((f: ProjectFunding) => new ProjectFunding(f))
+    this.funding = options.funding
+      ? options.funding.map((f: ProjectFunding) => new ProjectFunding(f))
       : [];
+  }
+
+  /**
+   * Convert a maDMP Project entry
+   *
+   * @param maDMP the maDMP record
+   * @param currentProject the current Project
+   * @returns a new Project object
+   */
+  static reconcileFromMaDMP(
+    maDMP: DMPToolDMPType['dmp'],
+    currentProject?: Project
+  ): Project {
+    const maDMPProject: ProjectType = maDMP.project?.[0];
+    const members: ProjectMember[] = ProjectMember.reconcileFromMaDMP(maDMP, currentProject?.members);
+    const funding: ProjectFunding[] = ProjectFunding.reconcileFromMaDMP(maDMP, currentProject?.funding);
+
+    const researchDomainURI: string | undefined = maDMP.research_domain?.research_domain_identifier?.identifier;
+
+    // If the current project is present, we are replacing it, so always return
+    // a new object.
+    return new Project({
+      id: currentProject?.id,
+      title: maDMPProject.title?.trim(),
+      abstractText: maDMPProject.description?.trim(),
+      startDate: maDMPProject.start?.trim(),
+      endDate: maDMPProject.end?.trim(),
+      isTestProject: currentProject?.isTestProject || false,
+      researchDomainURI: researchDomainURI?.trim(),
+      members,
+      funding
+    });
+  }
+
+  /**
+   * Convert a project from a GraphQL query response
+   *
+   * @param graphQLResponse the shape of the project within a GraphQL query response
+   * @returns a new Project object
+   */
+  static fromGraphQL(graphQLResponse: ProjectQueryResponse): Project {
+    const members: ProjectMember[] = graphQLResponse.members
+      ? graphQLResponse.members.map((member: ProjectMemberQueryResponse) => {
+        return ProjectMember.fromGraphQL(member);
+      })
+      : [];
+    const funding: ProjectFunding[] = graphQLResponse.fundings
+      ? graphQLResponse.fundings.map((f: ProjectFundingQueryResponse) => {
+        return ProjectFunding.fromGraphQL(f);
+      })
+      : [];
+
+    return new Project({
+      id: graphQLResponse.id,
+      title: graphQLResponse.title,
+      abstractText: graphQLResponse.abstractText,
+      startDate: graphQLResponse.startDate,
+      endDate: graphQLResponse.endDate,
+      isTestProject: graphQLResponse.isTestProject,
+      researchDomainURI: graphQLResponse.researchDomain?.uri,
+      members,
+      funding
+    });
+  }
+
+  /**
+   * Convert the Project object into the expected GraphQL input
+   *
+   * @returns the answer's info as an EntirePlanProjectFragment for GraphQL
+   */
+  toGraphQLInput(): EntirePlanProjectFragment {
+    return {
+      title: this.title,
+      abstractText: this.abstractText,
+      startDate: this.startDate,
+      endDate: this.endDate,
+      isTestProject: this.isTestProject,
+      researchDomainUrl: this.researchDomainURI,
+    };
   }
 
   /**
    * Get the primary contact from the project members/contributors
    */
   primaryContact(): ProjectMember | undefined {
-    return this.members.find((m: ProjectMember): boolean => m.isPrimaryContact ?? false);
+    return this.members.find((m: ProjectMember): boolean => m.isPrimaryContact || false);
   }
 
   /**
@@ -108,132 +177,6 @@ export class Project extends BaseGraphQLModel {
     // TODO: Once we've implemented OAuth and the caller is not necessarily the owner
     //       use the designated primary contact as the primary owner of the project
     return true;
-  }
-
-  /**
-   * Shortcut helper function to save or update the current Project
-   *
-   * @param request
-   * @returns true if successful. If not, any errors are added to the error object
-   */
-  async save(request: FastifyRequest): Promise<boolean> {
-    if (this.id) {
-      // The id exists, so we're updating
-      return await this.update(request);
-    }
-
-    // The GraphQL API doesn't allow us to include all fields when we create, so
-    // we immediately follow it up with an update to set the remaining fields.
-    if (await this.create(request)) {
-      return await this.update(request);
-    }
-
-    return false;
-  }
-
-  /**
-   * Create the current Project
-   *
-   * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the error object
-   */
-  async create(request: FastifyRequest): Promise<boolean> {
-    // Create the project and let the Apollo server set default values for the majority of fields
-    const saved: GQLResponse<AddProjectResponse> = await Project.mutate<AddProjectResponse>(
-      request,
-      {
-        mutation: AddProjectDocument,
-        variables: {
-          title: this.title,
-          isTestProject: false
-        },
-        errorPolicy: "all"
-      } as MutateOptions
-    );
-
-    const data: Project | undefined = saved?.data?.addProject;
-    this.processGQLResponse(saved, data as Project, 'create Project');
-
-    // Verify that the primary contact was set
-    const primary: ProjectMember | undefined = this.primaryContact();
-
-    // We are eventually going to want to figure out how to let a system create
-    // a project on a user's behalf, so adding this stub function for now as
-    // a placeholder for where we will eventually implement that.
-    if (primary && !(await this.setOwnership(request, primary))){
-      this.errors.general = "Project was created but we were unable to set ownership.";
-    }
-
-    return this.hasErrors() ? false: await this.update(request);
-  }
-
-  /**
-   * Update the current Project
-   *
-   * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the error object
-   */
-  async update(request: FastifyRequest): Promise<boolean> {
-
-console.log('INPUT VARS', {
-  variables: {
-    input: {
-      id: this.id,
-      title: this.title,
-      abstractText: this.abstractText?.trim() || null,
-      startDate: this.startDate?.trim() || null,
-      endDate: this.endDate?.trim() || null,
-      researchDomainId: this.researchDomain?.id || null,
-      isTestProject: this.isTestProject ?? false
-    }
-  }
-})
-
-    const saved: GQLResponse<UpdateProjectResponse> = await Project.mutate<UpdateProjectResponse>(
-      request,
-      {
-        mutation: UpdateProjectDocument,
-        variables: {
-          input: {
-            id: this.id,
-            title: this.title,
-            abstractText: this.abstractText?.trim() || null,
-            startDate: this.startDate?.trim() || null,
-            endDate: this.endDate?.trim() || null,
-            researchDomainId: this.researchDomain?.id || null,
-            isTestProject: this.isTestProject ?? false
-          }
-        },
-        errorPolicy: "all"
-      } as MutateOptions
-    );
-
-    const data: Project | undefined = saved?.data?.updateProject;
-
-console.log('BACK?', saved?.data?.updateProject);
-
-    this.processGQLResponse(saved, data as Project, 'update Project');
-    return !this.hasErrors();
-  }
-
-  /**
-   * Delete this project
-   *
-   * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the error object
-   */
-  async delete(request: FastifyRequest): Promise<boolean> {
-    const deleted: GQLResponse<ArchiveProjectResponse> = await Project.mutate<ArchiveProjectResponse>(
-      request,
-      {
-        mutation: ArchiveProjectDocument,
-        variables: { projectIid: this.id },
-        errorPolicy: "all"
-      } as MutateOptions
-    );
-    const data: Project | undefined = deleted?.data?.archiveProject;
-    this.processGQLResponse(deleted, data as Project, 'delete Project');
-    return !this.hasErrors();
   }
 
   /**
@@ -285,12 +228,13 @@ console.log('BACK?', saved?.data?.updateProject);
       request,
       dmp.research_domain?.research_domain_identifier?.identifier
     )
+
     return new Project({
       title: title,
       abstractText: dmpProject?.description?.trim() ?? dmp.description?.trim() ?? null,
       endDate: isValidDate(dmpProject?.end) ? dmpProject.end : null,
       startDate: isValidDate(dmpProject?.start) ? dmpProject.start : null,
-      researchDomain: domain,
+      researchDomainURI: domain?.uri,
       isTestProject: false
     });
   }

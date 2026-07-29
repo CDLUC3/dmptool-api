@@ -1,49 +1,3 @@
-query Plan($planId: Int!) {
-  plan(planId: $planId) {
-    id
-    dmpId
-    title
-    visibility
-    status
-    created
-    createdById
-    modified
-    modifiedById
-    registered
-    project {
-      id
-    }
-    members {
-      projectMember {
-        id
-      }
-      isPrimaryContact
-      memberRoles {
-        id
-        uri
-      }
-    }
-    fundings {
-      id
-      projectFunding {
-        id
-      }
-    }
-    versionedTemplate {
-      name
-      description
-      version
-      template {
-        id
-      }
-    }
-    alternateIdentifiers {
-      id
-      alternateIdentifier
-    }
-  }
-}
-
 query Plans($projectId: Int!) {
   plansByProjectId(projectId: $projectId) {
     id
@@ -72,7 +26,41 @@ query PlanByDmpId($dmpId: String!) {
       isTestProject
       researchDomain {
         id
-        parentResearchDomainId
+        uri
+      }
+      members {
+        id
+        isPrimaryContact
+        affiliation {
+          uri
+        }
+        givenName
+        surName
+        orcid
+        email
+        memberRoles {
+          id
+          uri
+        }
+      }
+      fundings {
+        id
+        affiliation {
+          uri
+        }
+        status
+        funderProjectNumber
+        funderOpportunityNumber
+        grantId
+      }
+    }
+    members {
+      projectMember {
+        id
+      }
+      memberRoles {
+        id
+        uri
       }
     }
     fundings {
@@ -81,13 +69,38 @@ query PlanByDmpId($dmpId: String!) {
         id
       }
     }
+    answers {
+      id
+      versionedSection{
+        id
+      }
+      versionedQuestion {
+        id
+      }
+      json
+    }
     versionedTemplate {
+      id
       name
       description
       version
       template {
         id
       }
+      versionedSections {
+        id
+        name
+        displayOrder
+        versionedQuestions {
+          id
+          questionText
+          json
+        }
+      }
+    }
+    alternateIdentifiers {
+      id
+      alternateIdentifier
     }
   }
 }
@@ -113,16 +126,81 @@ query PlanByAlternateIdentifier($alternateIdentifier: String!) {
       isTestProject
       researchDomain {
         id
-        parentResearchDomainId
+        uri
+      }
+      members {
+        id
+        isPrimaryContact
+        affiliation {
+          uri
+        }
+        givenName
+        surName
+        orcid
+        email
+        memberRoles {
+          id
+          uri
+        }
+      }
+      fundings {
+        id
+        affiliation {
+          uri
+        }
+        status
+        funderProjectNumber
+        funderOpportunityNumber
+        grantId
       }
     }
+    members {
+      projectMember {
+        id
+      }
+      memberRoles {
+        id
+        uri
+      }
+    }
+    fundings {
+      id
+      projectFunding {
+        id
+      }
+    }
+    answers {
+      id
+      versionedSection{
+        id
+      }
+      versionedQuestion {
+        id
+      }
+      json
+    }
     versionedTemplate {
+      id
       name
       description
       version
       template {
         id
       }
+      versionedSections {
+        id
+        name
+        displayOrder
+        versionedQuestions {
+          id
+          questionText
+          json
+        }
+      }
+    }
+    alternateIdentifiers {
+      id
+      alternateIdentifier
     }
   }
 }
