@@ -140,9 +140,6 @@ export class ProjectFunding extends BaseGraphQLModel {
       }
     }
 
-console.log('FUNDER PROJECTS', projectNumbers);
-console.log('FUNDER OPPORTUNITIES', opportunityNumbers);
-
     // Find or initialize all other contributors
     const funding: FundingType[] = maDMPProject.funding ?? [];
     for (const entry of funding) {

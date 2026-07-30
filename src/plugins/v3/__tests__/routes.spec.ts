@@ -376,6 +376,7 @@ describe('v3 routes', () => {
 
   describe('DELETE /dmps/:id(.+)', () => {
     let updateableDmp: DMPToolDMPType;
+    let oneDayAgo: Date;
 
     beforeEach(async () => {
       const getResp = await fastify.inject({
@@ -383,6 +384,9 @@ describe('v3 routes', () => {
         url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       });
       updateableDmp = getResp.json();
+
+      const modified = new Date(updateableDmp.dmp.modified);
+      oneDayAgo = new Date(modified.getTime() - 24 * 60 * 60 * 1000);
     });
 
     it('should return 204 status code if successful', async () => {
@@ -413,9 +417,6 @@ describe('v3 routes', () => {
 
     it('should return 409 status code if the If-Unmodified-Since header doesn\'t match the DMP modified', async () => {
       deleteDmpWorkflow.mockRejectedValueOnce(new Error('Conflict') as never);
-
-      const modified = new Date(updateableDmp.dmp.modified);
-      const oneDayAgo = new Date(modified.getTime() - 24 * 60 * 60 * 1000);
 
       const response = await fastify.inject({
         method: 'DELETE',

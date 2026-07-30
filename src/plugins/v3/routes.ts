@@ -24,8 +24,8 @@ import v3SerializationPlugin from "./outboundSerialization.js";
 import { v3SwaggerConfig, v3SwaggerUIConfig } from "./swagger.js";
 import {
   ERROR_CODE_INTERNAL_SERVER,
-  ERROR_CODE_INVALID_DMP,
-  ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_INTERNAL_SERVER,
+  ERROR_CODE_INVALID_DMP, ERROR_CODE_NOT_FOUND,
+  ERROR_CODE_UNAUTHENTICATED, ERROR_MSG_INTERNAL_SERVER, ERROR_MSG_NOT_FOUND,
   ERROR_MSG_UNAUTHENTICATED,
   errorHandler,
   newFastifyError,
@@ -199,8 +199,6 @@ const v3RoutesPlugin = async function (
         'POST: maDMP has been created'
       );
 
-console.log('ROUTE RESULT', result);
-
       // Should never happen, an error will normally be thrown, but just in case
       // the response was undefined, throw an error
       if (!result) {
@@ -237,7 +235,10 @@ console.log('ROUTE RESULT', result);
       }
 
       // Fetch the requested maDMP record
-      const maDMP: DMPToolDMPType = await getPlanWorkflow(request, id, version);
+      const maDMP: DMPToolDMPType | undefined = await getPlanWorkflow(request, id, version);
+      if (!maDMP) {
+        throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
+      }
 
       // Return the maDMP record along with the Last-Modified header so the caller can send a subsequent update
       await reply.code(200)

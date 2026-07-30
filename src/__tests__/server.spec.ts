@@ -24,7 +24,7 @@ jest.unstable_mockModule('../plugins/rateLimit.js', () => ({ default: jest.fn().
 jest.unstable_mockModule('../plugins/graphQL.js', () => ({ default: jest.fn().mockName('graphQLPlugin') }));
 
 jest.unstable_mockModule('../plugins/v3/swagger.js', () => ({ default: jest.fn().mockName('v3SwaggerPlugin') }));
-jest.unstable_mockModule('../plugins/v3/serialization.js', () => ({ default: jest.fn().mockName('v3SerializationPlugin') }));
+jest.unstable_mockModule('../plugins/v3/outboundSerialization.js', () => ({ default: jest.fn().mockName('v3SerializationPlugin') }));
 jest.unstable_mockModule('../plugins/v3/routes.js', () => ({ default: jest.fn().mockName('v3RoutesPlugin') }));
 
 describe('Server Registration Order', () => {

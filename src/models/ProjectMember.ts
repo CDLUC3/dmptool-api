@@ -181,34 +181,30 @@ export class ProjectMember extends BaseGraphQLModel {
       newMembers.push(this.maDMPMemberToProjectMember(contributor, current));
     }
 
-console.log('CONTRIBUTORS', newMembers);
-
     // Find or initialize the primary contact
     const contactIn: ProjectMember | undefined = this.maDMPMemberToProjectMember(maDMP.contact, undefined);
-
-console.log('PARSED CONTACT', contactIn);
 
     if (!contactIn) {
       // This should NEVER happen since contact is a required property of a maDMP!
       throw new Error('No contact found on maDMP!');
 
     } else {
-      // See if the contact was already in the list of contributors
+      // See if the contact was already in the list of contributors (don't match on undefined!)
       const existingContact: ProjectMember | undefined = newMembers.find((member: ProjectMember): boolean => {
-        return member.id === contactIn.id
-          || member.email?.toLowerCase()?.trim() === contactIn.email?.toLowerCase()?.trim()
-          || member.orcid?.toLowerCase()?.trim() === contactIn.orcid?.toLowerCase()?.trim()
-          || (
-            member.givenName?.toLowerCase()?.trim() === contactIn.givenName?.toLowerCase()?.trim()
-            && member.surName?.toLowerCase()?.trim() === contactIn.surName?.toLowerCase()?.trim()
-          );
+        const memberIdMatch: boolean = !!member.id && !!contactIn.id && member.id === contactIn.id;
+        const emailMatch: boolean = !!member.email && !!contactIn.email
+          && member.email.toLowerCase().trim() === contactIn.email.toLowerCase()?.trim();
+        const orcidMatch: boolean = !!member.orcid && !!contactIn.orcid
+          && member.orcid.toLowerCase().trim() === contactIn.orcid.toLowerCase().trim();
+        const namesMatch: boolean = !!member.surName && !!contactIn.surName
+          && member.givenName?.toLowerCase()?.trim() === contactIn.givenName?.toLowerCase()?.trim()
+          && member.surName.toLowerCase().trim() === contactIn.surName.toLowerCase().trim();
+
+        return memberIdMatch || emailMatch || orcidMatch || namesMatch;
       });
+
       // If the existing contact was found, reconcile the info between the contact and contributor properties
       if (existingContact) {
-
-console.log('EXISTING EMAIL', existingContact.email);
-console.log('CONTACT EMAIL', contactIn.email);
-
         existingContact.email = existingContact.email || contactIn.email;
         existingContact.orcid = existingContact.orcid || contactIn.orcid;
         existingContact.affiliationId = existingContact.affiliationId || contactIn.affiliationId;
@@ -220,8 +216,6 @@ console.log('CONTACT EMAIL', contactIn.email);
         newMembers.push(contactIn);
       }
     }
-
-console.log('FINAL MEMBERS', newMembers);
 
     return newMembers.filter((m): m is ProjectMember => Boolean(m));
   }

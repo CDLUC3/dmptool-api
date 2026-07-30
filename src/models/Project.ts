@@ -1,6 +1,5 @@
 import { FastifyRequest } from "fastify";
 import { DMPToolDMPType } from "@dmptool/types";
-import { isValidDate } from "@dmptool/utils";
 import {
   EntirePlanProjectFragment,
   MyProjectsDocument,
@@ -11,7 +10,6 @@ import {ContactType, ProjectType} from "../types.js";
 import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { ProjectMember, ProjectMemberQueryResponse } from "./ProjectMember.js";
 import { ProjectFunding, ProjectFundingQueryResponse } from "./ProjectFunding.js";
-import { ResearchDomain } from "./ResearchDomain.js";
 
 /**
  * The shape of a Project within a GraphQL query response

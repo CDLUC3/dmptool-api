@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import Fastify, { FastifyInstance } from 'fastify';
 import { DMP_TOOL_CONTENT_TYPE } from "../routeSchema.js";
 import configPlugin from "../../config.js";
-import {mockMaDMP, mockMaDMPModule} from "./maDMPMocks.js";
+import { mockMaDMP, mockMaDMPModule } from "./maDMPMocks.js";
 
 mockMaDMPModule();
 

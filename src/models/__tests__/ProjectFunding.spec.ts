@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import { ProjectFunding, ProjectFundingQueryResponse } from '../ProjectFunding.js';
-import { ProjectFundingStatus } from '../../generated/graphql.js';
 import { DMPToolDMPType } from '@dmptool/types';
-import { ProjectType } from '../../types.js';
 
 describe('ProjectFunding', () => {
   afterEach(() => {
@@ -286,7 +284,7 @@ describe('ProjectFunding', () => {
             ],
           },
         ],
-        funder_project: [
+        funding_project: [
           {
             funder_id: {
               identifier: 'https://ror.org/12345',
@@ -296,7 +294,7 @@ describe('ProjectFunding', () => {
             },
           },
         ],
-        funder_opportunity: [
+        funding_opportunity: [
           {
             funder_id: {
               identifier: 'https://ror.org/12345',
@@ -447,7 +445,7 @@ describe('ProjectFunding', () => {
             ],
           },
         ],
-        funder_project: [
+        funding_project: [
           {
             funder_id: {
               identifier: 'https://ror.org/12345',

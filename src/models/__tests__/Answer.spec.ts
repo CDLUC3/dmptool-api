@@ -1,26 +1,11 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import type { FastifyRequest } from 'fastify';
-import { Plan } from '../Plan.js';
-import {
-  AnswerDefaultMap,
-  QuestionFormatsEnum,
-} from '@dmptool/types';
+import { QuestionFormatsEnum } from '@dmptool/types';
 
 jest.unstable_mockModule('node:worker_threads', () => ({
   structuredClone: global.structuredClone,
 }));
 
 const { Answer } = await import('../Answer.js');
-
-const buildRequest = (): FastifyRequest =>
-  ({
-    log: {
-      debug: jest.fn(),
-      error: jest.fn(),
-      fatal: jest.fn(),
-    },
-  }) as unknown as FastifyRequest;
-
 
 describe('Answer', () => {
   afterEach(() => {

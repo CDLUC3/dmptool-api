@@ -27,16 +27,15 @@ describe('VersionedTemplate', () => {
   it('should find by template id', async () => {
     jest.spyOn(VersionedTemplate, 'query').mockResolvedValue({
       data: {
-        versionedTemplates: [
-          {
-            id: 5,
-            template: { id: 7 },
-            name: 'Template',
-            description: 'Desc',
-            version: '1.0',
-            active: true,
-          },
-        ],
+        versionedTemplate: {
+          id: 5,
+          template: { id: 7 },
+          name: 'Template',
+          description: 'Desc',
+          version: '1.0',
+          active: true,
+          versionedSections: []
+        }
       },
     });
 

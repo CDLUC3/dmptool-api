@@ -14,9 +14,11 @@ const mockLoadMaDMPFromDynamo = jest.fn();
 const mockHandleMissingMaDMP = jest.fn();
 
 jest.unstable_mockModule('../../../../models/maDMP.js', () => ({
-  loadPlan: mockLoadPlan,
-  loadMaDMPFromDynamo: mockLoadMaDMPFromDynamo,
-  handleMissingMaDMP: mockHandleMissingMaDMP,
+  maDMPHelpers: {
+    loadPlan: mockLoadPlan,
+    loadMaDMPFromDynamo: mockLoadMaDMPFromDynamo,
+    handleMissingMaDMP: mockHandleMissingMaDMP,
+  },
 }));
 
 const { createPlanWorkflow, getPlanWorkflow, updateDmpWorkflow, deleteDmpWorkflow } = await import('../planWorkflow.js');
@@ -297,7 +299,7 @@ describe('updateDmpWorkflow', () => {
 
   it('returns 404 when project information cannot be loaded for update', async () => {
     const current = { dmp: { modified: '2026-01-01T00:00:00Z', narrative: { text: 'current' } } };
-    
+
     mockLoadPlan.mockResolvedValue({ dmpId: '10.99999/abc', modified: '2026-01-01 00:00:00Z' } as never);
     mockLoadMaDMPFromDynamo.mockResolvedValue(current as never);
     mockHandleMissingMaDMP.mockResolvedValue(current as never);
@@ -316,12 +318,6 @@ describe('updateDmpWorkflow', () => {
 
   it('returns 400 when project save fails during update', async () => {
     const plan = makePlan({ id: 44, projectId: 55 });
-    const project = makeProject({
-      id: 55,
-      save: jest.fn().mockResolvedValue(false as never),
-      errorsToString: jest.fn().mockReturnValue('project: invalid'),
-      errors: { title: 'invalid' },
-    });
     const current = { dmp: { modified: '2026-01-01T00:00:00Z', narrative: { text: 'current' } } };
 
     mockLoadPlan.mockResolvedValue({ dmpId: '10.99999/abc', modified: '2026-01-01 00:00:00Z' } as never);

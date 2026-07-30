@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { FastifyRequest } from 'fastify';
 import { Project } from '../Project.js';
 import { ProjectMember } from '../ProjectMember.js';
-import { ResearchDomain } from '../ResearchDomain.js';
 
 const buildRequest = (): FastifyRequest =>
   ({

@@ -1,12 +1,5 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import type { FastifyRequest } from 'fastify';
-import {
-  QuestionDefaultMap,
-  QuestionFormatsEnum,
-  RepositorySearchAnswerType,
-  ResearchOutputTableAnswerType,
-  TextAnswerType
-} from '@dmptool/types';
+import { QuestionDefaultMap, QuestionFormatsEnum } from '@dmptool/types';
 import { Plan } from '../../../../models/Plan.js';
 import {
   VersionedQuestion,
@@ -46,20 +39,6 @@ jest.unstable_mockModule('../../../../models/Answer.js', () => ({
 }));
 
 const { createNarrativeWorkflow } = await import('../narrativeWorkflow.js');
-const { Answer } = await import('../../../../models/Answer.js');
-type AnswerInstance = InstanceType<typeof Answer>;
-
-const makeRequest = (): FastifyRequest =>
-  ({
-    log: {
-      error: jest.fn(),
-      debug: jest.fn(),
-      warn: jest.fn(),
-      info: jest.fn(),
-      fatal: jest.fn(),
-      trace: jest.fn(),
-    },
-  }) as unknown as FastifyRequest;
 
 const makePlan = (template?: VersionedTemplate): Plan =>
   ({

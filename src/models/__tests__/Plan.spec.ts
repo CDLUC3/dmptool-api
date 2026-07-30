@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { FastifyRequest } from 'fastify';
 import { Plan } from '../Plan.js';
-import { VersionedTemplate } from '../VersionedTemplate.js';
+import { CURRENT_SCHEMA_VERSION } from "@dmptool/types";
 
 const buildRequest = (): FastifyRequest =>
   ({
@@ -105,35 +105,46 @@ describe('Plan', () => {
       data: {
         planByAlternateIdentifier: {
           id: 6,
-          projectId: 10,
           dmpId: 'dmp-6',
           title: 'Plan 6',
           visibility: 'PRIVATE',
           status: 'DRAFT',
-          registered: 'r',
+          registered: '2025-11-23',
           project: {
             id: 10,
             title: 'Project',
-            abstractText: '',
-            startDate: '',
-            endDate: '',
             isTestProject: false,
-            members: [],
-            fundings: [],
           } as never,
           versionedTemplate: {
             id: 1,
             template: { id: 1 },
             name: 'Template',
-            description: '',
             version: '1.0',
-            versionedSections: [],
-          } as never,
-          alternateIdentifiers: [],
-          created: 'c',
-          createdById: 1,
-          modified: 'm',
-          modifiedById: 1,
+            versionedSections: [{
+              id: 1,
+              sectionId: 1,
+              name: "Section one",
+              tags: [],
+              displayOrder: 1,
+              versionedQuestions: [{
+                id: 1,
+                questionId: 1,
+                versionedSectionId: 1,
+                questionText: "Text Area field",
+                displayOrder: 1,
+                json: JSON.stringify({
+                  type: 'textArea',
+                  attributes: {
+                    cols: 1,
+                    rows: 4,
+                    maxLength: 100,
+                    asRichText: true
+                  },
+                  meta: {schemaVersion: CURRENT_SCHEMA_VERSION}
+                })
+              }]
+            }],
+          }
         },
       },
     });

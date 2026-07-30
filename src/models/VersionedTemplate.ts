@@ -59,7 +59,7 @@ export interface VersionedTemplateQueryResponse {
  * Representation of the GraphQL query results for versionedTemplates
  */
 export interface VersionedTemplateResponse {
-  versionedTemplate: VersionedTemplate;
+  versionedTemplate: VersionedTemplateQueryResponse;
 }
 
 export interface DefaultTemplateResponse {
@@ -332,7 +332,7 @@ export class VersionedTemplate extends BaseGraphQLModel {
         errorPolicy: "all"
       }
     );
-    return resp.data && resp.data.versionedTemplate ? resp.data.versionedTemplate : undefined;
+    return resp.data && resp.data.versionedTemplate ? VersionedTemplate.fromGraphQL(resp.data.versionedTemplate) : undefined;
   }
 
   /**

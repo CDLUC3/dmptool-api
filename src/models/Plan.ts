@@ -51,7 +51,7 @@ export interface PlanQueryResponse {
     memberRoles?: {
       id?: number;
       uri?: string;
-    }
+    }[]
   }[];
   fundings?: {
     id?: number;
@@ -254,8 +254,6 @@ export class Plan extends BaseGraphQLModel {
       alternateIdentifiers: alternateIdentifiers.filter(Boolean),
     });
 
-console.log('NEW PLAN VERSIONED TEMPLATE', newPlan.versionedTemplate);
-
     // Process the maDMP narrative and dataset array
     newPlan.answers = createNarrativeWorkflow(newPlan, maDMP);
     return newPlan;
@@ -289,9 +287,6 @@ console.log('NEW PLAN VERSIONED TEMPLATE', newPlan.versionedTemplate);
         plan = await Plan.findByAlternateIdentifier(request, identifier);
       }
     }
-
-console.log('VERSIONED TEMPLATE', versionedTemplate)
-
 
     const project: Project = plan && plan.project?.id
       ? plan.project
@@ -421,8 +416,7 @@ console.log('VERSIONED TEMPLATE', versionedTemplate)
         errorPolicy: "all"
       }
     );
-
-    return resp.data?.planByDMPId ? Plan.fromGraphQL(resp.data.planByDMPId as PlanByDMPIdResponse) : undefined;
+    return resp.data?.planByDMPId ? Plan.fromGraphQL(resp.data) : undefined;
   }
 
   /**
@@ -441,9 +435,6 @@ console.log('VERSIONED TEMPLATE', versionedTemplate)
         errorPolicy: "all"
       }
     );
-
-    return resp.data?.planByAlternateIdentifier
-      ? Plan.fromGraphQL(resp.data.planByAlternateIdentifier as PlanByAlternateIdentifierResponse)
-      : undefined;
+    return resp.data?.planByAlternateIdentifier ? Plan.fromGraphQL(resp.data) : undefined;
   }
 }

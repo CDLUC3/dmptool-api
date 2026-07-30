@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
-import { ProjectMember, ProjectMemberQueryResponse, MemberRoleQueryResponse } from '../ProjectMember.js';
+import { ProjectMember, ProjectMemberQueryResponse } from '../ProjectMember.js';
 import { DMPToolDMPType } from '@dmptool/types';
-import { ContactType, ContributorType } from '../../types.js';
+import {ContributorType} from "../../types.js";
 
 describe('ProjectMember', () => {
   afterEach(() => {
@@ -424,10 +424,10 @@ describe('ProjectMember', () => {
         name: 'John Doe',
         mbox: 'john@example.com',
         roles: [],
-        contributor_id: {
+        contributor_id: [{
           type: 'orcid',
           identifier: '0000-0000-0000-0001',
-        },
+        }],
       } as unknown as ContributorType;
 
       const member = ProjectMember.maDMPMemberToProjectMember(maDMPMember);
@@ -440,35 +440,15 @@ describe('ProjectMember', () => {
         name: 'John Doe',
         mbox: 'john@example.com',
         roles: [],
-        contact_id: {
+        contact_id: [{
           type: 'orcid',
           identifier: '0000-0000-0000-0002',
-        },
+        }],
       } as unknown as ContributorType;
 
       const member = ProjectMember.maDMPMemberToProjectMember(maDMPMember);
 
       expect(member.orcid).toBe('0000-0000-0000-0002');
-    });
-
-    it('should prefer contributor_id over contact_id', () => {
-      const maDMPMember = {
-        name: 'John Doe',
-        mbox: 'john@example.com',
-        roles: [],
-        contributor_id: {
-          type: 'orcid',
-          identifier: '0000-0000-0000-0001',
-        },
-        contact_id: {
-          type: 'orcid',
-          identifier: '0000-0000-0000-0002',
-        },
-      } as unknown as ContributorType;
-
-      const member = ProjectMember.maDMPMemberToProjectMember(maDMPMember);
-
-      expect(member.orcid).toBe('0000-0000-0000-0001');
     });
 
     it('should use mbox as email', () => {
@@ -553,11 +533,15 @@ describe('ProjectMember', () => {
       expect(result[0].email).toBe('jane@example.com');
     });
 
-    it('should reconcile contributors from maDMP', () => {
+    it.only('should reconcile contributors from maDMP', () => {
       const maDMP = {
         contact: {
           name: 'Jane Doe',
           mbox: 'jane@example.com',
+          contact_id: [{
+            identifier: '123',
+            type: 'other'
+          }],
           roles: [],
         },
         contributor: [

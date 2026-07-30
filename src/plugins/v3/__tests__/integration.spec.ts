@@ -1415,10 +1415,6 @@ describe('POST /dmps integration tests', () => {
       headers: { 'content-type': DMP_TOOL_CONTENT_TYPE }
     });
 
-    if (response.statusCode !== 201) {
-      console.log('Error response:', response.json());
-    }
-
     expect(response.statusCode).toBe(201);
 
     const result = response.json() as DMPToolDMPType;

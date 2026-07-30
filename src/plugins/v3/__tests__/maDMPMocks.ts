@@ -35,6 +35,8 @@ export const mockMaDMP: DMPToolDMPType = {
     narrative: {
       template: {
         id: 1,
+        title: 'Test DMP Template',
+        section: []
       },
     },
     dataset: [{

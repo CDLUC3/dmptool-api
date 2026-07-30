@@ -3,8 +3,10 @@ import {
   CURRENT_SCHEMA_VERSION,
   DefaultResearchOutputTableColumnAnswerMap,
   DefaultResearchOutputTableQuestion,
-  DMPToolDMPType, LicenseSearchAnswerType, MetadataStandardSearchAnswerType,
-  QuestionFormatsEnum, RepositorySearchAnswerType,
+  DMPToolDMPType,
+  MetadataStandardSearchAnswerType,
+  QuestionFormatsEnum,
+  RepositorySearchAnswerType,
   ResearchOutputTableAnswerType,
   ResearchOutputTableQuestionType,
   ResearchOutputTableRowAnswerType,
@@ -16,14 +18,12 @@ import {
   DatasetType,
   DistributionType, HostType, IdentifierType,
   LicenseType,
-  MetadataType,
   NarrativeQuestionType,
   NarrativeSectionType,
   NarrativeTemplateType
 } from "../../../types.js";
 import { VersionedQuestion } from "../../../models/VersionedTemplate.js";
 import { Answer } from "../../../models/Answer.js";
-import { convertMySQLDateTimeToRFC3339 } from "@dmptool/utils";
 
 interface ProcessNarrativeResponse {
   question?: VersionedQuestion;
@@ -204,9 +204,10 @@ const researchOutputTableColumnFromMaDMPDataset = (
         const hosts: HostType[] = dataset.distribution?.flatMap((dist: DistributionType) => dist.host || []);
 
         for (const host of hosts) {
-          const ids: IdentifierType[] = host.host_id?.filter((id: IdentifierType): boolean => {
-            return !!id.identifier;
-          });
+          const ids: IdentifierType[] = Array.isArray(host.host_id)
+            ? host.host_id?.filter((id: IdentifierType): boolean => !!id.identifier)
+            : [];
+
           if (ids.length > 0) {
             for (const id of ids) {
               repositories.push({
@@ -226,9 +227,9 @@ const researchOutputTableColumnFromMaDMPDataset = (
       const metadataStandards: MetadataStandardSearchAnswerType['answer'] = [];
       if (Array.isArray(dataset.metadata)) {
         for (const standard of dataset.metadata) {
-          const ids: IdentifierType[] = standard.metadata_standard_id?.filter((id: IdentifierType): boolean => {
-            return !!id.identifier;
-          });
+          const ids: IdentifierType[] = Array.isArray(standard.metadata_standard_id)
+            ? standard.metadata_standard_id?.filter((id: IdentifierType): boolean => !!id.identifier)
+            : [];
           if (ids.length > 0) {
             for (const id of ids) {
               metadataStandards.push({

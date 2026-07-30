@@ -7,9 +7,7 @@ import {
 } from "../../../types.js";
 import { VersionedTemplate } from "../../../models/VersionedTemplate.js";
 import { Plan } from "../../../models/Plan.js";
-import {
-  maDMPHelpers,
-} from "../../../models/maDMP.js";
+import { maDMPHelpers } from "../../../models/maDMP.js";
 import {
   ERROR_CODE_ALREADY_EXISTS,
   ERROR_CODE_CONFLICT,
@@ -162,8 +160,6 @@ export async function createPlanWorkflow(
     ? await VersionedTemplate.findOrDefault(request, dmp.narrative.template.id)
     : await VersionedTemplate.findDefault(request);
 
-console.log('WORKFLOW TEMPLATE', versionedTemplate);
-
   if (!versionedTemplate) {
     request.log.fatal('Unable to find a default template!');
     throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, ERROR_MSG_INTERNAL_SERVER);
@@ -186,8 +182,6 @@ console.log('WORKFLOW TEMPLATE', versionedTemplate);
     throw newFastifyError(ERROR_CODE_INVALID_DMP, plan.errorsToString());
   }
 
-console.log('WORKFLOW PLAN', plan);
-
   // Verify that the dmpId was assigned
   if (!plan.dmpId) {
     request.log.error({ alternateIdentifier: idIn, planId: plan.id }, 'DMP id was not assigned during save');
@@ -196,8 +190,6 @@ console.log('WORKFLOW PLAN', plan);
 
   // Generate the maDMP JSON so that we can return it
   const newMaDMP: DMPToolDMPType | undefined = await getPlanWorkflow(request, plan.dmpId);
-
-console.log('WORKFLOW NEW MADM', newMaDMP);
 
   // TODO: Once the RDA group has decided on a way to convey warnings about
   //       data that could not be supported (e.g. the "cost" section), we will
