@@ -90,7 +90,7 @@ export class Project extends BaseGraphQLModel {
     maDMP: DMPToolDMPType['dmp'],
     currentProject?: Project
   ): Project {
-    const maDMPProject: ProjectType = maDMP.project?.[0];
+    const maDMPProject: ProjectType | undefined = maDMP.project?.[0];
     const members: ProjectMember[] = ProjectMember.reconcileFromMaDMP(maDMP, currentProject?.members);
     const funding: ProjectFunding[] = ProjectFunding.reconcileFromMaDMP(maDMP, currentProject?.funding);
 
@@ -100,10 +100,10 @@ export class Project extends BaseGraphQLModel {
     // a new object.
     return new Project({
       id: currentProject?.id,
-      title: maDMPProject.title?.trim(),
-      abstractText: maDMPProject.description?.trim(),
-      startDate: maDMPProject.start?.trim(),
-      endDate: maDMPProject.end?.trim(),
+      title: maDMPProject?.title?.trim() || maDMP.title,
+      abstractText: maDMPProject?.description?.trim() || maDMP.description,
+      startDate: maDMPProject?.start?.trim(),
+      endDate: maDMPProject?.end?.trim(),
       isTestProject: currentProject?.isTestProject || false,
       researchDomainURI: researchDomainURI?.trim(),
       members,
@@ -150,11 +150,11 @@ export class Project extends BaseGraphQLModel {
   toGraphQLInput(): EntirePlanProjectFragment {
     return {
       title: this.title,
-      abstractText: this.abstractText,
-      startDate: this.startDate,
-      endDate: this.endDate,
-      isTestProject: this.isTestProject,
-      researchDomainUrl: this.researchDomainURI,
+      abstractText: this.abstractText || undefined,
+      startDate: this.startDate || undefined,
+      endDate: this.endDate || undefined,
+      isTestProject: this.isTestProject || false,
+      researchDomainUrl: this.researchDomainURI || undefined,
     };
   }
 
@@ -202,41 +202,7 @@ export class Project extends BaseGraphQLModel {
       }
     }
 
-    // 2nd: No project id matched, so fetch the caller's projects and see if any
-    //      titles match.
-    const title: string = dmpProject?.title?.trim() ?? dmp.title.trim();
-    const existingProjects: Project[] = await Project.callerProjects(request);
-
-    if (Array.isArray(existingProjects) && existingProjects.length > 0) {
-      const existing: Project | undefined = existingProjects.find((project: Project): boolean => {
-        return project.title === title;
-      });
-
-      if (existing && existing.id) {
-        // We found an existing one, so go fetch all of its information
-        request.log.debug(`Found existing project with id ${existing.id}`);
-        const fullProject: Project | undefined = await Project.findById(request, existing.id ?? "0");
-        if (fullProject) return fullProject;
-      }
-    }
-
-    // We didn't find an existing Project, so initialize a new one
-    request.log.debug({ title }, `Initializing a new project`);
-
-    // Fetch the research domain (we only accept known domains at this time)
-    const domain: ResearchDomain | undefined = await ResearchDomain.findByURI(
-      request,
-      dmp.research_domain?.research_domain_identifier?.identifier
-    )
-
-    return new Project({
-      title: title,
-      abstractText: dmpProject?.description?.trim() ?? dmp.description?.trim() ?? null,
-      endDate: isValidDate(dmpProject?.end) ? dmpProject.end : null,
-      startDate: isValidDate(dmpProject?.start) ? dmpProject.start : null,
-      researchDomainURI: domain?.uri,
-      isTestProject: false
-    });
+    return Project.reconcileFromMaDMP(dmp);
   }
 
   /**

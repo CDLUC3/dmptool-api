@@ -1,7 +1,14 @@
 import { DMPToolDMPType } from "@dmptool/types";
 import { EntirePlanMemberFragment } from "../generated/graphql.js";
-import { ContactType, ContributorsType, ContributorType } from "../types.js";
+import {
+  AffiliationType,
+  ContactType,
+  ContributorsType,
+  ContributorType,
+  IdentifierType
+} from "../types.js";
 import { BaseGraphQLModel } from "./BaseGQL.js";
+import { isValidEmail } from "../utils.js";
 
 /**
  * The shape of a project member within a GraphQL query response
@@ -109,22 +116,36 @@ export class ProjectMember extends BaseGraphQLModel {
       ? nameParts.slice(1).join(' ')
       : nameParts[0] || undefined;
 
-    // Use the ORCID if one was provided
-    let orcid: string | undefined = maDMPMember.contributor_id && maDMPMember.contributor_id.type === 'orcid'
-      ? maDMPMember.contributor_id.identifier || undefined
+    // Find the affiliations
+    const affiliations: AffiliationType[] = maDMPMember.affiliation || [];
+    const affiliationId: string | undefined = affiliations.length > 0
+      ? affiliations[0]?.affiliation_id?.identifier?.trim()
       : undefined;
-    if (!orcid && maDMPMember.contact_id && maDMPMember.contact_id.type === 'orcid') {
-      orcid = maDMPMember.contact_id.identifier || undefined;
-    }
+
+    // Use the ORCIDs and emails if any were provided
+    const identifiers: IdentifierType[] = maDMPMember.contributor_id || maDMPMember.contact_id || [];
+    const orcids: IdentifierType[] = identifiers?.filter((id: IdentifierType): boolean => {
+      return id.type === 'orcid';
+    }) || [];
+    const emails: IdentifierType[] = identifiers?.filter((id: IdentifierType): boolean => {
+      return id.type === 'other' && isValidEmail(id.identifier || '');
+    }) || [];
+
+    // If any ORCIDs were provided, use the first one
+    const orcid: string | undefined = orcids.length > 0 ? orcids[0]?.identifier : undefined;
+    // If a mbox was provided use it otherwise use the first email from the identifiers
+    const email: string | undefined = maDMPMember.mbox || (emails.length > 0 ? emails[0]?.identifier : undefined);
+
 
     // If the current project is present, we are replacing it, so always return
     // a new object.
     return new ProjectMember({
       id: current?.id,
+      affiliationId: affiliationId,
       givenName: given,
       surName: family,
-      orcid: orcid,
-      email: maDMPMember.mbox,
+      orcid,
+      email,
       memberRoleURIs: maDMPMember.roles || []
     });
   }
@@ -140,7 +161,7 @@ export class ProjectMember extends BaseGraphQLModel {
     maDMP: DMPToolDMPType['dmp'],
     currentMembers: ProjectMember[] = []
   ): ProjectMember[] {
-    const newMembers: (ProjectMember | undefined)[] = [];
+    const newMembers: ProjectMember[] = [];
 
     // This should never ever happen since the contact is a required maDMP property
     // but to make TypeScript happy we perform a check
@@ -160,13 +181,47 @@ export class ProjectMember extends BaseGraphQLModel {
       newMembers.push(this.maDMPMemberToProjectMember(contributor, current));
     }
 
+console.log('CONTRIBUTORS', newMembers);
+
     // Find or initialize the primary contact
-    const currentContact: ProjectMember | undefined = currentMembers.find((member: ProjectMember): boolean => {
-      return this.maDMPMemberIsAMatch(maDMP.contact, member);
-    });
-    const newContact: ProjectMember = currentContact || this.maDMPMemberToProjectMember(maDMP.contact, undefined);
-    newContact.isPrimaryContact = true;
-    newMembers.push(newContact);
+    const contactIn: ProjectMember | undefined = this.maDMPMemberToProjectMember(maDMP.contact, undefined);
+
+console.log('PARSED CONTACT', contactIn);
+
+    if (!contactIn) {
+      // This should NEVER happen since contact is a required property of a maDMP!
+      throw new Error('No contact found on maDMP!');
+
+    } else {
+      // See if the contact was already in the list of contributors
+      const existingContact: ProjectMember | undefined = newMembers.find((member: ProjectMember): boolean => {
+        return member.id === contactIn.id
+          || member.email?.toLowerCase()?.trim() === contactIn.email?.toLowerCase()?.trim()
+          || member.orcid?.toLowerCase()?.trim() === contactIn.orcid?.toLowerCase()?.trim()
+          || (
+            member.givenName?.toLowerCase()?.trim() === contactIn.givenName?.toLowerCase()?.trim()
+            && member.surName?.toLowerCase()?.trim() === contactIn.surName?.toLowerCase()?.trim()
+          );
+      });
+      // If the existing contact was found, reconcile the info between the contact and contributor properties
+      if (existingContact) {
+
+console.log('EXISTING EMAIL', existingContact.email);
+console.log('CONTACT EMAIL', contactIn.email);
+
+        existingContact.email = existingContact.email || contactIn.email;
+        existingContact.orcid = existingContact.orcid || contactIn.orcid;
+        existingContact.affiliationId = existingContact.affiliationId || contactIn.affiliationId;
+        existingContact.givenName = existingContact.givenName || contactIn.givenName;
+        existingContact.surName = existingContact.surName || contactIn.surName;
+        existingContact.isPrimaryContact = true;
+      } else {
+        contactIn.isPrimaryContact = true;
+        newMembers.push(contactIn);
+      }
+    }
+
+console.log('FINAL MEMBERS', newMembers);
 
     return newMembers.filter((m): m is ProjectMember => Boolean(m));
   }

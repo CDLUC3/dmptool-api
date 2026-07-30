@@ -33,6 +33,17 @@ export const extractIdentifier = (
 };
 
 /**
+ * Whether the valid is an email address
+ *
+ * @param email the string value
+ * @returns true if the value is in a valid email format
+ */
+export const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+/**
  * Checks whether the given identifier is a DMP ID (DOI or a URL under the configured domain).
  *
  * @param options The configuration options.

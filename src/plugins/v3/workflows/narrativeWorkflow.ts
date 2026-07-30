@@ -1,14 +1,12 @@
 import {
-  AnyResearchOutputTableColumnAnswerSchema,
   AnyResearchOutputTableColumnAnswerType,
-  DefaultResearchOutputTableAnswer,
+  CURRENT_SCHEMA_VERSION,
   DefaultResearchOutputTableColumnAnswerMap,
-  DefaultResearchOutputTableRowAnswer,
-  DMPToolDMPType,
-  QuestionFormatsEnum,
+  DefaultResearchOutputTableQuestion,
+  DMPToolDMPType, LicenseSearchAnswerType, MetadataStandardSearchAnswerType,
+  QuestionFormatsEnum, RepositorySearchAnswerType,
   ResearchOutputTableAnswerType,
   ResearchOutputTableQuestionType,
-  ResearchOutputTableRowAnswerSchema,
   ResearchOutputTableRowAnswerType,
   TextAnswerType,
 } from "@dmptool/types";
@@ -16,7 +14,7 @@ import { Plan } from "../../../models/Plan.js";
 import {
   DatasetsType,
   DatasetType,
-  DistributionType,
+  DistributionType, HostType, IdentifierType,
   LicenseType,
   MetadataType,
   NarrativeQuestionType,
@@ -107,8 +105,8 @@ const fromMaDMPDatasets = (
     // Try to find a match by the dataset title (since it is the only required column)
     // in the existing research output table answer
     const existingRow: ResearchOutputTableRowAnswerType | undefined = existingTitles.get(dataset.title.toLowerCase().trim());
-    const workingRow = existingRow
-      || initializeResearchOutputTableRow(roQuestion as ResearchOutputTableQuestionType);
+    const workingRow: ResearchOutputTableRowAnswerType = existingRow
+      || initializeResearchOutputTableAnswerRow(roQuestion as ResearchOutputTableQuestionType);
 
     if (!existingRow) {
       newAnswer.answer.push(workingRow);
@@ -131,33 +129,48 @@ const fromMaDMPDatasets = (
 }
 
 /**
+ * Constructs an empty row for a Research Output Table that conforms to the
+ * structure of the Research Output Question
+ *
+ * @param question the Research Output Table Question
+ * @returns a new Answer row for the Research Output Table
+ */
+const constructNewResearchOutputTableAnswer = (
+  question: ResearchOutputTableQuestionType
+): ResearchOutputTableAnswerType => {
+  const columnHeadings: string[] = question.columns.map((col) => {
+    return col.heading;
+  });
+
+  return {
+    type: "researchOutputTable",
+    columnHeadings: columnHeadings.filter((col): col is 'string' => !!col),
+    answer: [],
+    meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
+  };
+}
+
+/**
  * Generate a new empty row for a research output table answer
  *
  * @param question the maDMP Research Output question
  * @returns a new Resource Output table answer row
  */
-const initializeResearchOutputTableRow = (
+const initializeResearchOutputTableAnswerRow = (
   question: ResearchOutputTableQuestionType,
 ): ResearchOutputTableRowAnswerType => {
-  const row: ResearchOutputTableRowAnswerType = ResearchOutputTableRowAnswerSchema.parse(
-    DefaultResearchOutputTableRowAnswer
-  );
+  const cols: AnyResearchOutputTableColumnAnswerType[] = [];
 
-  // Loop through each of the columns and generate a default answer column
-  for (const column of question.columns) {
-    const commonStandardId = column.commonStandardId ?? 'custom';
-    const answer = AnyResearchOutputTableColumnAnswerSchema.parse(
-      DefaultResearchOutputTableColumnAnswerMap[commonStandardId as keyof typeof DefaultResearchOutputTableColumnAnswerMap]
-    );
-    row.columns.push(answer);
+  for (const col of question.columns) {
+    cols.push(DefaultResearchOutputTableColumnAnswerMap[col.commonStandardId]);
   }
 
-  return row;
+  return { columns: cols };
 }
 
 /**
  * Convert the specified column (referenced by commonStandardId) in the maDMP
- * dataset entry into a RersearchOutputTableColumnAnswerType
+ * dataset entry into a ResearchOutputTableColumnAnswerType
  *
  * @param row the Research Output table row
  * @param commonStandardId the identifier of the field in the maDMP
@@ -186,38 +199,71 @@ const researchOutputTableColumnFromMaDMPDataset = (
     }
 
     if (commonStandardId === 'host') {
-      column.answer = dataset.distribution
-        ?.filter((dist: DistributionType) => !!dist.host && !!dist.host.url)
-        ?.map((dist: DistributionType) => ({
-          repositoryId: dist.host.host_id?.identifier || dist.host.url,
-          repositoryName: dist.host.title || '',
-        }));
+      const repositories: RepositorySearchAnswerType['answer'] = [];
+      if (Array.isArray(dataset.distribution)) {
+        const hosts: HostType[] = dataset.distribution?.flatMap((dist: DistributionType) => dist.host || []);
+
+        for (const host of hosts) {
+          const ids: IdentifierType[] = host.host_id?.filter((id: IdentifierType): boolean => {
+            return !!id.identifier;
+          });
+          if (ids.length > 0) {
+            for (const id of ids) {
+              repositories.push({
+                repositoryName: host.title || '',
+                repositoryId: id.identifier
+              });
+            }
+          }
+        }
+      }
+      column.answer = repositories;
+
       return column as AnyResearchOutputTableColumnAnswerType;
     }
 
     if (commonStandardId === 'metadata') {
-      column.answer = dataset.metadata
-        ?.filter((meta: MetadataType) => !!meta.metadata_standard_id?.identifier)
-        ?.map((meta: MetadataType) => ({
-          metadataStandardId: meta.metadata_standard_id.identifier,
-          repositoryName: meta.description?.slice(0, 50) || '',
-        }));
+      const metadataStandards: MetadataStandardSearchAnswerType['answer'] = [];
+      if (Array.isArray(dataset.metadata)) {
+        for (const standard of dataset.metadata) {
+          const ids: IdentifierType[] = standard.metadata_standard_id?.filter((id: IdentifierType): boolean => {
+            return !!id.identifier;
+          });
+          if (ids.length > 0) {
+            for (const id of ids) {
+              metadataStandards.push({
+                metadataStandardName: standard.description?.slice(0, 50) || '',
+                metadataStandardId: id.identifier
+              });
+            }
+          }
+        }
+      }
+      column.answer = metadataStandards;
       return column as AnyResearchOutputTableColumnAnswerType;
     }
 
     if (commonStandardId === 'license_ref') {
-      const licenses = dataset.distribution?.flatMap((dist: DistributionType) => dist.license_ref || []);
-      const now = new Date();
-      const mostRecent = licenses
-        ?.filter((lic: LicenseType) => !!lic.license_ref)
-        ?.sort((licA: LicenseType, licB: LicenseType) => licB.start_date - licA.start_date) // sort descending
-        ?.find((lic: LicenseType) => lic.start_date <= now);
+      if (Array.isArray(dataset.distribution)) {
+        const licenses: LicenseType[] = dataset.distribution?.flatMap((dist: DistributionType) => dist.license || []);
+        const today = new Date();
+        // Filter out any empty ones sorted ascending
+        const allLicenses = licenses?.filter((lic: LicenseType): boolean => !!lic.license_ref)
+          ?.sort((licA: LicenseType, licB: LicenseType) => licB.start_date - licA.start_date) || [];
 
-      // The DMP Tool only allows one License, so use the one that is effective today
-      column.answer = [{
-        licenseId: mostRecent?.license_ref || '',
-        licenseName: ''
-      }];
+        // Determine which licenses started in the past (or today) and sort them descending
+        const nonFutureLicenses: LicenseType[] = allLicenses.filter((lic: LicenseType): boolean => {
+          return !!lic.license_ref && new Date(lic.start_date).getTime() <= today.getTime();
+        })?.sort((licA: LicenseType, licB: LicenseType) => licB.start_date - licA.start_date) || [];
+
+        // The DMP Tool only allows one License, so use the one whose start date is closest to today
+        column.answer = nonFutureLicenses[0]
+          ? [{licenseId: nonFutureLicenses[0].license_ref, licenseName: ''}]
+          : allLicenses[0] ? [{
+            licenseId: allLicenses[0].license_ref,
+            licenseName: ''
+          }] : [];
+      }
       return column as AnyResearchOutputTableColumnAnswerType;
     }
 
@@ -246,11 +292,11 @@ const researchOutputTableColumnFromMaDMPDataset = (
         }
         break;
       case 'issued':
-        column.answer = convertMySQLDateTimeToRFC3339(distribution?.issued) || '';
+        column.answer = distribution?.issued;
         break;
       case 'byte_size':
         column.answer = {
-          value: distribution?.byte_size?.toString() || '',
+          value: Number.isInteger(distribution?.byte_size) ? distribution?.byte_size : undefined,
           context: 'bytes'
         }
         break;
@@ -316,7 +362,9 @@ export const createNarrativeWorkflow = (
 
   const narrative: NarrativeTemplateType | undefined = dmp.narrative;
   const datasets: DatasetType[] = dmp.dataset || [];
-  const processedNarrative: ProcessNarrativeResponse[] = processNarrative(plan, narrative.template);
+  const processedNarrative: ProcessNarrativeResponse[] = narrative?.template
+    ? processNarrative(plan, narrative.template)
+    : [];
 
   // Locate the research output table question
   const researchOutputQuestion: VersionedQuestion | undefined = plan.versionedTemplate.researchOutputTableQuestion();
@@ -329,7 +377,11 @@ export const createNarrativeWorkflow = (
     });
 
     // Convert the dataset into a row in the research output table format
-    const roAnswer: ResearchOutputTableAnswerType = roEntry?.answer?.validatedJSON as ResearchOutputTableAnswerType || DefaultResearchOutputTableAnswer;
+    const newAnswer: ResearchOutputTableAnswerType = researchOutputQuestion
+      ? constructNewResearchOutputTableAnswer(researchOutputQuestion.validatedJSON as ResearchOutputTableQuestionType)
+      : constructNewResearchOutputTableAnswer(DefaultResearchOutputTableQuestion);
+    const roAnswer: ResearchOutputTableAnswerType = roEntry?.answer?.validatedJSON as ResearchOutputTableAnswerType || newAnswer;
+
     const researchOutputAnswer: ResearchOutputTableAnswerType | undefined = fromMaDMPDatasets(
       plan,
       researchOutputQuestion,
@@ -346,6 +398,7 @@ export const createNarrativeWorkflow = (
         json: researchOutputAnswer
       });
       const newEntry: ProcessNarrativeResponse = { question: researchOutputQuestion, answer: newRoAnswer };
+
       if (roEntry) {
         // Replace the original research output answer with the new one
         processedNarrative.splice(

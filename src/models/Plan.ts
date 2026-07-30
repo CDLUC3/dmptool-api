@@ -2,7 +2,7 @@ import { FastifyRequest } from "fastify";
 import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
 import { DMPToolDMPType } from "@dmptool/types";
-import { randomHex } from "@dmptool/utils";
+import { randomHex, removeNullAndUndefinedFromObject } from "@dmptool/utils";
 import {
   AddEntirePlanInput,
   AddPlanDocument,
@@ -232,10 +232,10 @@ export class Plan extends BaseGraphQLModel {
     currentProject?: Project,
     currentPlan?: Plan
   ): Plan {
-    const project: Project = currentProject || Project.reconcileFromMaDMP(maDMP, currentPlan?.project);
+    const project: Project = currentProject || Project.reconcileFromMaDMP(maDMP, currentProject);
 
     const alternateIdentifiers: string[] = (maDMP.alternate_identifier ?? []).map((entry: AlternateIdentifierType): string => {
-      return entry.alternateIdentifier;
+      return entry.identifier?.trim();
     });
 
     // If the current plan is present, we are replacing it, so always return
@@ -245,12 +245,16 @@ export class Plan extends BaseGraphQLModel {
       versionedTemplate: currentPlan?.versionedTemplate || versionedTemplate,
       dmpId: currentPlan?.dmpId,
       project,
+      members: project.members || [],
+      funding: project.funding || [],
       title: maDMP.title?.trim(),
       status: maDMP.status?.toUpperCase() as PlanStatus,
       visibility: maDMP.visibility?.toUpperCase() as PlanVisibility,
       registered: currentPlan?.registered,
-      alternateIdentifiers,
+      alternateIdentifiers: alternateIdentifiers.filter(Boolean),
     });
+
+console.log('NEW PLAN VERSIONED TEMPLATE', newPlan.versionedTemplate);
 
     // Process the maDMP narrative and dataset array
     newPlan.answers = createNarrativeWorkflow(newPlan, maDMP);
@@ -285,6 +289,9 @@ export class Plan extends BaseGraphQLModel {
         plan = await Plan.findByAlternateIdentifier(request, identifier);
       }
     }
+
+console.log('VERSIONED TEMPLATE', versionedTemplate)
+
 
     const project: Project = plan && plan.project?.id
       ? plan.project
@@ -321,6 +328,7 @@ export class Plan extends BaseGraphQLModel {
       : [];
 
     const input: AddEntirePlanInput | UpdateEntirePlanInput = {
+      versionedTemplateId: this.versionedTemplate?.id,
       title: this.title,
       status: this.status,
       visibility: this.visibility,
@@ -341,7 +349,7 @@ export class Plan extends BaseGraphQLModel {
         {
           mutation: AddPlanDocument,
           variables: {
-            input
+            input: removeNullAndUndefinedFromObject(input)
           },
           errorPolicy: "all"
         } as MutateOptions

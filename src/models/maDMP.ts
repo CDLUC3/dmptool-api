@@ -304,3 +304,9 @@ export async function handleMissingMaDMP(
   }
   return maDMP;
 }
+
+export const maDMPHelpers = {
+  loadPlan,
+  loadMaDMPFromDynamo,
+  handleMissingMaDMP,
+};

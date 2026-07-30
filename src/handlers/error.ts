@@ -158,6 +158,9 @@ export const errorHandler = (
   reply: FastifyReply,
   error: FastifyError | Error,
 ): FastifyReply => {
+
+console.log('ERROR', error)
+
   // Unhandled errors are NOT FastifyErrors, so handle them here immediately
   if (!Object.hasOwn(error, 'statusCode') || !Object.hasOwn(error, 'code')) {
     // Log it and then return a generic 500 error

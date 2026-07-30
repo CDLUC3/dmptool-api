@@ -114,7 +114,7 @@ export class ProjectFunding extends BaseGraphQLModel {
 
     // Gather all the project numbers from the maDMP
     const projectNumbers: Map<string, string> = new Map<string, string>();
-    for (const projectNumber of maDMP.funder_project || []) {
+    for (const projectNumber of maDMP.funding_project || []) {
       if (projectNumber
         && projectNumber.funder_id && projectNumber.funder_id.identifier
         && projectNumber.project_identifier && projectNumber.project_identifier.identifier
@@ -128,7 +128,7 @@ export class ProjectFunding extends BaseGraphQLModel {
 
     // Gather all the project opportunities from the maDMP
     const opportunityNumbers: Map<string, string> = new Map<string, string>();
-    for (const opportunityNumber of maDMP.funder_opportunity || []) {
+    for (const opportunityNumber of maDMP.funding_opportunity || []) {
       if (opportunityNumber
         && opportunityNumber.funder_id && opportunityNumber.funder_id.identifier
         && opportunityNumber.opportunity_identifier && opportunityNumber.opportunity_identifier.identifier
@@ -139,6 +139,9 @@ export class ProjectFunding extends BaseGraphQLModel {
         );
       }
     }
+
+console.log('FUNDER PROJECTS', projectNumbers);
+console.log('FUNDER OPPORTUNITIES', opportunityNumbers);
 
     // Find or initialize all other contributors
     const funding: FundingType[] = maDMPProject.funding ?? [];

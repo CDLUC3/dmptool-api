@@ -58,8 +58,8 @@ export interface VersionedTemplateQueryResponse {
 /**
  * Representation of the GraphQL query results for versionedTemplates
  */
-export interface VersionedTemplatesResponse {
-  versionedTemplates: VersionedTemplate[];
+export interface VersionedTemplateResponse {
+  versionedTemplate: VersionedTemplate;
 }
 
 export interface DefaultTemplateResponse {
@@ -324,7 +324,7 @@ export class VersionedTemplate extends BaseGraphQLModel {
    * @throws any errors from the GraphQL server (e.g. Unauthorized, Not Found, etc.)
    */
   static async findByTemplateId(request: FastifyRequest, id: number): Promise<VersionedTemplate | undefined> {
-    const resp: GQLResponse<VersionedTemplatesResponse> = await this.query<VersionedTemplatesResponse>(
+    const resp: GQLResponse<VersionedTemplateResponse> = await this.query<VersionedTemplateResponse>(
       request,
       {
         query: VersionedTemplatesDocument,
@@ -332,9 +332,7 @@ export class VersionedTemplate extends BaseGraphQLModel {
         errorPolicy: "all"
       }
     );
-    return resp.data && Array.isArray(resp.data.versionedTemplates)
-      ? resp.data.versionedTemplates.map(vt => new VersionedTemplate(vt))[0]
-      : undefined;
+    return resp.data && resp.data.versionedTemplate ? resp.data.versionedTemplate : undefined;
   }
 
   /**

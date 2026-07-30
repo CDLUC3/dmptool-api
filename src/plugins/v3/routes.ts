@@ -199,6 +199,8 @@ const v3RoutesPlugin = async function (
         'POST: maDMP has been created'
       );
 
+console.log('ROUTE RESULT', result);
+
       // Should never happen, an error will normally be thrown, but just in case
       // the response was undefined, throw an error
       if (!result) {

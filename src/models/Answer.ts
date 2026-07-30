@@ -61,12 +61,17 @@ export class Answer extends BaseGraphQLModel {
       const parseResult: ZodSafeParseResult<AnyAnswerType> = AnyAnswerSchema.safeParse(
         parsedJSON.json ? parsedJSON.json : parsedJSON
       );
+
+      if (!parseResult || !parseResult.success) {
+        this.errors['json'] = `Unable to parse Answer JSON: ${parseResult?.error?.message}`;
+      }
+
       this.validatedJSON = parseResult?.success ? parseResult.data : defaultJSON;
     } else {
       this.validatedJSON = defaultJSON;
     }
 
-    this.json = JSON.stringify(this.validatedJSON);
+    this.json = this.validatedJSON ? JSON.stringify(this.validatedJSON) : '{}';
   }
 
   /**
@@ -93,7 +98,7 @@ export class Answer extends BaseGraphQLModel {
     return {
       versionedSectionId: this.versionedSectionId,
       versionedQuestionId: this.versionedQuestionId,
-      json: JSON.stringify(this.json)
+      json: typeof this.json === 'object' ? JSON.stringify(this.json) : this.json,
     };
   }
 }
