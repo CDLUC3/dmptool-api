@@ -1,6 +1,33 @@
 import { ConfigurationOptions } from "./types.js";
 
 /**
+ * LANGUAGES:
+ *
+ * The maDMP JSON schemas work with 3 character codes (ISO 639-3). For example `eng`
+ * The DMP Tool works with 5 character codes (ISO 639-1 language with ISO 3166-1
+ * alpha-2 country code) for example `en-US`
+ *
+ * The following functions and types help map between the different language code formats
+ */
+export const DEFAULT_LANGUAGE = 'en-US' as const;
+
+export const LanguageMapThreeToFive = {
+  'eng': 'en-US',
+  'ptb': 'pt-BR'
+} as const
+
+export type LangISO3 = keyof typeof LanguageMapThreeToFive; // 'eng' | 'ptb'
+export type LangISO5 = typeof LanguageMapThreeToFive[LangISO3]; // 'en-US' | 'pt-BR'
+
+export const LanguageMapFiveToThree = Object.fromEntries(
+  Object.entries(LanguageMapThreeToFive).map(([k, v]) => [v, k])
+) as Record<LangISO5, LangISO3>;
+
+export const isValidISO3 = (lang: string): lang is LangISO3 => {
+  return lang in LanguageMapThreeToFive;
+}
+
+/**
  * Extracts the identifier from an object that may contain an identifier or
  * an array of identifiers.
  *
@@ -12,6 +39,17 @@ export const extractIdentifier = (
 ): string | undefined => {
   if (Array.isArray(idObj)) return idObj[0]?.identifier?.trim();
   return idObj?.identifier?.trim();
+};
+
+/**
+ * Whether the valid is an email address
+ *
+ * @param email the string value
+ * @returns true if the value is in a valid email format
+ */
+export const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
 };
 
 /**

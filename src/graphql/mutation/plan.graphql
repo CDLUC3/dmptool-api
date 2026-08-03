@@ -1,5 +1,5 @@
-mutation AddPlan($projectId: Int!, $versionedTemplateId: Int!) {
-  addPlan(projectId: $projectId, versionedTemplateId: $versionedTemplateId) {
+mutation AddPlan($input: AddEntirePlanInput!) {
+  addEntirePlan(input: $input) {
     id
     created
     createdById
@@ -10,76 +10,45 @@ mutation AddPlan($projectId: Int!, $versionedTemplateId: Int!) {
       general
       versionedTemplateId
       projectId
-    }
-  }
-}
-
-mutation UpdatePlanStatus($planId: Int!, $status: PlanStatus!) {
-  updatePlanStatus(planId: $planId, status: $status) {
-    errors {
-      general
-      status
-    }
-    id
-    dmpId
-    modified
-    modifiedById
-    status
-    visibility
-  }
-}
-
-mutation UpdatePlanTitle($planId: Int!, $title: String!) {
-  updatePlanTitle(planId: $planId, title: $title) {
-    errors {
-      general
       title
+      visibility
+      status
+      languageId
+      members
+      funding
+      alternateIdentifiers
+      relatedWorks
     }
+  }
+}
+
+mutation UpdatePlan($input: UpdateEntirePlanInput!) {
+  updateEntirePlan(input: $input) {
     id
     dmpId
     modified
     modifiedById
     title
-  }
-}
-
-mutation ArchivePlan($planId: Int!) {
-  archivePlan(planId: $planId) {
-    id
-    modified
-    modifiedById
+    status
+    visibility
+    languageId
     errors {
       general
-    }
-  }
-}
-
-mutation AddAlternateIdentifier($planId: Int!, $alternateIdentifier: String!) {
-  addAlternateIdentifierToPlan(planId: $planId, alternateIdentifier: $alternateIdentifier) {
-    errors {
-      general
-      alternateIdentifier
-      planId
-    }
-    id
-    alternateIdentifier
-    plan {
-      id
+      title
+      status
+      visibility
+      languageId
+      projectId
+      versionedTemplateId
+      members
+      funding
+      alternateIdentifiers
+      relatedWorks
     }
   }
 }
 
-mutation RemoveAlternateIdentifier($planId: Int!, $alternateIdentifier: String!) {
-  removeAlternateIdentifierFromPlan(planId: $planId, alternateIdentifier: $alternateIdentifier) {
-    errors {
-      general
-      alternateIdentifier
-      planId
-    }
-    id
-    alternateIdentifier
-    plan {
-      id
-    }
-  }
+mutation RemovePlan($dmpId: String!) {
+  removeEntirePlanByDMPId(dmpId: $dmpId)
 }
+

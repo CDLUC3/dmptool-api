@@ -1,15 +1,14 @@
-import { FastifyRequest } from "fastify";
 import {
-  AnswerDefaultMap,
-  AnyResearchOutputTableColumnAnswerSchema,
   AnyResearchOutputTableColumnAnswerType,
-  DefaultResearchOutputTableAnswer,
-  DefaultResearchOutputTableRowAnswer,
+  CURRENT_SCHEMA_VERSION,
+  DefaultResearchOutputTableColumnAnswerMap,
+  DefaultResearchOutputTableQuestion,
   DMPToolDMPType,
+  MetadataStandardSearchAnswerType,
   QuestionFormatsEnum,
+  RepositorySearchAnswerType,
   ResearchOutputTableAnswerType,
   ResearchOutputTableQuestionType,
-  ResearchOutputTableRowAnswerSchema,
   ResearchOutputTableRowAnswerType,
   TextAnswerType,
 } from "@dmptool/types";
@@ -17,16 +16,14 @@ import { Plan } from "../../../models/Plan.js";
 import {
   DatasetsType,
   DatasetType,
-  DistributionType,
+  DistributionType, HostType, IdentifierType,
   LicenseType,
-  MetadataType,
   NarrativeQuestionType,
   NarrativeSectionType,
   NarrativeTemplateType
 } from "../../../types.js";
 import { VersionedQuestion } from "../../../models/VersionedTemplate.js";
 import { Answer } from "../../../models/Answer.js";
-import { convertMySQLDateTimeToRFC3339 } from "@dmptool/utils";
 
 interface ProcessNarrativeResponse {
   question?: VersionedQuestion;
@@ -36,28 +33,22 @@ interface ProcessNarrativeResponse {
 /**
  * Convert an entry from the maDMP narrative section into an answer
  *
- * @param request the Fastify request
  * @param plan the Plan
  * @param question the maDMP narrative question
  * @returns the Answer to the Versioned Question
  */
 const fromMaDMPNarrative = (
-  request: FastifyRequest,
   plan: Plan,
   question: NarrativeQuestionType
 ): Answer | undefined => {
-  const logBase = { planId: plan.id, title: plan.title };
-
   // The Plan must have a versioned template
   if (!plan.versionedTemplate) {
-    request.log.error(logBase, 'Plan does not have a versioned template!');
     return undefined;
   }
 
   // Find the question within the Plan's versioned template
   const versionedQuestion: VersionedQuestion | undefined = plan.versionedTemplate.findNarrativeQuestion(question);
   if (!versionedQuestion) {
-    request.log.error({ ...logBase, question }, 'Specified question does not exist on versioned template');
     return undefined;
   }
 
@@ -72,7 +63,6 @@ const fromMaDMPNarrative = (
 /**
  * Convert maDMP dataset entries into a Research Output Table Answer
  *
- * @param request the Fastify request
  * @param plan the Plan
  * @param question the Versioned Question
  * @param existingAnswer the current ResearchOutputTableAnswer derived from the maDMP narrative
@@ -80,26 +70,22 @@ const fromMaDMPNarrative = (
  * @returns the updated research output table answer
  */
 const fromMaDMPDatasets = (
-  request: FastifyRequest,
   plan: Plan,
   question: VersionedQuestion,
   existingAnswer: ResearchOutputTableAnswerType,
   datasets: DatasetsType,
 ): ResearchOutputTableAnswerType | undefined => {
-  const logBase = { planId: plan.id, title: plan.title };
   const newAnswer: ResearchOutputTableAnswerType = structuredClone(existingAnswer);
   const roQuestion = JSON.parse(question.json) as ResearchOutputTableQuestionType;
 
   // The Plan must have a versioned template
   if (!plan.versionedTemplate) {
-    request.log.error(logBase, 'Plan does not have a versioned template!');
     return undefined;
   }
 
   // Find the question within the Plan's versioned template
   const versionedQuestion: VersionedQuestion | undefined = plan.versionedTemplate.findQuestionById(question.id);
   if (!versionedQuestion) {
-    request.log.error({ ...logBase, question }, 'Specified question does not exist on versioned template');
     return undefined;
   }
 
@@ -119,8 +105,8 @@ const fromMaDMPDatasets = (
     // Try to find a match by the dataset title (since it is the only required column)
     // in the existing research output table answer
     const existingRow: ResearchOutputTableRowAnswerType | undefined = existingTitles.get(dataset.title.toLowerCase().trim());
-    const workingRow = existingRow
-      || initializeResearchOutputTableRow(roQuestion as ResearchOutputTableQuestionType);
+    const workingRow: ResearchOutputTableRowAnswerType = existingRow
+      || initializeResearchOutputTableAnswerRow(roQuestion as ResearchOutputTableQuestionType);
 
     if (!existingRow) {
       newAnswer.answer.push(workingRow);
@@ -137,14 +123,31 @@ const fromMaDMPDatasets = (
     researchOutputTableColumnFromMaDMPDataset(workingRow, 'host', dataset);
     researchOutputTableColumnFromMaDMPDataset(workingRow, 'metadata', dataset);
     researchOutputTableColumnFromMaDMPDataset(workingRow, 'license_ref', dataset);
-
-    request.log.debug(
-      { ...logBase, researchOutputTableRow: workingRow },
-      'fromMaDMPDatasets - done processing dataset info'
-    );
   }
 
   return newAnswer;
+}
+
+/**
+ * Constructs an empty row for a Research Output Table that conforms to the
+ * structure of the Research Output Question
+ *
+ * @param question the Research Output Table Question
+ * @returns a new Answer row for the Research Output Table
+ */
+const constructNewResearchOutputTableAnswer = (
+  question: ResearchOutputTableQuestionType
+): ResearchOutputTableAnswerType => {
+  const columnHeadings: string[] = question.columns.map((col) => {
+    return col.heading;
+  });
+
+  return {
+    type: "researchOutputTable",
+    columnHeadings: columnHeadings.filter((col): col is 'string' => !!col),
+    answer: [],
+    meta: { schemaVersion: CURRENT_SCHEMA_VERSION }
+  };
 }
 
 /**
@@ -153,28 +156,21 @@ const fromMaDMPDatasets = (
  * @param question the maDMP Research Output question
  * @returns a new Resource Output table answer row
  */
-const initializeResearchOutputTableRow = (
+const initializeResearchOutputTableAnswerRow = (
   question: ResearchOutputTableQuestionType,
 ): ResearchOutputTableRowAnswerType => {
-  const row: ResearchOutputTableRowAnswerType = ResearchOutputTableRowAnswerSchema.parse(
-    DefaultResearchOutputTableRowAnswer
-  );
+  const cols: AnyResearchOutputTableColumnAnswerType[] = [];
 
-  // Loop through each of the columns and generate a default answer column
-  for (const column of question.columns) {
-    const columnType = column.content.type ?? 'textArea';
-    const answer = AnyResearchOutputTableColumnAnswerSchema.parse(
-      AnswerDefaultMap[columnType]
-    );
-    row.columns.push(answer);
+  for (const col of question.columns) {
+    cols.push(DefaultResearchOutputTableColumnAnswerMap[col.commonStandardId]);
   }
 
-  return row;
+  return { columns: cols };
 }
 
 /**
  * Convert the specified column (referenced by commonStandardId) in the maDMP
- * dataset entry into a RersearchOutputTableColumnAnswerType
+ * dataset entry into a ResearchOutputTableColumnAnswerType
  *
  * @param row the Research Output table row
  * @param commonStandardId the identifier of the field in the maDMP
@@ -203,38 +199,72 @@ const researchOutputTableColumnFromMaDMPDataset = (
     }
 
     if (commonStandardId === 'host') {
-      column.answer = dataset.distribution
-        ?.filter((dist: DistributionType) => !!dist.host && !!dist.host.url)
-        ?.map((dist: DistributionType) => ({
-          repositoryId: dist.host.host_id?.identifier || dist.host.url,
-          repositoryName: dist.host.title || '',
-        }));
+      const repositories: RepositorySearchAnswerType['answer'] = [];
+      if (Array.isArray(dataset.distribution)) {
+        const hosts: HostType[] = dataset.distribution?.flatMap((dist: DistributionType) => dist.host || []);
+
+        for (const host of hosts) {
+          const ids: IdentifierType[] = Array.isArray(host.host_id)
+            ? host.host_id?.filter((id: IdentifierType): boolean => !!id.identifier)
+            : [];
+
+          if (ids.length > 0) {
+            for (const id of ids) {
+              repositories.push({
+                repositoryName: host.title || '',
+                repositoryId: id.identifier
+              });
+            }
+          }
+        }
+      }
+      column.answer = repositories;
+
       return column as AnyResearchOutputTableColumnAnswerType;
     }
 
     if (commonStandardId === 'metadata') {
-      column.answer = dataset.metadata
-        ?.filter((meta: MetadataType) => !!meta.metadata_standard_id?.identifier)
-        ?.map((meta: MetadataType) => ({
-          metadataStandardId: meta.metadata_standard_id.identifier,
-          repositoryName: meta.description?.slice(0, 50) || '',
-        }));
+      const metadataStandards: MetadataStandardSearchAnswerType['answer'] = [];
+      if (Array.isArray(dataset.metadata)) {
+        for (const standard of dataset.metadata) {
+          const ids: IdentifierType[] = Array.isArray(standard.metadata_standard_id)
+            ? standard.metadata_standard_id?.filter((id: IdentifierType): boolean => !!id.identifier)
+            : [];
+          if (ids.length > 0) {
+            for (const id of ids) {
+              metadataStandards.push({
+                metadataStandardName: standard.description?.slice(0, 50) || '',
+                metadataStandardId: id.identifier
+              });
+            }
+          }
+        }
+      }
+      column.answer = metadataStandards;
       return column as AnyResearchOutputTableColumnAnswerType;
     }
 
     if (commonStandardId === 'license_ref') {
-      const licenses = dataset.distribution?.flatMap((dist: DistributionType) => dist.license_ref || []);
-      const now = new Date();
-      const mostRecent = licenses
-        ?.filter((lic: LicenseType) => !!lic.license_ref)
-        ?.sort((licA: LicenseType, licB: LicenseType) => licB.start_date - licA.start_date) // sort descending
-        ?.find((lic: LicenseType) => lic.start_date <= now);
+      if (Array.isArray(dataset.distribution)) {
+        const licenses: LicenseType[] = dataset.distribution?.flatMap((dist: DistributionType) => dist.license || []);
+        const today = new Date();
+        // Filter out any empty ones sorted ascending
+        const allLicenses = licenses?.filter((lic: LicenseType): boolean => !!lic.license_ref)
+          ?.sort((licA: LicenseType, licB: LicenseType) => licB.start_date - licA.start_date) || [];
 
-      // The DMP Tool only allows one License, so use the one that is effective today
-      column.answer = [{
-        licenseId: mostRecent?.license_ref || '',
-        licenseName: ''
-      }];
+        // Determine which licenses started in the past (or today) and sort them descending
+        const nonFutureLicenses: LicenseType[] = allLicenses.filter((lic: LicenseType): boolean => {
+          return !!lic.license_ref && new Date(lic.start_date).getTime() <= today.getTime();
+        })?.sort((licA: LicenseType, licB: LicenseType) => licB.start_date - licA.start_date) || [];
+
+        // The DMP Tool only allows one License, so use the one whose start date is closest to today
+        column.answer = nonFutureLicenses[0]
+          ? [{licenseId: nonFutureLicenses[0].license_ref, licenseName: ''}]
+          : allLicenses[0] ? [{
+            licenseId: allLicenses[0].license_ref,
+            licenseName: ''
+          }] : [];
+      }
       return column as AnyResearchOutputTableColumnAnswerType;
     }
 
@@ -263,11 +293,11 @@ const researchOutputTableColumnFromMaDMPDataset = (
         }
         break;
       case 'issued':
-        column.answer = convertMySQLDateTimeToRFC3339(distribution?.issued) || '';
+        column.answer = distribution?.issued;
         break;
       case 'byte_size':
         column.answer = {
-          value: distribution?.byte_size?.toString() || '',
+          value: Number.isInteger(distribution?.byte_size) ? distribution?.byte_size : undefined,
           context: 'bytes'
         }
         break;
@@ -282,7 +312,6 @@ const researchOutputTableColumnFromMaDMPDataset = (
 
 // Convert all the incoming answers and find their matching Question in the Versioned Template
 const processNarrative = (
-  request: FastifyRequest,
   plan: Plan,
   narrative: NarrativeTemplateType,
 ): ProcessNarrativeResponse[] => {
@@ -294,7 +323,6 @@ const processNarrative = (
     (s: NarrativeSectionType) => s.question
   );
 
-  const logBase = { planId: plan.id, versionedTemplateId: plan.versionedTemplate.id };
   // Loop through all the questions sent in, validate and parse them and find their
   // matching question within the actual template
   const warnings: string[] = [];
@@ -304,17 +332,9 @@ const processNarrative = (
     if (matched) {
       questions.push({
         question: matched,
-        answer: fromMaDMPNarrative(request, plan, questionIn)
+        answer: fromMaDMPNarrative(plan, questionIn)
       });
-      request.log.debug(
-        { ...logBase, versionedQuestionId: matched.id },
-        'processNarrative - Found matching question'
-      );
     } else {
-      request.log.debug(
-        { planId: plan.id, versionedTemplateId: plan.versionedTemplate.id, question: questionIn },
-        'processNarrative - No matching question found'
-      );
       warnings.push(`Unable to find question for narrative question "${questionIn.text}"`);
     }
   }
@@ -329,30 +349,23 @@ const processNarrative = (
 /**
  * Workflow to transform the `narrative` portion of the maDMP into Answers on a Plan
  *
- * @param request the Fastify request
  * @param plan the Plan to update with the narrative content
  * @param dmp the maDMP
  * @returns the updated Plan with answers
- * @throws Fastify errors if something went wrong
  */
-export const createNarrativeWorkflow = async (
-  request: FastifyRequest,
+export const createNarrativeWorkflow = (
   plan: Plan,
   dmp: DMPToolDMPType['dmp']
-): Promise<Plan> => {
+): Answer[] => {
   // This should never occur because we have a default, but if the VersionedTemplate
   // is not defined we should bail out immediately
-  if (!plan.versionedTemplate) return plan;
+  if (!plan.versionedTemplate) return [];
 
   const narrative: NarrativeTemplateType | undefined = dmp.narrative;
   const datasets: DatasetType[] = dmp.dataset || [];
-
-  // First process the narrative portion of the maDMP
-  const processedNarrative: ProcessNarrativeResponse[] = processNarrative(request, plan, narrative.template);
-  request.log.debug(
-    { planId: plan.id, narrative: processedNarrative },
-    'createNarrativeWorkflow - Narrative extracted from the narrative portion of the maDMP record.'
-  )
+  const processedNarrative: ProcessNarrativeResponse[] = narrative?.template
+    ? processNarrative(plan, narrative.template)
+    : [];
 
   // Locate the research output table question
   const researchOutputQuestion: VersionedQuestion | undefined = plan.versionedTemplate.researchOutputTableQuestion();
@@ -365,9 +378,12 @@ export const createNarrativeWorkflow = async (
     });
 
     // Convert the dataset into a row in the research output table format
-    const roAnswer: ResearchOutputTableAnswerType = roEntry?.answer?.validatedJSON as ResearchOutputTableAnswerType || DefaultResearchOutputTableAnswer;
+    const newAnswer: ResearchOutputTableAnswerType = researchOutputQuestion
+      ? constructNewResearchOutputTableAnswer(researchOutputQuestion.validatedJSON as ResearchOutputTableQuestionType)
+      : constructNewResearchOutputTableAnswer(DefaultResearchOutputTableQuestion);
+    const roAnswer: ResearchOutputTableAnswerType = roEntry?.answer?.validatedJSON as ResearchOutputTableAnswerType || newAnswer;
+
     const researchOutputAnswer: ResearchOutputTableAnswerType | undefined = fromMaDMPDatasets(
-      request,
       plan,
       researchOutputQuestion,
       roAnswer,
@@ -383,6 +399,7 @@ export const createNarrativeWorkflow = async (
         json: researchOutputAnswer
       });
       const newEntry: ProcessNarrativeResponse = { question: researchOutputQuestion, answer: newRoAnswer };
+
       if (roEntry) {
         // Replace the original research output answer with the new one
         processedNarrative.splice(
@@ -397,25 +414,9 @@ export const createNarrativeWorkflow = async (
     }
   }
 
-  request.log.debug(
-    { planId: plan.id, narrative: processedNarrative },
-    'createNarrativeWorkflow - Saving narrative information to the plan answers.'
-  );
-
   // Persist the plan answers to the DB
-  const saveErrs: string[] = [];
-  for (const entry of processedNarrative) {
-    if (!entry) continue;
-
-    const saved: boolean | undefined = await entry.answer?.save(request);
-    if (!saved) {
-      saveErrs.push(`Unable to save answer for question ${entry.question?.id}`);
-    }
-  }
-
-  // If any errors occurred add them to the plan
-  if (saveErrs.length > 0) {
-    plan.errors['narrative'] = saveErrs.join('; ');
-  }
-  return plan;
+  return processedNarrative
+    ? processedNarrative.map((entry: ProcessNarrativeResponse): Answer | undefined => entry.answer)
+      .filter((answer: Answer | undefined): answer is Answer => !!answer)
+    : [];
 }

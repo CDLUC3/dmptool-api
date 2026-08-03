@@ -1,272 +1,280 @@
 import { FastifyRequest } from "fastify";
 import { ApolloClient } from "@apollo/client";
 import MutateOptions = ApolloClient.MutateOptions;
-import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { DMPToolDMPType } from "@dmptool/types";
-import { PlanMember } from "./PlanMember.js";
-import { VersionedTemplate } from "./VersionedTemplate.js";
-import { AlternateIdentifierType } from "../types.js";
+import { randomHex, removeNullAndUndefinedFromObject } from "@dmptool/utils";
 import {
-  AddAlternateIdentifierDocument,
+  AddEntirePlanInput,
   AddPlanDocument,
-  ArchivePlanDocument,
+  EntirePlanAnswerFragment,
+  EntirePlanFundingFragment,
+  EntirePlanMemberFragment,
   PlanByAlternateIdentifierDocument,
   PlanByDmpIdDocument,
-  PlanDocument,
-  PlansDocument,
   PlanStatus,
   PlanVisibility,
-  RemoveAlternateIdentifierDocument,
-  UpdatePlanStatusDocument,
-  UpdatePlanTitleDocument
+  RemovePlanDocument,
+  UpdateEntirePlanInput,
+  UpdatePlanDocument
 } from "../generated/graphql.js";
-import { randomHex } from "@dmptool/utils";
+import { AlternateIdentifierType } from "../types.js";
+import { DEFAULT_LANGUAGE, LangISO5 } from "../utils.js";
+import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
+import { Project, ProjectQueryResponse } from "./Project.js";
+import {
+  VersionedTemplate,
+  VersionedTemplateQueryResponse
+} from "./VersionedTemplate.js";
+import { ProjectFunding } from "./ProjectFunding.js";
+import { ProjectMember } from "./ProjectMember.js";
+import { Answer, AnswerQueryResponse } from "./Answer.js";
+import {
+  createNarrativeWorkflow
+} from "../plugins/v3/workflows/narrativeWorkflow.js";
 
 /**
- * Represents an alternate identifier for a Data Management Plan
+ * Represents the structure of a plan from a GraphQL query
  */
-export interface AlternateIdentifierInterface {
-  id: number;
+export interface PlanQueryResponse {
+  id?: number;
+  dmpId?: string;
+  title?: string;
+  visibility?: string;
+  status?: string;
+  registered?: string;
+  project?: ProjectQueryResponse;
+  members?: {
+    id?: number;
+    projectMember?: {
+      id?: number;
+      }
+    memberRoles?: {
+      id?: number;
+      uri?: string;
+    }[]
+  }[];
+  fundings?: {
+    id?: number;
+    projectFunding?: {
+      id?: number;
+    }
+  }[];
+  answers?: AnswerQueryResponse[];
+  versionedTemplate?: VersionedTemplateQueryResponse;
+  alternateIdentifiers?: {
+    id?: number;
+    alternateIdentifier: string;
+  }[];
+}
+
+/**
+ * The shape of a plan's alternate identifier within a GraphQL query response
+ */
+export interface AlternateIdentifierQueryResponse {
+  id?: number;
   alternateIdentifier: string;
-  created: string;
-  createdById: number;
-  modified: string;
-  modifiedById: number;
-  errors?: Record<string, string>;
-}
-
-/**
- * The possible response for a Plan GraphQL query
- */
-export interface PlanResponse {
-  plan: Plan
-}
-
-/**
- * The possible response for a Plans GraphQL query
- */
-export interface PlansResponse {
-  plans: Plan[]
 }
 
 /**
  * The response from the planByDMPId GraphQL query
  */
 export interface PlanByDMPIdResponse {
-  planByDMPId: Plan
+  planByDMPId: PlanQueryResponse
 }
 
 /**
  * The response from the planByAlternateIdentifier GraphQL query
  */
 export interface PlanByAlternateIdentifierResponse {
-  planByAlternateIdentifier: Plan
+  planByAlternateIdentifier: PlanQueryResponse
 }
 
 /**
- * Representation of the GraphQL query response for adding a Plan
+ * Representation of the GraphQL query response for adding an entire Plan
  */
-export interface AddPlanResponse {
-  addPlan: Plan
+export interface AddEntirePlanResponse {
+  addEntirePlan: Plan
 }
 
 /**
- * Representation of the GraphQL query response for updating a Plan title
+ * Representation of the GraphQL query response for updating an entire Plan
  */
-export interface UpdatePlanTitleResponse {
-  updatePlanTitle: Plan
+export interface UpdateEntirePlanResponse {
+  updateEntirePlan: Plan
 }
 
 /**
- * Representation of the GraphQL query response for updating a Plan status
+ * Representation of the GraphQL query response for deleting an entire Plan
  */
-export interface UpdatePlanStatusResponse {
-  updatePlanStatus: Plan
-}
-
-/**
- * Representation of the GraphQL query response for deleting a Plan
- */
-export interface ArchivePlanResponse {
-  archivePlan: Plan
-}
-
-/**
- * Representation of the GraphQL query response for adding an alternate identifier
- */
-export interface AddAlternateIdentifierResponse {
-  addAlternateIdentifierToPlan: AlternateIdentifierInterface
-}
-
-/**
- * Representation of the GraphQL query response for removing an alternate identifier
- */
-export interface RemoveAlternateIdentifierResponse {
-  removeAlternateIdentifierFromPlan: AlternateIdentifierInterface
+export interface RemoveEntirePlanResponse {
+  removeEntirePlan: Plan
 }
 
 /**
  * Represents a Data Management Plan
  */
 export class Plan extends BaseGraphQLModel {
-  projectId?: number;
+  dmpId: string;
+  title: string;
+  status: PlanStatus;
+  visibility: PlanVisibility;
+  languageId: LangISO5;
+  registered?: string;
+  templateId?: number;
+
+  project: Project;
+
   versionedTemplate?: VersionedTemplate;
 
-  dmpId: string;
-  title?: string;
-  visibility?: PlanVisibility;
-  status?: PlanStatus;
-  registered?: string;
+  alternateIdentifiers?: string[];
+  // TODO: Update this once we've got the related works fixed in the maDMP record
+  //       they are currently including too much (suggested/proposed matches)
+  relatedWorks?: string[];
 
-  alternateIdentifiers?: AlternateIdentifierInterface[];
-  members?: PlanMember[];
+  members?: ProjectMember[];
+  funding?: ProjectFunding[];
+  answers?: Answer[];
 
   constructor(options: Partial<Plan> = {}) {
     super(options);
 
-    this.projectId = options.projectId;
-    this.versionedTemplate = options.versionedTemplate ? new VersionedTemplate(options.versionedTemplate) : undefined;
-    this.dmpId = options.dmpId ?? `tmp-dmps-${randomHex(12)}`;
-    this.title = options.title;
-    this.visibility = options.visibility ?? 'PRIVATE';
-    this.status = options.status ?? 'DRAFT';
+    this.dmpId = options.dmpId || `tmp-dmps-${randomHex(12)}`;
+    this.title = options.title || 'Untitled Plan';
+    this.status = options.status || 'DRAFT';
+    this.visibility = options.visibility || 'PRIVATE';
+    this.languageId = options.languageId ? options.languageId : DEFAULT_LANGUAGE;
     this.registered = options.registered;
-    this.alternateIdentifiers = options.alternateIdentifiers ?? [];
+    this.templateId = options.templateId;
+
+    this.versionedTemplate = options.versionedTemplate;
+
+    // Use the specified Project or initialize one using the Plan title
+    this.project = options.project
+      ? new Project(options.project)
+      : new Project({ title: options.title });
+
+    this.alternateIdentifiers = options.alternateIdentifiers || [];
+    this.relatedWorks = options.relatedWorks || [];
 
     this.members = options.members
-      ? options.members.map((m: PlanMember) => new PlanMember(m))
+      ? options.members.map((m: ProjectMember) => new ProjectMember(m))
       : [];
 
+    this.funding = options.funding
+      ? options.funding.map((f: ProjectFunding) => new ProjectFunding(f))
+      : [];
+
+    this.answers = options.answers
+      ? options.answers.map((a: Answer) => new Answer(a))
+    : [];
+
     this.graphQLErrorsThatShouldBeWarnings = new Set<string>([
-      'alternateIdentifiers'
+      'alternateIdentifiers',
+      'relatedWorks'
     ]);
   }
 
-  /**
-   * Shortcut helper function to save or update the current Plan
-   *
-   * @param request
-   * @returns true if successful. If not, any errors are added to the error object
-   */
-  async save(request: FastifyRequest): Promise<boolean> {
-    if (this.id) return await this.update(request);
-
-    const created: boolean = await this.create(request);
-    if (created) {
-      // If the creation was successful, follow it up with an update since the
-      // creat process does not set the title or status!
-      return await this.update(request);
+  static fromGraphQL(graphQLPlan: PlanByDMPIdResponse | PlanByAlternateIdentifierResponse): Plan {
+    if (!graphQLPlan) {
+      throw new Error('Invalid GraphQL plan');
     }
-    return false;
+
+    const payload: PlanQueryResponse = 'planByDMPId' in graphQLPlan
+      ? graphQLPlan.planByDMPId
+      : graphQLPlan.planByAlternateIdentifier;
+
+    if (!payload || !payload.project || !payload.versionedTemplate) {
+      throw new Error('Invalid GraphQL plan payload');
+    }
+
+    const versionedTemplate: VersionedTemplate = VersionedTemplate.fromGraphQL(payload.versionedTemplate);
+    const project: Project = Project.fromGraphQL(payload.project);
+
+    const answers: Answer[] = payload.answers
+      ? payload.answers.map((a: AnswerQueryResponse): Answer => Answer.fromGraphQL(a))
+      : [];
+
+    const alternateIdentifiers = payload.alternateIdentifiers
+      ? payload.alternateIdentifiers.map((id: AlternateIdentifierQueryResponse): string => {
+          return id.alternateIdentifier;
+        })
+      : [];
+
+    return new Plan({
+      id: payload.id,
+      dmpId: payload.dmpId,
+      title: payload.title,
+      visibility:  payload.visibility?.toUpperCase() as PlanVisibility,
+      status: payload.status?.toUpperCase() as PlanStatus,
+      registered: payload.registered,
+
+      versionedTemplate,
+      project,
+      alternateIdentifiers,
+      members: project.members,
+      funding: project.funding,
+      answers
+    });
   }
 
   /**
-   * Create the current Plan
+   * Convert a maDMP record
    *
-   * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the error object
+   * @param maDMP the maDMP record
+   * @param versionedTemplate the versionedTemplate to use for the narrative
+   * @param currentProject the current Project
+   * @param currentPlan the current Plan
+   * @returns a new Plan object
    */
-  async create(request: FastifyRequest): Promise<boolean> {
-    const saved: GQLResponse<AddPlanResponse> = await Plan.mutate<AddPlanResponse>(
-      request,
-      {
-        mutation: AddPlanDocument,
-        variables: {
-          projectId: this.projectId,
-          versionedTemplateId: this.versionedTemplate?.id
-        },
-        errorPolicy: "all"
-      } as MutateOptions
-    );
-    const data: Plan | undefined = saved?.data?.addPlan;
-    this.processGQLResponse(saved, data as Plan, 'create Plan');
+  static reconcileFromMaDMP(
+    maDMP: DMPToolDMPType['dmp'],
+    versionedTemplate: VersionedTemplate,
+    currentProject?: Project,
+    currentPlan?: Plan
+  ): Plan {
+    const project: Project = currentProject || Project.reconcileFromMaDMP(maDMP, currentProject);
 
-    // Update the dmpId if it is set to a temporary value
-    if (data?.dmpId && this.dmpId.startsWith('tmp-dmps-')) {
-      this.dmpId = data.dmpId
-    }
-    return !this.hasErrors();
-  }
+    const alternateIdentifiers: string[] = (maDMP.alternate_identifier ?? []).map((entry: AlternateIdentifierType): string => {
+      return entry.identifier?.trim();
+    });
 
-  /**
-   * Update the current Plan
-   *
-   * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the error object
-   */
-  async update(request: FastifyRequest): Promise<boolean> {
-    // First update the Plan title
-    const savedTitle: GQLResponse<UpdatePlanTitleResponse> = await Plan.mutate<UpdatePlanTitleResponse>(
-      request,
-      {
-        mutation: UpdatePlanTitleDocument,
-        variables: {
-          planId: this.id,
-          title: this.title
-        },
-        errorPolicy: "all"
-      } as MutateOptions
-    );
-    const titleData: Plan | undefined = savedTitle?.data?.updatePlanTitle;
-    this.processGQLResponse(savedTitle, titleData as Plan, 'update Plan.title');
+    // If the current plan is present, we are replacing it, so always return
+    // a new object.
+    const newPlan: Plan = new Plan({
+      id: currentPlan?.id,
+      versionedTemplate: currentPlan?.versionedTemplate || versionedTemplate,
+      dmpId: currentPlan?.dmpId,
+      project,
+      members: project.members || [],
+      funding: project.funding || [],
+      title: maDMP.title?.trim(),
+      status: maDMP.status?.toUpperCase() as PlanStatus,
+      visibility: maDMP.visibility?.toUpperCase() as PlanVisibility,
+      registered: currentPlan?.registered,
+      alternateIdentifiers: alternateIdentifiers.filter(Boolean),
+    });
 
-    if (titleData && !this.hasErrors()) {
-      // If successful, then update the Plan status
-      const savedStatus: GQLResponse<UpdatePlanStatusResponse> = await Plan.mutate<UpdatePlanStatusResponse>(
-        request,
-        {
-          mutation: UpdatePlanStatusDocument,
-          variables: {
-            planId: this.id,
-            status: this.status
-          },
-          errorPolicy: "all"
-        } as MutateOptions
-      );
-      const data: Plan | undefined = savedStatus?.data?.updatePlanStatus;
-      this.processGQLResponse(savedStatus, data as Plan, 'update Plan.status');
-    }
-
-    return !this.hasErrors();
-  }
-
-  /**
-   * Delete this plan
-   *
-   * @param request the Fastify request
-   * @returns true if successful. If not, any errors are added to the error object
-   */
-  async delete(request: FastifyRequest): Promise<boolean> {
-    const deleted: GQLResponse<ArchivePlanResponse> = await Plan.mutate<ArchivePlanResponse>(
-      request,
-      {
-        mutation: ArchivePlanDocument,
-        variables: { planId: this.id },
-        errorPolicy: "all"
-      } as MutateOptions
-    );
-    const data: Plan | undefined = deleted?.data?.archivePlan;
-    this.processGQLResponse(deleted, data as Plan, 'delete Plan');
-    return !this.hasErrors();
+    // Process the maDMP narrative and dataset array
+    newPlan.answers = createNarrativeWorkflow(newPlan, maDMP);
+    return newPlan;
   }
 
   /**
    * Find the Plan or initialize a new one
    *
    * @param request the Fastify request
-   * @param versionedTemplate the versioned template
    * @param dmp the maDMP metadata
+   * @param versionedTemplate the VersionedTemplate to use for the Plan narrative
    * @returns the plan
    */
   static async findOrInitialize(
     request: FastifyRequest,
-    versionedTemplate: VersionedTemplate,
-    dmp: DMPToolDMPType['dmp']
+    dmp: DMPToolDMPType['dmp'],
+    versionedTemplate: VersionedTemplate
   ): Promise<Plan> {
     const dmpId: string = dmp.dmp_id.identifier;
     // Try to find it by the DMP id
-    const plan: Plan | undefined = await Plan.findByDMPId(request, dmpId);
-    if (plan) return plan;
+    let plan: Plan | undefined = await Plan.findByDMPId(request, dmpId);
 
     // Try to find it by its alternate identifiers
     if (Array.isArray(dmp.alternate_identifier) && dmp.alternate_identifier.length > 0) {
@@ -276,114 +284,120 @@ export class Plan extends BaseGraphQLModel {
         const identifier = altId?.identifier?.trim();
         if (!identifier) continue;
 
-        const found: Plan | undefined = await Plan.findByAlternateIdentifier(request, identifier);
-        if (found) return found;
+        plan = await Plan.findByAlternateIdentifier(request, identifier);
       }
     }
 
-    // Otherwise we couldn't find it, so initialize a new one
-    return new Plan({
-      versionedTemplate,
-      title: dmp.title.trim(),
-      visibility: dmp.visibility ? dmp.visibility.toUpperCase() : null,
-      status: dmp.status ? dmp.status.toUpperCase() : null,
-    });
+    const project: Project = plan && plan.project?.id
+      ? plan.project
+      : await Project.findOrInitialize(request, dmp);
+
+    return Plan.reconcileFromMaDMP(dmp, versionedTemplate, project, plan);
   }
 
   /**
-   * Save alternate identifiers for this plan
+   * Create or update the Plan, Project and all of its associated objects
+   * (e.g. members, funding, etc.)
    *
    * @param request the Fastify request
-   * @param altIds the alternate identifiers to save
-   * @returns true if successful. If not, any errors are added to the errors object
+   * @returns true if successful otherwise it returns false and the plan will
+   * have an errors property with the error messages
    */
-  async saveAlternateIdentifiers(
-    request: FastifyRequest,
-    altIds: AlternateIdentifierType[]
-  ): Promise<boolean> {
-    // Just return true if there are no alternate identifiers to save
-    if (!altIds || !Array.isArray(altIds) || altIds.length === 0) return true;
+  async save(request: FastifyRequest): Promise<boolean> {
+    const members: EntirePlanMemberFragment[] = this.members
+      ? this.members.map((member: ProjectMember): EntirePlanMemberFragment => {
+        return member.toGraphQLInput();
+      })
+      : [];
 
-    const oldIds: string[] = this.alternateIdentifiers?.map((a: AlternateIdentifierInterface): string => a.alternateIdentifier) ?? [];
-    const newIds: string[] = altIds.map((a: AlternateIdentifierType): string => a.identifier);
-    const errs: string[] = [];
+    const funding: EntirePlanFundingFragment[] = this.funding
+      ? this.funding.map((fundingItem: ProjectFunding): EntirePlanFundingFragment => {
+        return fundingItem.toGraphQLInput();
+      })
+      : [];
 
-    // Remove whatever ones we currently have if they're not included in the altIds list
-    await Promise.all(oldIds.map(async (oldId: string): Promise<void> => {
-      // Check if it is still in the new list. If so, continue
-      if (newIds.includes(oldId)) return;
+    const answers: EntirePlanAnswerFragment[] = this.answers
+      ? this.answers.map((answer: Answer): EntirePlanAnswerFragment => {
+        return answer.toGraphQLInput();
+      })
+      : [];
 
-      const deleted: GQLResponse<RemoveAlternateIdentifierResponse> = await Plan.mutate<RemoveAlternateIdentifierResponse>(
+    const input: AddEntirePlanInput | UpdateEntirePlanInput = {
+      versionedTemplateId: this.versionedTemplate?.id,
+      title: this.title,
+      status: this.status,
+      visibility: this.visibility,
+      languageId: this.languageId,
+
+      project: this.project.toGraphQLInput(),
+
+      members,
+      funding,
+      answers,
+      alternateIdentifiers: this.alternateIdentifiers,
+    };
+
+    if (!this.id) {
+      request.log.debug({ input }, 'Creating new EntirePlan');
+      const created: GQLResponse<AddEntirePlanResponse> = await Plan.mutate<AddEntirePlanResponse>(
         request,
         {
-          mutation: RemoveAlternateIdentifierDocument,
-          variables: { planId: this.id, alternateIdentifier: oldId },
+          mutation: AddPlanDocument,
+          variables: {
+            input: removeNullAndUndefinedFromObject(input)
+          },
           errorPolicy: "all"
         } as MutateOptions
       );
-      const data: AlternateIdentifierInterface | undefined = deleted?.data?.removeAlternateIdentifierFromPlan;
-      // Process any errors that may have occurred
-      this.handleMutationErrors("delete AlternateIdentifier", deleted, data?.errors);
+      const data: Plan | undefined = created?.data?.addEntirePlan;
+      this.processGQLResponse(created, data as Plan, 'create EntirePlan');
+      // The above gets the id, created, modified, etc. but we need to assign the following too
+      this.dmpId = data?.dmpId || this.dmpId;
+      this.registered = data?.registered || this.registered;
 
-      // If data was returned and we have no errors
-      const hadErrors: boolean = this.hasErrors();
-      if (!data || hadErrors) {
-        // The removal failed so record the error
-        errs.push(`Unable to remove old alternate identifier: ${oldId}`);
-      }
-    }));
-
-    // Add all new alternate identifiers
-    await Promise.all(newIds.map(async (newId: string): Promise<void> => {
-      // If it is already in the old list, then we don't need to add it
-      if (oldIds.includes(newId)) return;
-
-      const added: GQLResponse<AddAlternateIdentifierResponse> = await Plan.mutate<AddAlternateIdentifierResponse>(
+    } else {
+      request.log.debug({ input: { ...input, id: this.id } }, 'Updating an EntirePlan');
+      const updated: GQLResponse<UpdateEntirePlanResponse> = await Plan.mutate<UpdateEntirePlanResponse>(
         request,
         {
-          mutation: AddAlternateIdentifierDocument,
-          variables: { planId: this.id, alternateIdentifier: newId },
+          mutation: UpdatePlanDocument,
+          variables: {
+            input: { ...input, id: this.id },
+          },
           errorPolicy: "all"
         } as MutateOptions
       );
-      const data: AlternateIdentifierInterface | undefined = added?.data?.addAlternateIdentifierToPlan;
-
-      // Process any errors that may have occurred
-      this.handleMutationErrors("create AlternateIdentifier", added, data?.errors);
-
-      // If data was returned and we have no errors
-      const hadErrors: boolean = this.hasErrors();
-      if (!data || hadErrors) {
-        // The removal failed so record the error
-        errs.push(`Unable to add new alternate identifier: ${newId}`);
-      }
-    }));
-
-    // If any errors occurred, add them to the warnings
-    if (errs.length > 0) {
-      this.warnings.alternateIdentifiers = errs.join("\n");
+      const data: Plan | undefined = updated?.data?.updateEntirePlan;
+      this.processGQLResponse(updated, data as Plan, 'update EntirePlan');
     }
+
     return !this.hasErrors();
   }
 
   /**
-   * Find a plan by its id
+   * Delete or tomb-stone the Plan
    *
    * @param request the Fastify request
-   * @param id the Plan's id
-   * @returns the Plan
+   * @returns true if the deletion was successful
    */
-  static async findById(request: FastifyRequest, id: number): Promise<Plan | undefined> {
-    const resp: GQLResponse<PlanResponse> = await this.query<PlanResponse>(
-      request,
-      {
-        query: PlanDocument,
-        variables: { planId: id },
-        errorPolicy: "all"
-      }
-    );
-
-    return resp.data?.plan ? new Plan(resp.data.plan) : undefined;
+  async delete(request: FastifyRequest): Promise<boolean> {
+    if (this.id) {
+      request.log.debug({ planId: this.id }, 'Archiving plan');
+      const archived: GQLResponse<RemoveEntirePlanResponse> = await Plan.mutate<RemoveEntirePlanResponse>(
+        request,
+        {
+          mutation: RemovePlanDocument,
+          variables: {
+            planId: this.id,
+          },
+          errorPolicy: "all"
+        } as MutateOptions
+      );
+      const data: Plan | undefined = archived?.data?.removeEntirePlan;
+      this.processGQLResponse(archived, data as Plan, 'remove EntirePlan');
+      return data?.hasErrors() === false;
+    }
+    return false;
   }
 
   /**
@@ -402,8 +416,7 @@ export class Plan extends BaseGraphQLModel {
         errorPolicy: "all"
       }
     );
-
-    return resp.data?.planByDMPId ? new Plan(resp.data.planByDMPId) : undefined;
+    return resp.data?.planByDMPId ? Plan.fromGraphQL(resp.data) : undefined;
   }
 
   /**
@@ -422,28 +435,6 @@ export class Plan extends BaseGraphQLModel {
         errorPolicy: "all"
       }
     );
-
-    return resp.data?.planByAlternateIdentifier ? new Plan(resp.data.planByAlternateIdentifier) : undefined;
-  }
-
-  /**
-   * Find plans by a Project id
-   *
-   * @param request the Fastify request
-   * @param projectId the Project's id
-   * @returns the Plans
-   */
-  static async findByProjectId(request: FastifyRequest, projectId: number): Promise<Plan[] | []> {
-    const resp: GQLResponse<PlansResponse> = await this.query<PlansResponse>(
-      request,
-      {
-        query: PlansDocument,
-        variables: { projectId },
-        errorPolicy: "all"
-      }
-    );
-    return Array.isArray(resp.data?.plans)
-      ? resp.data.plans.map((plan: Plan) => new Plan(plan))
-      : [];
+    return resp.data?.planByAlternateIdentifier ? Plan.fromGraphQL(resp.data) : undefined;
   }
 }

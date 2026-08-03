@@ -1,5 +1,5 @@
-query VersionedTemplates($templateId: Int!) {
-  templateVersions(templateId: $templateId) {
+query VersionedTemplates($id: Int!) {
+  versionedTemplate(id: $id) {
     id
     name
     version

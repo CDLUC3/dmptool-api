@@ -2,11 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import Fastify, { FastifyInstance } from 'fastify';
 import { DMP_TOOL_CONTENT_TYPE } from "../routeSchema.js";
 import configPlugin from "../../config.js";
-import { mockMaDMPModule } from "./maDMPMocks.js";
+import { mockMaDMP, mockMaDMPModule } from "./maDMPMocks.js";
 
 mockMaDMPModule();
 
 jest.unstable_mockModule('../workflows/planWorkflow.js', () => ({
+  getPlanWorkflow: jest.fn(),
   createPlanWorkflow: jest.fn(),
   updateDmpWorkflow: jest.fn(),
   deleteDmpWorkflow: jest.fn(),
@@ -14,6 +15,7 @@ jest.unstable_mockModule('../workflows/planWorkflow.js', () => ({
 
 describe('v3 serialization', () => {
   let fastify: FastifyInstance;
+  let getPlanWorkflow: jest.Mock;
 
   beforeEach(async () => {
     fastify = Fastify({
@@ -27,6 +29,11 @@ describe('v3 serialization', () => {
     });
 
     await fastify.register(configPlugin, {});
+
+    const workflowModule = await import('../workflows/planWorkflow.js');
+    getPlanWorkflow = workflowModule.getPlanWorkflow as jest.Mock;
+    getPlanWorkflow.mockReset();
+    getPlanWorkflow.mockResolvedValue(mockMaDMP as never);
 
     // Must import the routes plugin here because the maDMP functions we need to
     // mock are called in the routes plugin and would override the mocks otherwise

@@ -16,6 +16,20 @@ import {
   negotiatedDmpContent
 } from "./routeSchema.js";
 
+
+/**
+ * Functions to support serialization of the outgoing payloads for the v3 API.
+ * This is done to support content negotiation for the DMP Tool extensions and
+ * the RDA Common Standard.
+ *
+ * The plugin registers hooks to handle the Accept header and to prune the outgoing
+ * payloads to remove any DMP Tool specific properties when the caller requests
+ * the RDA Common Standard format.
+ *
+ * The plugin is registered as a Fastify plugin to ensure that its hooks are
+ * available within the context of the v3Routes plugin.
+ */
+
 // AJV is used here to prune the data object by removing additional properties.
 // This is done to remove DMP Tool specific properties from the payload when
 // we need to return the RDA Common Standard format.

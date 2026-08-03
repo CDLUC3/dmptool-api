@@ -1,22 +1,21 @@
 import { FastifyRequest } from "fastify";
 import { DMPToolDMPType } from "@dmptool/types";
-import { convertMySQLDateTimeToRFC3339 } from "@dmptool/utils";
-import { IdentifierType } from "../../../types.js";
+import { convertMySQLDateTimeToRFC3339, DMP_LATEST_VERSION } from "@dmptool/utils";
+import {
+  IdentifierType,
+  Plan as PlanRDS,
+} from "../../../types.js";
 import { VersionedTemplate } from "../../../models/VersionedTemplate.js";
-import { Project } from "../../../models/Project.js";
 import { Plan } from "../../../models/Plan.js";
-import { loadMaDMPFromDynamo } from "../../../models/maDMP.js";
-import { saveMembersWorkflow } from "./memberWorkflow.js";
-import { saveFundingWorkflow } from "./fundingWorkflow.js";
+import { maDMPHelpers } from "../../../models/maDMP.js";
 import {
   ERROR_CODE_ALREADY_EXISTS,
   ERROR_CODE_CONFLICT,
   ERROR_CODE_INTERNAL_SERVER,
-  ERROR_CODE_INVALID_DMP,
-  ERROR_MSG_CONFLICT,
+  ERROR_CODE_INVALID_DMP, ERROR_CODE_NOT_FOUND,
+  ERROR_MSG_CONFLICT, ERROR_MSG_INTERNAL_SERVER, ERROR_MSG_NOT_FOUND,
   newFastifyError
 } from "../../../handlers/error.js";
-import {createNarrativeWorkflow} from "./narrativeWorkflow.js";
 
 /**
  * Verify that the DMP modification date set in the header matches the current modified timestamp
@@ -30,7 +29,6 @@ const validateModifiedDateMatch = (
 ): void => {
   const requestDate = convertMySQLDateTimeToRFC3339(ifUnmodifiedSince) as string;
   const currentDate = convertMySQLDateTimeToRFC3339(currentModifiedDate) as string;
-
   if (requestDate !== currentDate) {
     throw newFastifyError(ERROR_CODE_CONFLICT, ERROR_MSG_CONFLICT);
   }
@@ -46,7 +44,7 @@ const validateModifiedDateMatch = (
  * @param body the maDMP
  * @returns the normalized maDMP
  */
-const normalizeIncomingDMP = (
+export const normalizeIncomingDMP = (
   request: FastifyRequest,
   body: DMPToolDMPType
 ): DMPToolDMPType['dmp'] => {
@@ -71,34 +69,58 @@ const normalizeIncomingDMP = (
 }
 
 /**
- * Persists all non-critical dependency information to the database
+ * Loads the maDMP version from the Dynamo DB, verifies it is up to date with the
+ * RDS record and if not, builds a new maDMP record based on that latest information
  *
  * @param request the Fastify request
- * @param dmp the maDMP
- * @param plan the Plan
+ * @param dmpId the DMP id to retrieve
+ * @param version the version of the maDMP to retrieve (defaults to the latest version)
+ * @returns the maDMP record
+ * @throws ERROR_CODE_NOT_FOUND error when the DMP id could not be found in the RDS database
+ * @throws ERROR_MSG_INTERNAL_SERVER when the maDMP record could not be fetched or constructed
  */
-const saveNonFatalPlanArtifacts = async (
+export const getPlanWorkflow = async (
   request: FastifyRequest,
-  dmp: DMPToolDMPType['dmp'],
-  plan: Plan
-): Promise<void> => {
-  // Save the alternate identifiers
-  if (!await plan.saveAlternateIdentifiers(request, dmp.alternate_identifier)){
-    // Log any errors, the Plan.alternateIdentiers error will have been set
-    request.log.error(
-      { planId: plan.id, alternateIdentifiers: dmp.alternate_identifier },
-      'Unable to save alternate identifiers for the new plan'
-    );
+  dmpId: string,
+  version: string = DMP_LATEST_VERSION
+): Promise<DMPToolDMPType | undefined> => {
+  // First: load high-level info about the DMP from the MySQL database
+  const plan: PlanRDS | undefined = await maDMPHelpers.loadPlan(request, dmpId);
+  if (!plan) {
+    request.log.warn({ dmpId }, "No Plan found");
+    throw newFastifyError(ERROR_CODE_NOT_FOUND, 'DMP not found');
   }
 
-  // Save the narrative
-  const planWithNarrative: Plan = await createNarrativeWorkflow(request, plan, dmp);
-  if (!planWithNarrative || planWithNarrative.hasErrors()) {
-    request.log.error(
-      { planId: plan.id, errors: planWithNarrative.errors },
-      'Unable to save the plan narrative'
-    );
+  // Second: fetch the latest maDMP record for the Plan from the DynamoDB table
+  let maDMP: DMPToolDMPType | undefined = await maDMPHelpers.loadMaDMPFromDynamo(
+    request,
+    plan.dmpId,
+    version || DMP_LATEST_VERSION
+  );
+  request.log.debug({ dmpId, maDMPModified: maDMP?.dmp?.modified }, 'Retrieved maDMP metadata from DynamoDB');
+
+  // Third: Determine if the maDMP was missing or is out of date or missing the narrative.
+  // If so, generate the current maDMP and update the DynamoDB record.
+  const rdsDate: string | null = convertMySQLDateTimeToRFC3339(plan?.modified);
+
+  request.log.debug(
+    { dmpId, rdsDate, maDMPModified: maDMP?.dmp?.modified, hasNarrative: !!maDMP?.dmp?.narrative },
+    'Comparing DMP metadata from RDS and DynamoDB'
+  )
+
+  if (!maDMP || !maDMP.dmp || rdsDate !== maDMP.dmp.modified || !maDMP.dmp.narrative) {
+    const outdated: boolean = maDMP?.dmp?.modified && rdsDate !== maDMP?.dmp?.modified
+    request.log.debug({ dmpId }, `DMP metadata is ${outdated ? 'outdated' : 'missing'}`);
+    maDMP = await maDMPHelpers.handleMissingMaDMP(request, plan, outdated);
   }
+
+  // If the maDMP record could not be generated or retrieved, we need to bail out
+  if (!maDMP || !maDMP.dmp) {
+    request.log.error({ dmpId }, "Unable to generate narrative for DMP");
+    return undefined;
+  }
+
+  return maDMP;
 }
 
 /**
@@ -114,7 +136,8 @@ export async function createPlanWorkflow(
   request: FastifyRequest,
   body: DMPToolDMPType
 ): Promise<DMPToolDMPType> {
-  // Verify that the DMP id specified is not one of ours.
+  // 1st: Normalize the incoming JSON and then verify that the DMP id specified
+  // is not one of ours. Apollo server is responsible for assigning DMP ids.
   const dmp = normalizeIncomingDMP(request, body);
   const idIn: string = dmp.dmp_id.identifier ?? 'none-defined';
   request.log.debug({ alternateIdentifier: idIn }, 'Create DMP Workflow started');
@@ -132,93 +155,41 @@ export async function createPlanWorkflow(
     throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Only one project is currently supported per DMP.');
   }
 
-  // Fetch the specified template OR use the default template
-  const templateId: number | undefined = dmp.narrative?.template?.id;
-  const template: VersionedTemplate | undefined = await VersionedTemplate.findOrDefault(
-    request,
-    templateId
-  );
-  if (!template) {
-    request.log.fatal({ templateId }, 'Unable to find a template (or default) for DMP creation');
-    throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Missing template');
+  // 2nd: Load the latest version of the specified template (if applicable)
+  const versionedTemplate: VersionedTemplate | undefined = dmp.narrative?.template?.id
+    ? await VersionedTemplate.findOrDefault(request, dmp.narrative.template.id)
+    : await VersionedTemplate.findDefault(request);
+
+  if (!versionedTemplate) {
+    request.log.fatal('Unable to find a default template!');
+    throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, ERROR_MSG_INTERNAL_SERVER);
   }
 
+  // 3rd: Initialize the Plan
   request.log.debug({ alternateIdentifier: idIn }, 'Initializing Plan');
   // Find the Plan or initialize a new one
-  const plan = await Plan.findOrInitialize(request, template, dmp);
+  const plan: Plan = await Plan.findOrInitialize(request, dmp, versionedTemplate);
   if (plan.id) {
     request.log.warn({ alternateIdentifier: idIn, planId: plan.id }, 'DMP already exists');
     throw newFastifyError(ERROR_CODE_ALREADY_EXISTS, 'DMP already exists', 400);
   }
 
-  // If the template specified doesn't match what we are using add a warning message
-  if (templateId && template.id !== templateId) {
-    plan.warnings['template'] = 'Unable to find specified DMP Tool template so the default template was used instead.';
-  }
-
-  // The DMP Tool allows a single project to have multiple plans, so we need to
-  // try and find the Project or initialize a new one
-  request.log.debug({ alternateIdentifier: idIn }, 'Initializing Project');
-  const project = await Project.findOrInitialize(request, dmp);
-  // If the Project was initialized, create it
-  if (!project.id && !(await project.save(request))) {
-    request.log.error({ errors: project.errors, alternateIdentifier: idIn }, 'Unable to save project model');
-    throw newFastifyError(ERROR_CODE_INVALID_DMP, project.errorsToString());
-  }
-
-  // Create the new Plan
-  plan.projectId = project.id;
-  request.log.debug({ alternateIdentifier: idIn, projectId: project.id }, 'Saving plan');
-  if (!(await plan.save(request))) {
+  // 4th: Create the Plan
+  request.log.debug({ alternateIdentifier: idIn, projectId: plan.project.id }, 'Saving plan');
+  const created: boolean = await plan.save(request);
+  if (!created || plan.hasErrors()) {
     request.log.error({ errors: plan.errors, alternateIdentifier: idIn }, 'Unable to save plan model');
     throw newFastifyError(ERROR_CODE_INVALID_DMP, plan.errorsToString());
   }
 
-  // Something went wrong if the new DMP id was not set
+  // Verify that the dmpId was assigned
   if (!plan.dmpId) {
-    request.log.fatal({ alternateIdentifier: idIn, plan }, 'Plan save completed but no DMP id was assigned');
+    request.log.error({ alternateIdentifier: idIn, planId: plan.id }, 'DMP id was not assigned during save');
     throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to generate DMP id.');
   }
 
-  // Refetch the plan from the database to pick up its assigned DMP id.
-
-  // Now save the Project and Plan Funding
-  request.log.debug(
-    { alternateIdentifier: idIn, projectId: project.id, dmpId: plan.dmpId },
-    'Saving project and plan funding'
-  );
-  const fundedPlan: Plan = await saveFundingWorkflow(request, project, plan, dmp);
-
-  // Now save the Project and Plan Members
-  request.log.debug(
-    { alternateIdentifier: idIn, projectId: project.id, dmpId: fundedPlan.dmpId },
-    'Saving project and plan members'
-  );
-  const finalPlan: Plan = await saveMembersWorkflow(request, project, fundedPlan, dmp);
-
-  // Now that the Project and Plan have been saved, go through and save all
-  // the associated artifacts
-  request.log.debug(
-    { alternateIdentifier: idIn, projectId: project.id, dmpId: finalPlan.dmpId },
-    'Saving non-critical information'
-  );
-  await saveNonFatalPlanArtifacts(request, dmp, finalPlan);
-
-  // Errors would have been added to the Plan object if any errors occurred while
-  // attempting to save the artifacts.
-  if (finalPlan.hasErrors()) {
-    request.log.error(
-      { errors: finalPlan.errors, dmpId: finalPlan.dmpId },
-      'Failed to create Plan.'
-    );
-    throw newFastifyError(ERROR_CODE_INVALID_DMP, finalPlan.errorsToString());
-  }
-
   // Generate the maDMP JSON so that we can return it
-  const newMaDMP: DMPToolDMPType | undefined = await loadMaDMPFromDynamo(
-    request,
-    finalPlan.dmpId
-  );
+  const newMaDMP: DMPToolDMPType | undefined = await getPlanWorkflow(request, plan.dmpId);
 
   // TODO: Once the RDA group has decided on a way to convey warnings about
   //       data that could not be supported (e.g. the "cost" section), we will
@@ -231,13 +202,13 @@ export async function createPlanWorkflow(
       'Unable to load newly-created maDMP'
     );
     throw newFastifyError(
-      ERROR_CODE_INVALID_DMP,
-      `Your DMP was created but we could not generate a valid JSON response. Try "GET /dmps/${encodeURI(finalPlan.dmpId)}"`
+      ERROR_CODE_INTERNAL_SERVER,
+      `Your DMP was created but we could not generate a valid JSON response. Try "GET /dmps/${encodeURI(plan.dmpId)}"`
     );
   }
 
   request.log.debug(
-    { alternateIdentifier: idIn, projectId: project.id, dmpId: plan.dmpId },
+    { alternateIdentifier: idIn, projectId: plan.project.id, dmpId: plan.dmpId },
     'Finished creating new Plan'
   );
   return newMaDMP;
@@ -249,14 +220,61 @@ export async function createPlanWorkflow(
  */
 export const updateDmpWorkflow = async (
   request: FastifyRequest,
-  dmpId: string,
+  id: string,
   ifUnmodifiedSince: string,
-  currentDmp: DMPToolDMPType
+  payload: DMPToolDMPType['dmp']
 ): Promise<DMPToolDMPType> => {
-  request.log.debug({ dmpId }, 'Update DMP Workflow started');
-  validateModifiedDateMatch(ifUnmodifiedSince, currentDmp.dmp.modified);
+  // Fetch the maDMP record
+  const currentDMP: DMPToolDMPType | undefined = await getPlanWorkflow(request, id);
+  request.log.debug({ id }, 'Update DMP Workflow started');
 
-  return currentDmp;
+  if (!currentDMP || !currentDMP.dmp || !currentDMP.dmp.modified) {
+    request.log.error({ planId: id }, 'Unable to plan using PlanWorkflow');
+    throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
+  }
+
+  // Convert the DOI specified in the path into a full DMP id
+  const cleanId = id.startsWith('/') ? id.replace('/', '') : id;
+  const dmpId = `${request.dmptoolConfig.dmpIdBaseUrl}/${cleanId}`;
+
+  // Validate that the modification timestamps match
+  validateModifiedDateMatch(ifUnmodifiedSince, currentDMP.dmp.modified);
+
+  // 1st: find the Project and Plan
+  const plan: Plan | undefined = await Plan.findByDMPId(request, dmpId);
+  if (!plan || !plan.id || !plan.project || !plan.project.id || !plan.versionedTemplate) {
+    request.log.error({ dmpId }, 'Unable to load plan information');
+    throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
+  }
+  const logBase = { dmpId, projectId: plan.project.id, planId: plan.id };
+
+  // 2nd: Reconcile the incoming changes with the current Plan
+  request.log.debug(logBase, 'Replacing project information');
+  const reconciledPlan: Plan = Plan.reconcileFromMaDMP(payload, plan.versionedTemplate, plan.project, plan)
+  const updated: boolean = await reconciledPlan.save(request);
+  if (!updated || reconciledPlan.hasErrors()) {
+    request.log.error({ ...logBase, errors: reconciledPlan.errors }, 'Unable to replace plan information');
+    throw newFastifyError(ERROR_CODE_INVALID_DMP, reconciledPlan.errorsToString());
+  }
+
+  // Generate the maDMP JSON so that we can return it
+  const replacedMaDMP: DMPToolDMPType | undefined = await getPlanWorkflow(request, plan.dmpId);
+
+  // TODO: Once the RDA group has decided on a way to convey warnings about
+  //       data that could not be supported (e.g. the "cost" section), we will
+  //       want to attach those warnings to the response
+  request.log.warn({ warnings: reconciledPlan.warnings }, 'Non fatal errors occurred.');
+
+  if (!replacedMaDMP) {
+    request.log.fatal(logBase, 'Unable to load newly-replaced maDMP');
+    throw newFastifyError(
+      ERROR_CODE_INTERNAL_SERVER,
+      `Your DMP was replaced but we could not generate a valid JSON response. Try "GET /dmps/${encodeURI(reconciledPlan.dmpId)}"`
+    );
+  }
+
+  request.log.debug(logBase, 'Finished updating Plan');
+  return replacedMaDMP;
 };
 
 /**
@@ -267,10 +285,28 @@ export const deleteDmpWorkflow = async (
   request: FastifyRequest,
   dmpId: string,
   ifUnmodifiedSince: string,
-  currentDmpModifiedDate: string
 ): Promise<boolean> => {
-  request.log.debug({ dmpId }, 'Started delete Plan Workflow');
-  validateModifiedDateMatch(ifUnmodifiedSince, currentDmpModifiedDate);
+  // Fetch the maDMP record
+  const plan: Plan | undefined = await Plan.findByDMPId(request, dmpId);
+  if (!plan || !plan.modified) {
+    request.log.warn({ dmpId }, 'Unable to delete Plan because it does not exist');
+    throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
+  }
+  request.log.debug({ dmpId }, 'Delete DMP Workflow started');
 
-  return true;
+  // Validate that the modification timestamps match
+  validateModifiedDateMatch(ifUnmodifiedSince, plan.modified);
+
+  // Delete or Tombstone the maDMP
+  if(!(await plan.delete(request)) || plan.hasErrors()) {
+    request.log.error({ dmpId, planId: plan.id, errors: plan.errors }, 'Unable to delete plan information');
+    throw newFastifyError(ERROR_CODE_INVALID_DMP, plan.errorsToString());
+  }
+
+  // Generate the maDMP JSON so that we can return it
+  const removedMaDMP: DMPToolDMPType | undefined = await getPlanWorkflow(request, plan.dmpId);
+
+  // If the plan was NOT published/registered we should not have been able to reload the MaDMP
+  // Otherwise check that the maDMP record is tomb-stoned
+  return (!removedMaDMP && !plan.registered) || (removedMaDMP && removedMaDMP.dmp.tombstoned);
 };

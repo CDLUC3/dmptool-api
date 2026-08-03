@@ -1,11 +1,7 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { FastifyRequest } from 'fastify';
 import { VersionedQuestion, VersionedSection, VersionedTemplate } from '../VersionedTemplate.js';
-import {
-  QuestionDefaultMap,
-  QuestionFormatsEnum,
-  TextAreaQuestionType
-} from '@dmptool/types';
+import { QuestionDefaultMap, QuestionFormatsEnum, TextAreaQuestionType } from '@dmptool/types';
 
 const buildRequest = (): FastifyRequest =>
   ({
@@ -25,22 +21,21 @@ describe('VersionedTemplate', () => {
     const template = new VersionedTemplate({ name: 'Best Practices' });
 
     expect(template.name).toBe('Best Practices');
-    expect(template.active).toBe(false);
+    expect(template.versionedSections).toEqual([]);
   });
 
   it('should find by template id', async () => {
     jest.spyOn(VersionedTemplate, 'query').mockResolvedValue({
       data: {
-        versionedTemplates: [
-          {
-            id: 5,
-            template: { id: 7 },
-            name: 'Template',
-            description: 'Desc',
-            version: '1.0',
-            active: true,
-          },
-        ],
+        versionedTemplate: {
+          id: 5,
+          template: { id: 7 },
+          name: 'Template',
+          description: 'Desc',
+          version: '1.0',
+          active: true,
+          versionedSections: []
+        }
       },
     });
 

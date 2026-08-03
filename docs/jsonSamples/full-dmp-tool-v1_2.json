@@ -549,7 +549,7 @@
                             "type": "repositorySearch",
                             "answer": [
                               {
-                                "repositoryId": "https://www.re3data.org/repository/https://www.re3data.org/api/v1/repository/r3d100010375",
+                                "repositoryId": "https://www.re3data.org/api/v1/repository/r3d100010375",
                                 "repositoryName": "GitHub",
                                 "repositoryType": [
                                   "other"
@@ -599,15 +599,18 @@
                             "meta": {
                               "schemaVersion": "1.0"
                             },
-                            "type": "text",
+                            "type": "date",
                             "answer": "2026-07-11"
                           },
                           {
                             "meta": {
                               "schemaVersion": "1.0"
                             },
-                            "type": "text",
-                            "answer": "125 kb"
+                            "type": "numberWithContext",
+                            "answer": {
+                              "value": "125",
+                              "context": "KB"
+                            }
                           }
                         ]
                       }

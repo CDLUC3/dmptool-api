@@ -43,6 +43,7 @@ export const baseConfigurationOptions: ConfigurationOptions = {
 
   // The name of this application
   applicationName: process.env.APPLICATION_NAME || 'my-api',
+
   // The identifier of the default system that will be used to set the provenance
   // of data the system will use the true identifier of the system that is sending
   // the request when possible

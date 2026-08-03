@@ -44,7 +44,7 @@ describe('MemberRoles', () => {
   it('should return default role when no roles are provided', () => {
     const roles = new MemberRoles({ roles: [defaultRole, editorRole] });
 
-    expect(roles.validateRoles([])).toEqual([defaultRole]);
+    expect(roles.validateRoles([])).toEqual([defaultRole.uri]);
   });
 
   it('should filter invalid roles and return matching role objects', () => {
@@ -55,7 +55,7 @@ describe('MemberRoles', () => {
       'https://example.org/role/missing',
     ]);
 
-    expect(result).toEqual([editorRole]);
+    expect(result).toEqual([editorRole.uri]);
   });
 
   it('should return default role when all provided roles are invalid', () => {
@@ -63,7 +63,7 @@ describe('MemberRoles', () => {
 
     const result = roles.validateRoles(['https://example.org/role/missing']);
 
-    expect(result).toEqual([defaultRole]);
+    expect(result).toEqual([defaultRole.uri]);
   });
 });
 
