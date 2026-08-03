@@ -22,7 +22,7 @@ This API supports both the **RDA Common Standard** and the **DMP Tool extended**
 - The [RDA Common Standard](https://github.com/RDA-DMP-Common/RDA-DMP-Common-Standard) is a community standard for machine-actionable DMPs.
 - The [DMP Tool extended format](https://github.com/CDLUC3/dmptool-types/blob/main/schemas/dmptoolDmp.schema.json) combines the RDA Common Standard with [properties specific to the DMP Tool](https://github.com/CDLUC3/dmptool-types/blob/main/schemas/dmpExtension.schema.json).
 
-You can switch between these two format for each endpoint by scrolling down to the **Responses** section of the endpoint and changing the **Media type** dropdown underneath the \`200\` HTTP status code. Changing this dropdown automatically updates the \`Accept\` header sent with your request.
+You can switch between these two formats for each endpoint by scrolling down to the **Responses** section of the endpoint and changing the **Media type** dropdown underneath the \`200\` HTTP status code. Changing this dropdown automatically updates the \`Accept\` header sent with your request.
 
 ### Additional Information
 

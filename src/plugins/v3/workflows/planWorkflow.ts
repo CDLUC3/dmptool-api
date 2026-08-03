@@ -202,7 +202,7 @@ export async function createPlanWorkflow(
       'Unable to load newly-created maDMP'
     );
     throw newFastifyError(
-      ERROR_CODE_INVALID_DMP,
+      ERROR_CODE_INTERNAL_SERVER,
       `Your DMP was created but we could not generate a valid JSON response. Try "GET /dmps/${encodeURI(plan.dmpId)}"`
     );
   }
@@ -268,7 +268,7 @@ export const updateDmpWorkflow = async (
   if (!replacedMaDMP) {
     request.log.fatal(logBase, 'Unable to load newly-replaced maDMP');
     throw newFastifyError(
-      ERROR_CODE_INVALID_DMP,
+      ERROR_CODE_INTERNAL_SERVER,
       `Your DMP was replaced but we could not generate a valid JSON response. Try "GET /dmps/${encodeURI(reconciledPlan.dmpId)}"`
     );
   }

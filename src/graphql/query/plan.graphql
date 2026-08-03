@@ -5,59 +5,38 @@ query Plans($projectId: Int!) {
   }
 }
 
-query PlanByDmpId($dmpId: String!) {
-  planByDMPId(dmpId: $dmpId) {
+fragment PlanDetails on Plan {
+  id
+  dmpId
+  title
+  visibility
+  status
+  created
+  createdById
+  modified
+  modifiedById
+  registered
+  project {
     id
-    dmpId
     title
-    visibility
-    status
-    created
-    createdById
-    modified
-    modifiedById
-    registered
-    project {
+    abstractText
+    startDate
+    endDate
+    isTestProject
+    researchDomain {
       id
-      title
-      abstractText
-      startDate
-      endDate
-      isTestProject
-      researchDomain {
-        id
-        uri
-      }
-      members {
-        id
-        isPrimaryContact
-        affiliation {
-          uri
-        }
-        givenName
-        surName
-        orcid
-        email
-        memberRoles {
-          id
-          uri
-        }
-      }
-      fundings {
-        id
-        affiliation {
-          uri
-        }
-        status
-        funderProjectNumber
-        funderOpportunityNumber
-        grantId
-      }
+      uri
     }
     members {
-      projectMember {
-        id
+      id
+      isPrimaryContact
+      affiliation {
+        uri
       }
+      givenName
+      surName
+      orcid
+      email
       memberRoles {
         id
         uri
@@ -65,142 +44,73 @@ query PlanByDmpId($dmpId: String!) {
     }
     fundings {
       id
-      projectFunding {
-        id
+      affiliation {
+        uri
       }
+      status
+      funderProjectNumber
+      funderOpportunityNumber
+      grantId
     }
-    answers {
+  }
+  members {
+    projectMember {
       id
-      versionedSection{
-        id
-      }
-      versionedQuestion {
-        id
-      }
-      json
     }
-    versionedTemplate {
+    memberRoles {
+      id
+      uri
+    }
+  }
+  fundings {
+    id
+    projectFunding {
+      id
+    }
+  }
+  answers {
+    id
+    versionedSection{
+      id
+    }
+    versionedQuestion {
+      id
+    }
+    json
+  }
+  versionedTemplate {
+    id
+    name
+    description
+    version
+    template {
+      id
+    }
+    versionedSections {
       id
       name
-      description
-      version
-      template {
+      displayOrder
+      versionedQuestions {
         id
-      }
-      versionedSections {
-        id
-        name
-        displayOrder
-        versionedQuestions {
-          id
-          questionText
-          json
-        }
+        questionText
+        json
       }
     }
-    alternateIdentifiers {
-      id
-      alternateIdentifier
-    }
+  }
+  alternateIdentifiers {
+    id
+    alternateIdentifier
+  }
+}
+
+query PlanByDmpId($dmpId: String!) {
+  planByDMPId(dmpId: $dmpId) {
+    ...PlanDetails
   }
 }
 
 query PlanByAlternateIdentifier($alternateIdentifier: String!) {
   planByAlternateIdentifier(alternateIdentifier: $alternateIdentifier) {
-    id
-    dmpId
-    title
-    visibility
-    status
-    created
-    createdById
-    modified
-    modifiedById
-    registered
-    project {
-      id
-      title
-      abstractText
-      startDate
-      endDate
-      isTestProject
-      researchDomain {
-        id
-        uri
-      }
-      members {
-        id
-        isPrimaryContact
-        affiliation {
-          uri
-        }
-        givenName
-        surName
-        orcid
-        email
-        memberRoles {
-          id
-          uri
-        }
-      }
-      fundings {
-        id
-        affiliation {
-          uri
-        }
-        status
-        funderProjectNumber
-        funderOpportunityNumber
-        grantId
-      }
-    }
-    members {
-      projectMember {
-        id
-      }
-      memberRoles {
-        id
-        uri
-      }
-    }
-    fundings {
-      id
-      projectFunding {
-        id
-      }
-    }
-    answers {
-      id
-      versionedSection{
-        id
-      }
-      versionedQuestion {
-        id
-      }
-      json
-    }
-    versionedTemplate {
-      id
-      name
-      description
-      version
-      template {
-        id
-      }
-      versionedSections {
-        id
-        name
-        displayOrder
-        versionedQuestions {
-          id
-          questionText
-          json
-        }
-      }
-    }
-    alternateIdentifiers {
-      id
-      alternateIdentifier
-    }
+    ...PlanDetails
   }
 }

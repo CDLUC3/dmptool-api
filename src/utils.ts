@@ -1,5 +1,14 @@
 import { ConfigurationOptions } from "./types.js";
 
+/**
+ * LANGUAGES:
+ *
+ * The maDMP JSON schemas work with 3 character codes (ISO 639-3). For example `eng`
+ * The DMP Tool works with 5 character codes (ISO 639-1 language with ISO 3166-1
+ * alpha-2 country code) for example `en-US`
+ *
+ * The following functions and types help map between the different language code formats
+ */
 export const DEFAULT_LANGUAGE = 'en-US' as const;
 
 export const LanguageMapThreeToFive = {
