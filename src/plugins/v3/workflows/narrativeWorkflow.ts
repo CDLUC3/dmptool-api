@@ -320,8 +320,6 @@ const processNarrative = (
 ): ProcessNarrativeResponse[] => {
   if (!plan || !plan.versionedTemplate) return [];
 
-console.log(narrative);
-
   // Gather all questions from both the narrative and the Versioned Template
   const questions: ProcessNarrativeResponse[] = [];
   const narrativeQuestions: NarrativeQuestionType[] = narrative.section

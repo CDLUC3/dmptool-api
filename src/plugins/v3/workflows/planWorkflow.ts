@@ -91,8 +91,6 @@ export const getPlanWorkflow = async (
     throw newFastifyError(ERROR_CODE_NOT_FOUND, 'DMP not found');
   }
 
-console.log('PLAN INFO FROM MySQL', plan)
-
   // Second: fetch the latest maDMP record for the Plan from the DynamoDB table
   let maDMP: DMPToolDMPType | undefined = await maDMPHelpers.loadMaDMPFromDynamo(
     request,
@@ -109,8 +107,6 @@ console.log('PLAN INFO FROM MySQL', plan)
     { dmpId, rdsDate, maDMPModified: maDMP?.dmp?.modified, hasNarrative: !!maDMP?.dmp?.narrative },
     'Comparing DMP metadata from RDS and DynamoDB'
   )
-
-console.log('PLAN FROM DYNAMO', rdsDate, maDMP)
 
   if (!maDMP || !maDMP.dmp || rdsDate !== maDMP.dmp.modified || !maDMP.dmp.narrative) {
     const outdated: boolean = maDMP?.dmp?.modified && rdsDate !== maDMP?.dmp?.modified
