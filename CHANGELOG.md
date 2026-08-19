@@ -1,5 +1,12 @@
 # dmptool-api Changelog
 
+## 2026-08-19
+- Updated stale dependencies. Added an override for `fast-uri` and removed old ones
+- Bumped version of `@dmptool/utils` to 2.1.7
+- Fixed an issue with the call to get a versioned template id. It was using the incorrect variable name
+- Fixed a bug in `maDMP` model so that it doesn't prepend the protocol and domain if it's already there
+- Fixed some issues in the narrative workflow when a template id is present but no further content is available
+
 ## 2026-07-13
 - Upgrade to latest versions of `@dmptool` packages
 - Switch `narrativeWorkflow` to use the new `DefaultResearchOutputTableColumnAnswerMap` with the `commonStandardId`
