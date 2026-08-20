@@ -1,5 +1,6 @@
 # syntax = docker/dockerfile:1
 
+# Stage 1: Dependencies
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS deps
 
 RUN dnf -y install nodejs22
@@ -16,6 +17,7 @@ COPY package*.json ./
 # Install dependencies in /app (excluding devDependencies)
 RUN npm ci
 
+# Step 2: Builder
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS builder
 
 RUN dnf -y install nodejs22

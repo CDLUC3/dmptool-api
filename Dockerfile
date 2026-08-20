@@ -1,7 +1,7 @@
-FROM public.ecr.aws/amazonlinux/amazonlinux:2023
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS deps
 
 RUN dnf update -y && \
-    dnf install -y nodejs20 npm && \
+    dnf install -y nodejs22 npm && \
     dnf clean all
 
 WORKDIR /app

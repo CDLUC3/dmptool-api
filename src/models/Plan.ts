@@ -65,6 +65,10 @@ export interface PlanQueryResponse {
     id?: number;
     alternateIdentifier: string;
   }[];
+  acceptedWorks?: {
+    id?: number;
+
+  }
 }
 
 /**
@@ -323,7 +327,6 @@ export class Plan extends BaseGraphQLModel {
       : [];
 
     const input: AddEntirePlanInput | UpdateEntirePlanInput = {
-      versionedTemplateId: this.versionedTemplate?.id,
       title: this.title,
       status: this.status,
       visibility: this.visibility,
@@ -344,7 +347,10 @@ export class Plan extends BaseGraphQLModel {
         {
           mutation: AddPlanDocument,
           variables: {
-            input: removeNullAndUndefinedFromObject(input)
+            input: {
+              ...removeNullAndUndefinedFromObject(input),
+              versionedTemplateId: this.versionedTemplate?.id,
+            }
           },
           errorPolicy: "all"
         } as MutateOptions
@@ -362,7 +368,10 @@ export class Plan extends BaseGraphQLModel {
         {
           mutation: UpdatePlanDocument,
           variables: {
-            input: { ...input, id: this.id },
+            input: {
+              ...removeNullAndUndefinedFromObject(input),
+              id: this.id
+            },
           },
           errorPolicy: "all"
         } as MutateOptions
