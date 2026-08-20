@@ -22,7 +22,10 @@ import {
   NarrativeSectionType,
   NarrativeTemplateType
 } from "../../../types.js";
-import { VersionedQuestion } from "../../../models/VersionedTemplate.js";
+import {
+  VersionedQuestion,
+  VersionedTemplate
+} from "../../../models/VersionedTemplate.js";
 import { Answer } from "../../../models/Answer.js";
 
 interface ProcessNarrativeResponse {
@@ -319,9 +322,9 @@ const processNarrative = (
 
   // Gather all questions from both the narrative and the Versioned Template
   const questions: ProcessNarrativeResponse[] = [];
-  const narrativeQuestions: NarrativeQuestionType[] = narrative.section.flatMap(
-    (s: NarrativeSectionType) => s.question
-  );
+  const narrativeQuestions: NarrativeQuestionType[] = narrative.section
+    ? narrative.section.flatMap((s: NarrativeSectionType) => s.question)
+    : [];
 
   // Loop through all the questions sent in, validate and parse them and find their
   // matching question within the actual template
@@ -361,6 +364,7 @@ export const createNarrativeWorkflow = (
   // is not defined we should bail out immediately
   if (!plan.versionedTemplate) return [];
 
+  const versionedTemplate = new VersionedTemplate(plan.versionedTemplate);
   const narrative: NarrativeTemplateType | undefined = dmp.narrative;
   const datasets: DatasetType[] = dmp.dataset || [];
   const processedNarrative: ProcessNarrativeResponse[] = narrative?.template
@@ -368,7 +372,7 @@ export const createNarrativeWorkflow = (
     : [];
 
   // Locate the research output table question
-  const researchOutputQuestion: VersionedQuestion | undefined = plan.versionedTemplate.researchOutputTableQuestion();
+  const researchOutputQuestion: VersionedQuestion | undefined = versionedTemplate.researchOutputTableQuestion();
 
   // If the research output table question exists and there are datasets defined in the maDMP record
   if (!!researchOutputQuestion && datasets.length > 0) {

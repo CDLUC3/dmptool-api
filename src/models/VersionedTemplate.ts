@@ -328,7 +328,7 @@ export class VersionedTemplate extends BaseGraphQLModel {
       request,
       {
         query: VersionedTemplatesDocument,
-        variables: { templateId: id },
+        variables: { id },
         errorPolicy: "all"
       }
     );

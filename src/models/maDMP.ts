@@ -180,7 +180,10 @@ export async function loadPlan(
   request: FastifyRequest,
   dmpId: string
 ): Promise<Plan | undefined> {
-  const fullDmpId = `${request.dmptoolConfig.dmpIdBaseUrl}/${dmpId}`;
+  const fullDmpId = dmpId.startsWith('http')
+    ? dmpId
+    : `${request.dmptoolConfig.dmpIdBaseUrl}/${dmpId}`;
+
   // Fetch the list of DMPs the user has access to
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plans: { results: any[], fields: any[] } = await queryTable(
