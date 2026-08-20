@@ -142,12 +142,6 @@ const v3SerializationPlugin = fp(async function (
       // Use the target type to determine which Ajv validator to use
       const ajv = targetType === DMP_TOOL_CONTENT_TYPE ? ajvDMPTool : ajvRDA;
 
-      // Tell browsers not to use their cache if the accept type changes between requests
-      // except when running tests, for some reason this causes them to timeout
-      if (process.env.NODE_ENV !== 'test') {
-        await reply.header('Vary', 'Accept');
-      }
-
       if (schema) {
         return pruneDataWithAjv(ajv, payload, schema);
       }
