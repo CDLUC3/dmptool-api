@@ -6,11 +6,11 @@ This is the REST API for the DMP Tool system. It follows the [RDA Common API Spe
 
 See the [CHANGELOG.md](CHANGELOG.md) for details
 
-To access the Swagger UI: `<SWAGGER ENDPOINT>`.
-**Note:** that the Swagger UI is currently not loading the routes properly and we have not deployed to the AWS env.
+To access the Swagger UI: `<COMING SOON>`.
 
 ## Table of Contents
 - [Authentication](#authentication)
+- [DMP Ids](#dmp-ids)
 - [Endpoints](#endpoints)
   - [Query/List DMPs](#query--search-for-dmps)
   - [Get a DMP](#get-a-specific-dmp)
@@ -30,6 +30,20 @@ To access the Swagger UI: `<SWAGGER ENDPOINT>`.
 - [License](#license)
 
 ## Authentication
+Authentication is currently a work in progress. For now, you must sign in to the UI at `<STAGE-UI-URL>` which will issue you a `dmspt` cookie that contains an access token. 
+
+When testing from the Swagger UI, you don't need to do anything else. Just make sure you've logged into the UI in the same browser that you're testing the API on.
+
+Otherwise, you should copy the access token and provide it as an `Authorization: Bearer [TOKEN]` header when making calls to the API.
+
+## DMP Ids
+DMP ids are always assigned by the DMP Tool system. It is a required element of the maDMP JSON. 
+
+DMP ids can be in one of 2 formats:
+1. Plan id (e.g. `projects/123/dmp/456`) for DMPs that have not yet been published.
+2. DOI (e.g. `11.22222/A1B2C3D4`) for DMPs that have a published DOI.
+
+The only time when it is acceptable to specify your own DMP id is when creating a new DMP. In that scenario, you should include a name spaced value that is relevant to your system/organization. For example `{ "identifier": "example.edu/1253526245", "type": "other" }` or `{ "identifier": "https://example.edu/dmps/1253526245", "type": "url" }`. The value you provide will be added to the new DMP's list of `alternate_identifiers`. This can be used to help you tie the DMP back into a record within your system.
 
 ## Endpoints
 
@@ -40,6 +54,7 @@ For the majority of endpoints, you can specify the format you would like to rece
 
 ### Query / Search for DMPs
 
+`<COMING SOON>`
 **Note:** All DMP Ids that are included in the path of a request MUST be URL encoded. For example use `/dmps/10.10000%2FDMP123` instead of `/dmps/10.10000/DMP123`.
 
 #### List/Search DMPs
@@ -129,6 +144,8 @@ curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1987" -H "Authorization: 
 The `POST /api/v3/dmps` endpoint allows you to create a DMP.
 
 You must provide a DMP as JSON metadata that conforms to the RDA Common Standard for maDMPs. The JSON metadata should include DMP Tool extensions if possible. 
+
+Note that you must include the `dmp_id` in this request. See the [DMP Ids](#dmp-ids) section for recommendations on how to structure this value.
 
 **Note:** You MUST provide an authorization token for this endpoint
 
@@ -248,7 +265,6 @@ The API returns the following error codes:
 
 ## DMP Format Examples
 
-Minimum viable DMP
 ```json
 { 
   "dmp": { 
