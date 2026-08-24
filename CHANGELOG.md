@@ -1,5 +1,13 @@
 # dmptool-api Changelog
 
+## 2026-08-24
+- Fixed issue with Dockerfile and package which was causing our CodeBuilds to fail
+- Added `acceptedWorks` to GraphQL queries
+- Updated auth to accept the JWT in either the cookies or the Authorization header
+- Updated to allow either the DOI (DMP Id) or the `projects/{projectId}/dmp/{planId}` to the routes to support both published plans that use the DOI or unpublished plans which use the latter
+- Fixed an issue in the `isDMPId` function that was confusing encoding
+- Fixed error handling to bubble up specific issues to the caller (e.g. "Plan member already exists")
+
 ## 2026-08-19
 - Updated stale dependencies. Added an override for `fast-uri` and removed old ones
 - Bumped version of `@dmptool/utils` to 2.1.7

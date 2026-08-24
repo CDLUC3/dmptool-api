@@ -7,10 +7,10 @@
     "contact": {
       "affiliation": [{
         "affiliation_id": {
-          "identifier": "https://ror.org/01234567890",
+          "identifier": "https://ror.org/03yrm5c26",
           "type": "ror"
         },
-        "name": "Test University"
+        "name": "California Digital Library"
       }],
       "contact_id": [{
         "identifier": "http://example.com/contacts/123",
@@ -23,10 +23,10 @@
       {
         "affiliation": [{
           "affiliation_id": {
-            "identifier": "https://ror.org/01234567890",
+            "identifier": "https://ror.org/03yrm5c26",
             "type": "ror"
           },
-          "name": "Test University"
+          "name": "California Digital Library"
         }],
         "contributor_id": [{
           "identifier": "https://orcid.org/0000-0000-0000-0000",
@@ -41,10 +41,10 @@
       {
         "affiliation": [{
           "affiliation_id": {
-            "identifier": "https://ror.org/01234567890",
+            "identifier": "https://ror.org/03yrm5c26",
             "type": "ror"
           },
-          "name": "Test University"
+          "name": "California Digital Library"
         }],
         "contributor_id": [{
           "identifier": "852486334534",
@@ -165,7 +165,7 @@
       "end": "2028-12-31",
       "funding": [{
         "funder_id": {
-          "identifier": "https://ror.org/0987654321",
+          "identifier": "https://ror.org/021nxhr62",
           "type": "ror"
         },
         "funding_status": "granted",

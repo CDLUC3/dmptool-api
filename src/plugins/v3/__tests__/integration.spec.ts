@@ -448,6 +448,7 @@ const expectedMinimalMaDMPGraphQLOutput = {
     isTestProject: false,
   },
   alternateIdentifiers: ["http://example.com/dmps/123"],
+  acceptedWorks: [],
   members: [
     {
       givenName: "Test",
@@ -1056,6 +1057,13 @@ const expectedCompleteMaDMPGraphQLOutput = {
     }
   ],
   alternateIdentifiers: ["https://example.com/code-names/987", "http://example.com/dmps/123"],
+  acceptedWorks: [
+    {
+      doi: "https://doi.org/00.0000/dataset.123456789",
+      relationType: "CITES",
+      workType: 'DATASET'
+    }
+  ],
   answers: [
     {
       versionedSectionId: 1,

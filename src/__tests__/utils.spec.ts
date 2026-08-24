@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { isDmpId, stringToInteger } from '../utils.js';
+import { isDmpId, processDMPId, stringToInteger } from '../utils.js';
 import { ConfigurationOptions } from '../types.js';
 
 describe('isDmpId', () => {
@@ -11,27 +11,22 @@ describe('isDmpId', () => {
 
   describe('should return true for valid DMP IDs', () => {
     it('should match when ID starts with encoded base URL and shoulder', () => {
-      const id = encodeURIComponent('doi.org/10.12345') + '/abc123';
+      const id = 'doi.org/10.12345/abc123';
       expect(isDmpId(mockOptions, id)).toBe(true);
     });
 
     it('should match when ID starts with encoded domain name and projects path', () => {
-      const id = encodeURIComponent('example.com/projects') + '/abc123';
-      expect(isDmpId(mockOptions, id)).toBe(true);
-    });
-
-    it('should match when ID starts with encoded DOI prefix and shoulder', () => {
-      const id = encodeURIComponent('doi:10.12345') + '/abc123';
+      const id = 'example.com/projects/123/dmp/abc123';
       expect(isDmpId(mockOptions, id)).toBe(true);
     });
 
     it('should match when ID starts with encoded shoulder', () => {
-      const id = encodeURIComponent('10.12345') + '/abc123';
+      const id = '10.12345/abc123';
       expect(isDmpId(mockOptions, id)).toBe(true);
     });
 
     it('should match exact encoded prefix without additional path', () => {
-      const id = encodeURIComponent('doi:10.12345');
+      const id = 'doi:10.12345';
       expect(isDmpId(mockOptions, id)).toBe(true);
     });
 
@@ -40,7 +35,7 @@ describe('isDmpId', () => {
         ...mockOptions,
         dmpIdBaseUrl: 'http://doi.org',
       };
-      const id = encodeURIComponent('doi.org/10.12345') + '/test';
+      const id = 'doi.org/10.12345/test';
       expect(isDmpId(httpOptions, id)).toBe(true);
     });
   });
@@ -57,17 +52,17 @@ describe('isDmpId', () => {
     });
 
     it('should not match when prefix is in the middle of ID', () => {
-      const id = 'prefix-' + encodeURIComponent('doi:10.12345');
+      const id = 'prefix-doi:10.12345';
       expect(isDmpId(mockOptions, id)).toBe(false);
     });
 
     it('should not match when using different shoulder', () => {
-      const id = encodeURIComponent('doi:10.99999') + '/abc123';
+      const id = 'doi:10.99999/abc123';
       expect(isDmpId(mockOptions, id)).toBe(false);
     });
 
     it('should not match when using different domain', () => {
-      const id = encodeURIComponent('different.com/projects') + '/abc123';
+      const id = 'different.com/projects/123/dmp/abc123';
       expect(isDmpId(mockOptions, id)).toBe(false);
     });
   });
@@ -78,7 +73,7 @@ describe('isDmpId', () => {
         ...mockOptions,
         dmpIdShoulder: '10.12345/special-char',
       };
-      const id = encodeURIComponent('doi:10.12345/special-char') + '/test';
+      const id = 'doi:10.12345/special-char/test';
       expect(isDmpId(specialOptions, id)).toBe(true);
     });
 
@@ -87,7 +82,7 @@ describe('isDmpId', () => {
         ...mockOptions,
         domainName: 'sub-domain.example.com',
       };
-      const id = encodeURIComponent('sub-domain.example.com/projects') + '/test';
+      const id = 'sub-domain.example.com/projects/test';
       expect(isDmpId(specialOptions, id)).toBe(true);
     });
   });
@@ -98,12 +93,12 @@ describe('isDmpId', () => {
         ...mockOptions,
         dmpIdBaseUrl: 'doi.org',
       };
-      const id = encodeURIComponent('doi.org/10.12345') + '/test';
+      const id = 'doi.org/10.12345/test';
       expect(isDmpId(noProtocolOptions, id)).toBe(true);
     });
 
     it('should be case-sensitive for ID matching', () => {
-      const id = encodeURIComponent('DOI:10.12345') + '/test';
+      const id = 'DOI:10.12345/test';
       expect(isDmpId(mockOptions, id)).toBe(false);
     });
   });
@@ -143,5 +138,62 @@ describe('stringToInteger', () => {
 
   it('should handle an undefined val', () => {
     expect(stringToInteger(undefined)).toBe(undefined);
+  });
+});
+
+describe('processDMPId', () => {
+  const mockOptions: ConfigurationOptions = {
+    dmpIdBaseUrl: 'https://doi.org',
+    dmpIdShoulder: '10.12345',
+    domainName: 'example.com',
+  } as ConfigurationOptions;
+
+  describe('returns normalized ids for supported formats', () => {
+    it('returns the plan id when given a DMP Tool project URL id', () => {
+      const id = 'https://example.com/projects/123/dmps/456';
+      expect(processDMPId(mockOptions, id)).toBe('456');
+    });
+
+    it('returns the DOI without the doi prefix when given doi format', () => {
+      const id = 'doi:10.12345/abc123';
+      expect(processDMPId(mockOptions, id)).toBe('10.12345/abc123');
+    });
+
+    it('returns the DOI path when given a DMP Tool DOI URL id', () => {
+      const id = 'https://doi.org/10.12345/abc123';
+      expect(processDMPId(mockOptions, id)).toBe('doi.org/10.12345/abc123');
+    });
+
+    it('handles DOI URL ids with http protocol', () => {
+      const id = 'http://doi.org/10.12345/abc123';
+      expect(processDMPId(mockOptions, id)).toBe('doi.org/10.12345/abc123');
+    });
+  });
+
+  describe('handles edge cases and fallback behavior', () => {
+    it('trims surrounding whitespace before processing', () => {
+      const id = '   doi:10.12345/xyz   ';
+      expect(processDMPId(mockOptions, id)).toBe('10.12345/xyz');
+    });
+
+    it('returns the original value without protocol when format is unrecognized', () => {
+      const id = 'https://other.example.org/plans/999';
+      expect(processDMPId(mockOptions, id)).toBe('other.example.org/plans/999');
+    });
+
+    it('returns the domain path unchanged when project path does not include trailing slash segment', () => {
+      const id = 'https://example.com/projects';
+      expect(processDMPId(mockOptions, id)).toBe('example.com/projects');
+    });
+
+    it('returns an empty string when given only whitespace', () => {
+      const id = '   ';
+      expect(processDMPId(mockOptions, id)).toBe('');
+    });
+
+    it('matches doi domain using shoulder and does not strip non-matching shoulder ids', () => {
+      const id = 'https://doi.org/10.99999/abc123';
+      expect(processDMPId(mockOptions, id)).toBe('doi.org/10.99999/abc123');
+    });
   });
 });

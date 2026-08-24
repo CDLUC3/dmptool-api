@@ -63,9 +63,11 @@ export const isDmpId = (
   options: ConfigurationOptions,
   id: string,
 ): boolean => {
+  const encodedId = encodeURIComponent(id);
   const prefixes = [
     `${options.dmpIdBaseUrl.replace(/https?:\/\//, '')}/${options.dmpIdShoulder}`,
-    `${options.domainName}/projects`,
+    `${options.domainName}/projects/`,
+    'projects/',
     `doi:${options.dmpIdShoulder}`,
     // The Apollo server will use this if it cannot generate a unique DMP id with
     // our DOI shoulder (shouldn't ever happen, but it could)
@@ -73,8 +75,44 @@ export const isDmpId = (
     options.dmpIdShoulder
   ].map((prefix: string): string => encodeURIComponent(prefix));
 
-  return prefixes.some((prefix: string): boolean => id.startsWith(prefix));
+  return prefixes.some((prefix: string): boolean => encodedId.startsWith(prefix));
 };
+
+/**
+ * Process a DMP id that was passed in the URL path. The id can conform to any
+ * of the following formats:
+ * - DMP Tool URL format (e.g. /projects123/dmps/123) then it is a non-published
+ *   plan so we just need the last part of the path (the plan id)
+ * - DOI format (e.g. doi:10.1234/5678) then we just return it as is
+ * - DMP Tool DOI URL format (e.g. https://doi.org/10.12345/5678) then we just return it as is
+ *
+ * @param options the configuration options
+ * @param id the id that was passed in the URL path
+ * @returns the processed id
+ */
+export const processDMPId = (
+  options: ConfigurationOptions,
+  id: string
+): string => {
+  const idWithoutProtocol: string = id.replace(/https?:\/\//, '').trim();
+  const doiDomain = `${options.dmpIdBaseUrl.replace(/https?:\/\//, '')}/${options.dmpIdShoulder}`;
+
+  if (idWithoutProtocol.startsWith(`${options.domainName}/projects/`)
+   || idWithoutProtocol.startsWith('projects/')) {
+    // It is a DMP Tool URL format, so we just need the last part of the path (the plan id)
+    return idWithoutProtocol.split('/').reverse()[0];
+
+  } else if (idWithoutProtocol.startsWith('doi:')) {
+    // It is a DOI format, so we just return without the `doi:` prefix
+    return idWithoutProtocol.replace('doi:', '');
+
+  } else if (idWithoutProtocol.startsWith(doiDomain)) {
+    // It is a DMP Tool DOI URL format, so we just return without the DOI domain prefix
+    return idWithoutProtocol.replace(options.dmpIdBaseUrl, '');
+  }
+
+  return idWithoutProtocol.trim();
+}
 
 /**
  * Safely convert a string to an integer

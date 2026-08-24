@@ -1,6 +1,10 @@
 import { FastifyRequest } from "fastify";
 import { DMPToolDMPType } from "@dmptool/types";
-import { convertMySQLDateTimeToRFC3339, DMP_LATEST_VERSION } from "@dmptool/utils";
+import {
+  convertMySQLDateTimeToRFC3339,
+  DMP_LATEST_VERSION,
+  toErrorMessage
+} from "@dmptool/utils";
 import {
   IdentifierType,
   Plan as PlanRDS,
@@ -83,7 +87,7 @@ export const getPlanWorkflow = async (
   request: FastifyRequest,
   dmpId: string,
   version: string = DMP_LATEST_VERSION
-): Promise<DMPToolDMPType | undefined> => {
+): Promise<{ maDMP: DMPToolDMPType | undefined; plan: PlanRDS | undefined }> => {
   // First: load high-level info about the DMP from the MySQL database
   const plan: PlanRDS | undefined = await maDMPHelpers.loadPlan(request, dmpId);
   if (!plan) {
@@ -102,25 +106,37 @@ export const getPlanWorkflow = async (
   // Third: Determine if the maDMP was missing or is out of date or missing the narrative.
   // If so, generate the current maDMP and update the DynamoDB record.
   const rdsDate: string | null = convertMySQLDateTimeToRFC3339(plan?.modified);
-
   request.log.debug(
     { dmpId, rdsDate, maDMPModified: maDMP?.dmp?.modified, hasNarrative: !!maDMP?.dmp?.narrative },
     'Comparing DMP metadata from RDS and DynamoDB'
   )
 
+  // If no maDMP record was found or the RDS modified date does not match the maDMP modified date
+  // or the narrative is missing, we need to generate a new maDMP record
   if (!maDMP || !maDMP.dmp || rdsDate !== maDMP.dmp.modified || !maDMP.dmp.narrative) {
     const outdated: boolean = maDMP?.dmp?.modified && rdsDate !== maDMP?.dmp?.modified
     request.log.debug({ dmpId }, `DMP metadata is ${outdated ? 'outdated' : 'missing'}`);
-    maDMP = await maDMPHelpers.handleMissingMaDMP(request, plan, outdated);
+
+    try {
+      maDMP = await maDMPHelpers.handleMissingMaDMP(request, plan, outdated);
+    } catch (error) {
+      const errMsg: string = toErrorMessage(error);
+      if (errMsg.includes('Latest version already exists')) {
+        maDMP = await maDMPHelpers.loadMaDMPFromDynamo(request, plan.dmpId, version || DMP_LATEST_VERSION);
+      } else {
+        request.log.error({ dmpId, error }, 'Error occurred while handling missing maDMP');
+        throw error;
+      }
+    }
   }
 
   // If the maDMP record could not be generated or retrieved, we need to bail out
   if (!maDMP || !maDMP.dmp) {
     request.log.error({ dmpId }, "Unable to generate narrative for DMP");
-    return undefined;
+    return { maDMP: undefined, plan: undefined };
   }
 
-  return maDMP;
+  return { maDMP, plan };
 }
 
 /**
@@ -189,14 +205,14 @@ export async function createPlanWorkflow(
   }
 
   // Generate the maDMP JSON so that we can return it
-  const newMaDMP: DMPToolDMPType | undefined = await getPlanWorkflow(request, plan.dmpId);
+  const { maDMP } = await getPlanWorkflow(request, plan.dmpId);
 
   // TODO: Once the RDA group has decided on a way to convey warnings about
   //       data that could not be supported (e.g. the "cost" section), we will
   //       want to attach those warnings to the response
   request.log.warn({ warnings: plan.warnings }, 'Non fatal errors occurred.');
 
-  if (!newMaDMP) {
+  if (!maDMP) {
     request.log.fatal(
       { alternateIdentifier: idIn, dmpId: plan.dmpId },
       'Unable to load newly-created maDMP'
@@ -211,7 +227,7 @@ export async function createPlanWorkflow(
     { alternateIdentifier: idIn, projectId: plan.project.id, dmpId: plan.dmpId },
     'Finished creating new Plan'
   );
-  return newMaDMP;
+  return maDMP;
 }
 
 /**
@@ -225,32 +241,28 @@ export const updateDmpWorkflow = async (
   payload: DMPToolDMPType['dmp']
 ): Promise<DMPToolDMPType> => {
   // Fetch the maDMP record
-  const currentDMP: DMPToolDMPType | undefined = await getPlanWorkflow(request, id);
+  const { maDMP, plan } = await getPlanWorkflow(request, id);
   request.log.debug({ id }, 'Update DMP Workflow started');
 
-  if (!currentDMP || !currentDMP.dmp || !currentDMP.dmp.modified) {
-    request.log.error({ planId: id }, 'Unable to plan using PlanWorkflow');
+  if (!plan || !plan.dmpId || !plan.modified || !maDMP || !maDMP.dmp || !maDMP.dmp.modified) {
+    request.log.error({ id }, 'Unable to get plan using PlanWorkflow');
     throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
   }
-
-  // Convert the DOI specified in the path into a full DMP id
-  const cleanId = id.startsWith('/') ? id.replace('/', '') : id;
-  const dmpId = `${request.dmptoolConfig.dmpIdBaseUrl}/${cleanId}`;
 
   // Validate that the modification timestamps match
-  validateModifiedDateMatch(ifUnmodifiedSince, currentDMP.dmp.modified);
+  validateModifiedDateMatch(ifUnmodifiedSince, maDMP.dmp.modified);
 
   // 1st: find the Project and Plan
-  const plan: Plan | undefined = await Plan.findByDMPId(request, dmpId);
-  if (!plan || !plan.id || !plan.project || !plan.project.id || !plan.versionedTemplate) {
-    request.log.error({ dmpId }, 'Unable to load plan information');
+  const fullPlan: Plan | undefined = await Plan.findByDMPId(request, plan.dmpId);
+  if (!fullPlan || !fullPlan.id || !fullPlan.project || !fullPlan.project.id || !fullPlan.versionedTemplate) {
+    request.log.error({ dmpId: plan.dmpId }, 'Unable to load plan information');
     throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
   }
-  const logBase = { dmpId, projectId: plan.project.id, planId: plan.id };
+  const logBase = { dmpId: plan.dmpId, projectId: fullPlan.project.id, planId: fullPlan.id };
 
   // 2nd: Reconcile the incoming changes with the current Plan
   request.log.debug(logBase, 'Replacing project information');
-  const reconciledPlan: Plan = Plan.reconcileFromMaDMP(payload, plan.versionedTemplate, plan.project, plan)
+  const reconciledPlan: Plan = Plan.reconcileFromMaDMP(payload, fullPlan.versionedTemplate, fullPlan.project, fullPlan);
   const updated: boolean = await reconciledPlan.save(request);
   if (!updated || reconciledPlan.hasErrors()) {
     request.log.error({ ...logBase, errors: reconciledPlan.errors }, 'Unable to replace plan information');
@@ -258,7 +270,7 @@ export const updateDmpWorkflow = async (
   }
 
   // Generate the maDMP JSON so that we can return it
-  const replacedMaDMP: DMPToolDMPType | undefined = await getPlanWorkflow(request, plan.dmpId);
+  const { maDMP: replacedMaDMP } = await getPlanWorkflow(request, plan.dmpId);
 
   // TODO: Once the RDA group has decided on a way to convey warnings about
   //       data that could not be supported (e.g. the "cost" section), we will
@@ -287,7 +299,7 @@ export const deleteDmpWorkflow = async (
   ifUnmodifiedSince: string,
 ): Promise<boolean> => {
   // Fetch the maDMP record
-  const plan: Plan | undefined = await Plan.findByDMPId(request, dmpId);
+  const { plan } = await getPlanWorkflow(request, dmpId);
   if (!plan || !plan.modified) {
     request.log.warn({ dmpId }, 'Unable to delete Plan because it does not exist');
     throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
@@ -298,15 +310,17 @@ export const deleteDmpWorkflow = async (
   validateModifiedDateMatch(ifUnmodifiedSince, plan.modified);
 
   // Delete or Tombstone the maDMP
-  if(!(await plan.delete(request)) || plan.hasErrors()) {
-    request.log.error({ dmpId, planId: plan.id, errors: plan.errors }, 'Unable to delete plan information');
-    throw newFastifyError(ERROR_CODE_INVALID_DMP, plan.errorsToString());
+  const fullPlan: Plan | undefined = await Plan.findByDMPId(request, plan.dmpId);
+  if(fullPlan && fullPlan.id) {
+    const deleted: boolean = await fullPlan.delete(request);
+    if (!deleted || fullPlan.hasErrors()){
+      request.log.error({ dmpId, planId: plan.id, errors: fullPlan?.errors }, 'Unable to delete plan information');
+      throw newFastifyError(ERROR_CODE_INVALID_DMP, fullPlan?.errorsToString());
+    }
+
+    return true;
+  } else {
+    request.log.error({ dmpId, planId: plan.id }, 'Unable to load plan information for deletion');
+    throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
   }
-
-  // Generate the maDMP JSON so that we can return it
-  const removedMaDMP: DMPToolDMPType | undefined = await getPlanWorkflow(request, plan.dmpId);
-
-  // If the plan was NOT published/registered we should not have been able to reload the MaDMP
-  // Otherwise check that the maDMP record is tomb-stoned
-  return (!removedMaDMP && !plan.registered) || (removedMaDMP && removedMaDMP.dmp.tombstoned);
 };

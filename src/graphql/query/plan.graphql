@@ -101,6 +101,11 @@ fragment PlanDetails on Plan {
     id
     alternateIdentifier
   }
+  acceptedWorks {
+    doi
+    workType
+    relationType
+  }
 }
 
 query PlanByDmpId($dmpId: String!) {

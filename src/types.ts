@@ -137,3 +137,4 @@ export type ProjectType = NonNullable<DMPToolDMPType['dmp']['project']>[0];
 export type ResearchDomainType = DMPToolDMPType['dmp']['research_domain'];
 export type AlternateIdentifiersType = DMPToolDMPType['dmp']['alternate_identifier'];
 export type AlternateIdentifierType = NonNullable<AlternateIdentifiersType>[0];
+export type RelatedIdentifierType = DMPToolDMPType['dmp']['related_identifier'][0];

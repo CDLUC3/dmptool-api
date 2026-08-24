@@ -5,7 +5,7 @@ import { DMPToolDMPType } from "@dmptool/types";
 import { randomHex, removeNullAndUndefinedFromObject } from "@dmptool/utils";
 import {
   AddEntirePlanInput,
-  AddPlanDocument,
+  AddPlanDocument, EntirePlanAcceptedWorkFragment,
   EntirePlanAnswerFragment,
   EntirePlanFundingFragment,
   EntirePlanMemberFragment,
@@ -13,11 +13,13 @@ import {
   PlanByDmpIdDocument,
   PlanStatus,
   PlanVisibility,
+  RelationType,
   RemovePlanDocument,
   UpdateEntirePlanInput,
-  UpdatePlanDocument
+  UpdatePlanDocument,
+  WorkType
 } from "../generated/graphql.js";
-import { AlternateIdentifierType } from "../types.js";
+import {AlternateIdentifierType, RelatedIdentifierType} from "../types.js";
 import { DEFAULT_LANGUAGE, LangISO5 } from "../utils.js";
 import { BaseGraphQLModel, GQLResponse } from "./BaseGQL.js";
 import { Project, ProjectQueryResponse } from "./Project.js";
@@ -65,6 +67,7 @@ export interface PlanQueryResponse {
     id?: number;
     alternateIdentifier: string;
   }[];
+  acceptedWorks?: AcceptedWorkQueryResponse[]
 }
 
 /**
@@ -73,6 +76,15 @@ export interface PlanQueryResponse {
 export interface AlternateIdentifierQueryResponse {
   id?: number;
   alternateIdentifier: string;
+}
+
+/**
+ * The shape of a plan's related work within a GraphQL query response
+ */
+export interface AcceptedWorkQueryResponse {
+  doi?: string;
+  workType: WorkType;
+  relationType?: RelationType;
 }
 
 /**
@@ -107,7 +119,7 @@ export interface UpdateEntirePlanResponse {
  * Representation of the GraphQL query response for deleting an entire Plan
  */
 export interface RemoveEntirePlanResponse {
-  removeEntirePlan: Plan
+  removeEntirePlanByDMPId: Plan
 }
 
 /**
@@ -127,9 +139,7 @@ export class Plan extends BaseGraphQLModel {
   versionedTemplate?: VersionedTemplate;
 
   alternateIdentifiers?: string[];
-  // TODO: Update this once we've got the related works fixed in the maDMP record
-  //       they are currently including too much (suggested/proposed matches)
-  relatedWorks?: string[];
+  acceptedWorks?: EntirePlanAcceptedWorkFragment[];
 
   members?: ProjectMember[];
   funding?: ProjectFunding[];
@@ -146,7 +156,9 @@ export class Plan extends BaseGraphQLModel {
     this.registered = options.registered;
     this.templateId = options.templateId;
 
-    this.versionedTemplate = options.versionedTemplate;
+    this.versionedTemplate = options.versionedTemplate
+      ? new VersionedTemplate(options.versionedTemplate)
+      : undefined;
 
     // Use the specified Project or initialize one using the Plan title
     this.project = options.project
@@ -154,7 +166,7 @@ export class Plan extends BaseGraphQLModel {
       : new Project({ title: options.title });
 
     this.alternateIdentifiers = options.alternateIdentifiers || [];
-    this.relatedWorks = options.relatedWorks || [];
+    this.acceptedWorks = options.acceptedWorks || [];
 
     this.members = options.members
       ? options.members.map((m: ProjectMember) => new ProjectMember(m))
@@ -170,7 +182,6 @@ export class Plan extends BaseGraphQLModel {
 
     this.graphQLErrorsThatShouldBeWarnings = new Set<string>([
       'alternateIdentifiers',
-      'relatedWorks'
     ]);
   }
 
@@ -194,9 +205,20 @@ export class Plan extends BaseGraphQLModel {
       ? payload.answers.map((a: AnswerQueryResponse): Answer => Answer.fromGraphQL(a))
       : [];
 
-    const alternateIdentifiers = payload.alternateIdentifiers
+    const alternateIdentifiers: string[] = payload.alternateIdentifiers
       ? payload.alternateIdentifiers.map((id: AlternateIdentifierQueryResponse): string => {
           return id.alternateIdentifier;
+        })
+      : [];
+
+    const acceptedWorks: RelatedIdentifierType[] = payload.acceptedWorks
+      ? payload.acceptedWorks.map((work: AcceptedWorkQueryResponse): RelatedIdentifierType => {
+          return {
+            identifier: work.doi,
+            type: 'doi',
+            relation_type: (work.relationType || 'REFERENCES').toString().toLowerCase(),
+            resource_type: (work.workType || 'DATASET').toString().toLowerCase()
+          };
         })
       : [];
 
@@ -211,6 +233,7 @@ export class Plan extends BaseGraphQLModel {
       versionedTemplate,
       project,
       alternateIdentifiers,
+      acceptedWorks,
       members: project.members,
       funding: project.funding,
       answers
@@ -238,6 +261,14 @@ export class Plan extends BaseGraphQLModel {
       return entry.identifier?.trim();
     });
 
+    const acceptedWorks: EntirePlanAcceptedWorkFragment[] = (maDMP.related_identifier ?? []).map((entry: RelatedIdentifierType): EntirePlanAcceptedWorkFragment => {
+      return {
+        doi: entry.identifier,
+        relationType: (entry.relation_type || 'references').toString().toUpperCase(),
+        workType: (entry.resource_type || 'dataset').toString().toUpperCase(),
+      };
+    });
+
     // If the current plan is present, we are replacing it, so always return
     // a new object.
     const newPlan: Plan = new Plan({
@@ -252,6 +283,7 @@ export class Plan extends BaseGraphQLModel {
       visibility: maDMP.visibility?.toUpperCase() as PlanVisibility,
       registered: currentPlan?.registered,
       alternateIdentifiers: alternateIdentifiers.filter(Boolean),
+      acceptedWorks: acceptedWorks.filter(Boolean),
     });
 
     // Process the maDMP narrative and dataset array
@@ -323,7 +355,6 @@ export class Plan extends BaseGraphQLModel {
       : [];
 
     const input: AddEntirePlanInput | UpdateEntirePlanInput = {
-      versionedTemplateId: this.versionedTemplate?.id,
       title: this.title,
       status: this.status,
       visibility: this.visibility,
@@ -335,6 +366,7 @@ export class Plan extends BaseGraphQLModel {
       funding,
       answers,
       alternateIdentifiers: this.alternateIdentifiers,
+      acceptedWorks: this.acceptedWorks
     };
 
     if (!this.id) {
@@ -344,7 +376,10 @@ export class Plan extends BaseGraphQLModel {
         {
           mutation: AddPlanDocument,
           variables: {
-            input: removeNullAndUndefinedFromObject(input)
+            input: {
+              ...removeNullAndUndefinedFromObject(input),
+              versionedTemplateId: this.versionedTemplate?.id,
+            }
           },
           errorPolicy: "all"
         } as MutateOptions
@@ -362,7 +397,10 @@ export class Plan extends BaseGraphQLModel {
         {
           mutation: UpdatePlanDocument,
           variables: {
-            input: { ...input, id: this.id },
+            input: {
+              ...removeNullAndUndefinedFromObject(input),
+              id: this.id
+            },
           },
           errorPolicy: "all"
         } as MutateOptions
@@ -382,20 +420,18 @@ export class Plan extends BaseGraphQLModel {
    */
   async delete(request: FastifyRequest): Promise<boolean> {
     if (this.id) {
-      request.log.debug({ planId: this.id }, 'Archiving plan');
+      request.log.debug({ dmpId: this.dmpId }, 'Archiving plan');
       const archived: GQLResponse<RemoveEntirePlanResponse> = await Plan.mutate<RemoveEntirePlanResponse>(
         request,
         {
           mutation: RemovePlanDocument,
           variables: {
-            planId: this.id,
+            dmpId: this.dmpId,
           },
           errorPolicy: "all"
         } as MutateOptions
       );
-      const data: Plan | undefined = archived?.data?.removeEntirePlan;
-      this.processGQLResponse(archived, data as Plan, 'remove EntirePlan');
-      return data?.hasErrors() === false;
+      return archived?.data?.removeEntirePlanByDMPId?.toString() === 'true';
     }
     return false;
   }

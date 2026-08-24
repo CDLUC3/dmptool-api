@@ -9,7 +9,8 @@ import {
   EnvironmentEnum,
   getDMPs,
   planToDMPCommonStandard,
-  queryTable, randomHex,
+  queryTable,
+  randomHex,
   updateDMP
 } from "@dmptool/utils";
 
@@ -180,7 +181,12 @@ export async function loadPlan(
   request: FastifyRequest,
   dmpId: string
 ): Promise<Plan | undefined> {
-  const fullDmpId = dmpId.startsWith('http')
+  const isNumericId: boolean = Number.isInteger(Number.parseInt(dmpId));
+  const sql: string = isNumericId
+    ? 'SELECT id, dmpId, modified, visibility FROM plans WHERE id = ?'
+    : 'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?';
+
+  const fullDmpId = isNumericId || dmpId.toString().startsWith('http')
     ? dmpId
     : `${request.dmptoolConfig.dmpIdBaseUrl}/${dmpId}`;
 
@@ -188,7 +194,7 @@ export async function loadPlan(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plans: { results: any[], fields: any[] } = await queryTable(
     request.dmptoolConfig.rds as ConnectionParams,
-    'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?',
+    sql,
     [fullDmpId]
   );
   return Array.isArray(plans.results) ? plans.results[0] : undefined;

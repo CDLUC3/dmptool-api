@@ -32,10 +32,12 @@ import {
   notFoundHandler
 } from "../../handlers/error.js";
 import { decorateLog } from "../../handlers/logger.js";
-import { isDmpId } from "../../utils.js";
+import { isDmpId, processDMPId } from "../../utils.js";
 import { ConfigurationOptions } from "../../types.js";
 import {
-  createPlanWorkflow, deleteDmpWorkflow, getPlanWorkflow,
+  createPlanWorkflow,
+  deleteDmpWorkflow,
+  getPlanWorkflow,
   updateDmpWorkflow
 } from "./workflows/planWorkflow.js";
 
@@ -206,7 +208,9 @@ const v3RoutesPlugin = async function (
         throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, 'Unable to create DMP');
       }
 
-      await reply.code(201).send(result);
+      await reply.code(201)
+        .header('Last-Modified', result.dmp.modified)
+        .send(result);
     }
   );
 
@@ -229,13 +233,16 @@ const v3RoutesPlugin = async function (
       request.log.debug({ id, version }, 'GET /dmps/:id(.+) called.')
 
       // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
-      if (!id || !isDmpId(request.dmptoolConfig, encodeURIComponent(id))) {
+      if (!id || !isDmpId(request.dmptoolConfig, id)) {
         request.log.error({ dmpId: params.id }, 'Invalid DMP ID');
         throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
       }
 
+      // Process the incoming DMP id
+      const parsedId: string = processDMPId(request.dmptoolConfig, id);
+
       // Fetch the requested maDMP record
-      const maDMP: DMPToolDMPType | undefined = await getPlanWorkflow(request, id, version);
+      const { maDMP } = await getPlanWorkflow(request, parsedId, version);
       if (!maDMP) {
         throw newFastifyError(ERROR_CODE_NOT_FOUND, ERROR_MSG_NOT_FOUND);
       }
@@ -275,13 +282,18 @@ const v3RoutesPlugin = async function (
       request.log.debug({ dmpId: id }, 'PUT /dmps/:id(.+) called.')
 
       // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
-      if (!id || !isDmpId(request.dmptoolConfig, encodeURIComponent(id))) {
+      if (!id || !isDmpId(request.dmptoolConfig, id)) {
         request.log.error({ dmpId: params.id }, 'Invalid DMP ID');
         throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
       }
 
+      // Process the incoming DMP id
+      const parsedId: string = processDMPId(request.dmptoolConfig, id);
+
+console.log('LOOKING FOR DMP ID:', parsedId);
+
       // Replace the maDMP record
-      const updatedDMP: DMPToolDMPType = await updateDmpWorkflow(request, id, modCheck, payload['dmp']);
+      const updatedDMP: DMPToolDMPType = await updateDmpWorkflow(request, parsedId, modCheck, payload['dmp']);
       request.log.debug({ dmpId: id, title: updatedDMP.dmp?.title }, 'PUT: maDMP has been replaced');
 
       // Return the maDMP record along with the Last-Modified timestamp
@@ -318,13 +330,18 @@ const v3RoutesPlugin = async function (
       request.log.debug({ dmpId: id }, 'DELETE /dmps/:id(.+) called.')
 
       // If no id was provided, or it is not a valid DMP ID, return a 400 Bad Request
-      if (!id || !isDmpId(request.dmptoolConfig, encodeURIComponent(id))) {
+      if (!id || !isDmpId(request.dmptoolConfig, id)) {
         request.log.error({ dmpId: params.id }, 'Invalid DMP ID');
         throw newFastifyError(ERROR_CODE_INVALID_DMP, 'Invalid DMP id');
       }
 
+      // Process the incoming DMP id
+      const parsedId: string = processDMPId(request.dmptoolConfig, id);
+
+console.log('LOOKING FOR DMP ID:', parsedId);
+
       // Replace the maDMP record
-      if (!(await deleteDmpWorkflow(request, id, modCheck))) {
+      if (!(await deleteDmpWorkflow(request, parsedId, modCheck))) {
         request.log.error({ dmpId: id }, 'Unable to delete the maDMP');
         throw newFastifyError(ERROR_CODE_INTERNAL_SERVER, ERROR_MSG_INTERNAL_SERVER);
       }

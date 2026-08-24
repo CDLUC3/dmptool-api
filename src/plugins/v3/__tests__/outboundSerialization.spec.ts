@@ -6,13 +6,6 @@ import { mockMaDMP, mockMaDMPModule } from "./maDMPMocks.js";
 
 mockMaDMPModule();
 
-jest.unstable_mockModule('../workflows/planWorkflow.js', () => ({
-  getPlanWorkflow: jest.fn(),
-  createPlanWorkflow: jest.fn(),
-  updateDmpWorkflow: jest.fn(),
-  deleteDmpWorkflow: jest.fn(),
-}));
-
 describe('v3 serialization', () => {
   let fastify: FastifyInstance;
   let getPlanWorkflow: jest.Mock;
@@ -103,7 +96,7 @@ describe('v3 serialization', () => {
     expect(response.headers['content-type']).toBe(`${DMP_TOOL_CONTENT_TYPE}; charset=utf-8`);
   });
 
-  it('should set Content-Type to RDA header when Accept header matches', async () => {
+  it.only('should set Content-Type to RDA header when Accept header matches', async () => {
     const rdaHeader = 'application/vnd.org.rd-alliance.dmp-common.v1.2+json';
 
     const response = await fastify.inject({

@@ -17,7 +17,7 @@ mutation AddPlan($input: AddEntirePlanInput!) {
       members
       funding
       alternateIdentifiers
-      relatedWorks
+      acceptedWorks
     }
   }
 }
@@ -43,7 +43,7 @@ mutation UpdatePlan($input: UpdateEntirePlanInput!) {
       members
       funding
       alternateIdentifiers
-      relatedWorks
+      acceptedWorks
     }
   }
 }
