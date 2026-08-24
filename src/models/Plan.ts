@@ -119,7 +119,7 @@ export interface UpdateEntirePlanResponse {
  * Representation of the GraphQL query response for deleting an entire Plan
  */
 export interface RemoveEntirePlanResponse {
-  removeEntirePlan: Plan
+  removeEntirePlanByDMPId: Plan
 }
 
 /**
@@ -156,7 +156,9 @@ export class Plan extends BaseGraphQLModel {
     this.registered = options.registered;
     this.templateId = options.templateId;
 
-    this.versionedTemplate = options.versionedTemplate;
+    this.versionedTemplate = options.versionedTemplate
+      ? new VersionedTemplate(options.versionedTemplate)
+      : undefined;
 
     // Use the specified Project or initialize one using the Plan title
     this.project = options.project
@@ -262,8 +264,8 @@ export class Plan extends BaseGraphQLModel {
     const acceptedWorks: EntirePlanAcceptedWorkFragment[] = (maDMP.related_identifier ?? []).map((entry: RelatedIdentifierType): EntirePlanAcceptedWorkFragment => {
       return {
         doi: entry.identifier,
-        relationType: entry.relation_type,
-        workType: entry.resource_type
+        relationType: (entry.relation_type || 'references').toString().toUpperCase(),
+        workType: (entry.resource_type || 'dataset').toString().toUpperCase(),
       };
     });
 
@@ -418,20 +420,18 @@ export class Plan extends BaseGraphQLModel {
    */
   async delete(request: FastifyRequest): Promise<boolean> {
     if (this.id) {
-      request.log.debug({ planId: this.id }, 'Archiving plan');
+      request.log.debug({ dmpId: this.dmpId }, 'Archiving plan');
       const archived: GQLResponse<RemoveEntirePlanResponse> = await Plan.mutate<RemoveEntirePlanResponse>(
         request,
         {
           mutation: RemovePlanDocument,
           variables: {
-            planId: this.id,
+            dmpId: this.dmpId,
           },
           errorPolicy: "all"
         } as MutateOptions
       );
-      const data: Plan | undefined = archived?.data?.removeEntirePlan;
-      this.processGQLResponse(archived, data as Plan, 'remove EntirePlan');
-      return data?.hasErrors() === false;
+      return archived?.data?.removeEntirePlanByDMPId?.toString() === 'true';
     }
     return false;
   }

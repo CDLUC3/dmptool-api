@@ -27,7 +27,13 @@ const authPlugin = fp(async function (
 
   // Set up the config for fastify-jwt if a Cookie name was defined
   const cookieConfig = fastify.dmptoolConfig.jwtCookieName
-    ? { cookie: { cookieName: fastify.dmptoolConfig.jwtCookieName, signed: false } }
+    ? {
+        cookie: {
+          cookieName: fastify.dmptoolConfig.jwtCookieName,
+          signed: false,
+          onlyCookie: false,
+        }
+      }
     : { };
 
   // If a cookie was provided, otherwise this will default to the Authorization header.

@@ -125,7 +125,9 @@ export class BaseGraphQLModel {
    * @returns the headers
    */
   private static prepareHeaders(request: FastifyRequest): Record<string, string> {
-    const jwt: string = request.cookies[request.dmptoolConfig.jwtCookieName || ''] || '';
+    const jwt: string = request.cookies[request.dmptoolConfig.jwtCookieName || '']
+      || request.headers.authorization?.replace(/[bB]earer /, '') || '';
+
     return {
       'Content-Type': 'application/json',
       cookie: `${request.dmptoolConfig.jwtCookieName}=${jwt}`,

@@ -1060,8 +1060,8 @@ const expectedCompleteMaDMPGraphQLOutput = {
   acceptedWorks: [
     {
       doi: "https://doi.org/00.0000/dataset.123456789",
-      relationType: "cites",
-      workType: 'dataset'
+      relationType: "CITES",
+      workType: 'DATASET'
     }
   ],
   answers: [

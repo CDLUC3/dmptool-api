@@ -378,7 +378,7 @@ export const createNarrativeWorkflow = (
   if (!!researchOutputQuestion && datasets.length > 0) {
     // Find the research output table answer derived from the narrative
     const roEntry: ProcessNarrativeResponse | undefined = processedNarrative.find((entry: ProcessNarrativeResponse): boolean => {
-      return entry.question?.id === researchOutputQuestion?.id;
+      return entry.question?.validatedJSON?.type === 'researchOutputTable';
     });
 
     // Convert the dataset into a row in the research output table format

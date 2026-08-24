@@ -9,10 +9,6 @@
     "type": "git",
     "url": "https://github.com/CDLUC3/dmptool-api.git"
   },
-  "engines": {
-    "node": ">=22.15.0",
-    "npm": ">=11.3.0"
-  },
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -28,11 +24,12 @@
     "trivy-all": "npm run trivy-high && npm run trivy-med"
   },
   "overrides": {
-    "fast-uri": "4.1.2"
+    "fast-uri": "4.1.2",
+    "graphql": "^17.0.2"
   },
   "dependencies": {
     "@apollo/client": "^4.2.12",
-    "@dmptool/types": "^4.0.0",
+    "@dmptool/types": "^4.0.1",
     "@dmptool/utils": "^2.1.7",
     "@fastify/accept-negotiator": "^2.1.0",
     "@fastify/cookie": "^11.1.2",

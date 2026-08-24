@@ -7,6 +7,7 @@ import { Plan } from '../../../../models/Plan.js';
 import { ResearchDomain } from '../../../../models/ResearchDomain.js';
 import { DEFAULT_LANGUAGE, LanguageMapThreeToFive } from '../../../../utils.js';
 import { newFastifyError } from '../../../../handlers/error.js';
+import {maDMPHelpers} from "../../../../models/maDMP.js";
 
 // Mock the maDMP module functions
 const mockLoadPlan = jest.fn();
@@ -357,6 +358,7 @@ describe('updateDmpWorkflow', () => {
     } as never);
     jest.spyOn(Plan, 'findByDMPId').mockResolvedValue(plan);
     jest.spyOn(Plan, 'reconcileFromMaDMP').mockReturnValue(plan);
+    jest.spyOn(plan, 'save').mockResolvedValue(false);
     jest.spyOn(Project, 'findById').mockResolvedValue(project);
 
     const expected = newFastifyError('invalid_dmp', 'plan: invalid');
