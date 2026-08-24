@@ -7,10 +7,10 @@
     "contact": {
       "affiliation": [{
         "affiliation_id": {
-          "identifier": "https://ror.org/00f54p054",
+          "identifier": "https://ror.org/03yrm5c26",
           "type": "ror"
         },
-        "name": "Stanford University"
+        "name": "California Digital Library"
       }],
       "contact_id": [{
         "identifier": "http://example.com/contacts/123",
@@ -23,10 +23,10 @@
       {
         "affiliation": [{
           "affiliation_id": {
-            "identifier": "https://ror.org/00f54p054",
+            "identifier": "https://ror.org/03yrm5c26",
             "type": "ror"
           },
-          "name": "Staford University"
+          "name": "California Digital Library"
         }],
         "contributor_id": [{
           "identifier": "https://orcid.org/0000-0000-0000-0000",
@@ -41,10 +41,10 @@
       {
         "affiliation": [{
           "affiliation_id": {
-            "identifier": "https://ror.org/012afjb06",
+            "identifier": "https://ror.org/03yrm5c26",
             "type": "ror"
           },
-          "name": "Lehigh University"
+          "name": "California Digital Library"
         }],
         "contributor_id": [{
           "identifier": "852486334534",
