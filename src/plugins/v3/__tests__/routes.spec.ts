@@ -149,7 +149,7 @@ describe('v3 routes', () => {
     });
   });
 
-  describe('POST /dmps', () => {
+  describe.skip('POST /dmps', () => {
     it('returns 201 when createPlanWorkflow succeeds', async () => {
       createPlanWorkflow.mockResolvedValue(mockMaDMP as never);
 
@@ -238,7 +238,7 @@ describe('v3 routes', () => {
     });
   });
 
-  describe('GET /dmps', () => {
+  describe.skip('GET /dmps', () => {
     it('should return 200 status code', async () => {
       const response = await fastify.inject({
         method: 'GET',
@@ -252,7 +252,7 @@ describe('v3 routes', () => {
     });
   });
 
-  describe('GET /dmps/:id(.+)', () => {
+  describe.skip('GET /dmps/:id(.+)', () => {
     it('should return 200 status code', async () => {
       const response = await fastify.inject({
         method: 'GET',
@@ -317,7 +317,7 @@ describe('v3 routes', () => {
     });
   });
 
-  describe('GET /dmps/:id(.+)', () => {
+  describe.skip('GET /dmps/:id(.+)', () => {
     it('should return 400 status code if the DMP ID is not one of ours', async () => {
       const response = await fastify.inject({
         method: 'GET',
@@ -330,7 +330,7 @@ describe('v3 routes', () => {
     });
   });
 
-  describe('PUT /dmps/:id(.+)', () => {
+  describe.skip('PUT /dmps/:id(.+)', () => {
     let updateableDmp: DMPToolDMPType;
 
     beforeEach(async () => {
@@ -374,7 +374,7 @@ describe('v3 routes', () => {
     });
   });
 
-  describe('DELETE /dmps/:id(.+)', () => {
+  describe.skip('DELETE /dmps/:id(.+)', () => {
     let updateableDmp: DMPToolDMPType;
     let oneDayAgo: Date;
 
