@@ -65,8 +65,6 @@ const fastifyErrorToApiError = (
 ): ApiError => {
   if (!err) return DEFAULT_ERROR;
 
-console.log('ERROR', err);
-
   // Map Internal Fastify Errors to RDA Common Standard errors
   let statusCode = err.statusCode || 500;
   let errorCode = err.code?.toLowerCase() || ERROR_CODE_INTERNAL_SERVER;
