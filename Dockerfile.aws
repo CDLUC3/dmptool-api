@@ -35,7 +35,8 @@ COPY . .
 RUN npm run build
 
 # Prune node_modules to only production-ready ones AFTER build
-RUN npm ci --omit=dev \
+# RUN npm ci --omit=dev \
+RUN npm install \
     && npm cache clean --force \
     # Verify jest/babel are gone before runner copies this
     && ls node_modules | grep -v "jest\|babel\|typescript\|eslint" > /dev/null \
