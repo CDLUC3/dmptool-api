@@ -1,5 +1,10 @@
 # dmptool-api Changelog
 
+## 2026-10-27
+- Update the `fast-uri` version override and remove other overrides that are no longer necessary.
+- Bump `@fastify/jwt` to latest version
+- Bump `@dmptool/utils` to latest version
+
 ## 2026-08-24
 - Fixed issue with Dockerfile and package which was causing our CodeBuilds to fail
 - Added `acceptedWorks` to GraphQL queries
