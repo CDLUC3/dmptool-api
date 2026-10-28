@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { Logger } from 'pino';
 import { stringToInteger } from "./utils.js";
-import {FastifyInstance, LogLevel} from 'fastify';
+import { FastifyInstance, LogLevel } from 'fastify';
 import { ConfigurationOptions } from "./types.js";
 import { EnvironmentEnum, getSSMParameter, SsmConnectionParams } from "@dmptool/utils";
 
