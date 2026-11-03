@@ -24,17 +24,16 @@
     "trivy-all": "npm run trivy-high && npm run trivy-med"
   },
   "overrides": {
-    "fast-uri": "4.1.2",
-    "graphql": "^17.0.2"
+    "fast-uri": "4.2.3"
   },
   "dependencies": {
     "@apollo/client": "^4.2.12",
     "@dmptool/types": "^4.0.1",
-    "@dmptool/utils": "^2.1.7",
+    "@dmptool/utils": "^2.2.3",
     "@fastify/accept-negotiator": "^2.1.0",
     "@fastify/cookie": "^11.1.2",
     "@fastify/error": "^4.2.0",
-    "@fastify/jwt": "^10.2.2",
+    "@fastify/jwt": "^10.2.4",
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/routes": "^6.0.3",
     "@fastify/swagger": "^9.8.1",
