@@ -1,115 +1,122 @@
-import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
+import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 import authPlugin from '../auth.js';
-import configPlugin from "../config.js";
 
 describe('authPlugin', () => {
   let fastify: FastifyInstance;
+  let privateKey: CryptoKey;
+  let fetchSpy: ReturnType<typeof jest.spyOn>;
 
   beforeEach(async () => {
+    const keys = await generateKeyPair('RS256');
+    privateKey = keys.privateKey;
+    const publicJwk = await exportJWK(keys.publicKey);
+    publicJwk.kid = 'test-key';
+    publicJwk.alg = 'RS256';
+    publicJwk.use = 'sig';
+
+    fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ keys: [publicJwk] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+
     fastify = Fastify();
-
-    await fastify.register(configPlugin);
+    fastify.decorate('dmptoolConfig', {
+      applicationName: 'DMP Tool API',
+      authJwksUri: 'http://localhost:4646/jwks',
+      authIssuer: 'http://localhost:4646',
+      authAudience: 'dmptool-api',
+    } as FastifyInstance['dmptoolConfig']);
     await fastify.register(authPlugin);
-
-    // Add a test route to verify authentication
-    fastify.get('/test', async (request) => {
-      return { user: request.user };
-    });
+    fastify.get('/test', async (request) => ({ user: request.user }));
   });
 
   afterEach(async () => {
     await fastify.close();
+    fetchSpy.mockRestore();
   });
 
-  it('should register the plugin successfully', async () => {
-    expect(fastify.hasDecorator('jwt')).toBe(true);
-  });
+  const makeToken = async (audience = 'dmptool-api'): Promise<string> =>
+    new SignJWT({ userId: 123, email: 'user@example.com', role: 'admin' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
+      .setIssuer('http://localhost:4646')
+      .setAudience(audience)
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(privateKey);
 
-  it('should accept valid JWT tokens', async () => {
-    const token = fastify.jwt.sign({ userId: 1, email: 'test@example.com' });
+  it('registers successfully without accepting cookie authentication', async () => {
+    await fastify.ready();
+    expect(fastify.hasRequestDecorator('authorizationToken')).toBe(true);
 
     const response = await fastify.inject({
       method: 'GET',
       url: '/test',
-      cookies: {
-        "test-cookie": token
-      }
+      cookies: { token: await makeToken() },
     });
 
     expect(response.statusCode).toBe(200);
-    const body = JSON.parse(response.body);
-    expect(body.user).toHaveProperty('userId', 1);
-    expect(body.user).toHaveProperty('email', 'test@example.com');
+    expect(response.json().user).toEqual({});
   });
 
-  it('should NOT reject requests without JWT tokens', async () => {
-    const response = await fastify.inject({
-      method: 'GET',
-      url: '/test'
-    });
-
+  it('allows requests without an Authorization header', async () => {
+    const response = await fastify.inject({ method: 'GET', url: '/test' });
     expect(response.statusCode).toBe(200);
-    const body = JSON.parse(response.body);
-    expect(body).not.toBeUndefined();
+    expect(response.json().user).toEqual({});
   });
 
-  it('should reject invalid JWT tokens', async () => {
+  it('verifies a Bearer token with the JWKS and exposes its payload', async () => {
+    const token = await makeToken();
     const response = await fastify.inject({
       method: 'GET',
       url: '/test',
-      cookies: {
-        "test-cookie": 'invalid.token.here'
-      }
+      headers: { authorization: `Bearer ${token}` },
     });
 
+    expect(response.statusCode).toBe(200);
+    expect(response.json().user).toMatchObject({ userId: 123, email: 'user@example.com', role: 'admin' });
+  });
+
+  it('rejects invalid tokens and audience mismatches', async () => {
+    const invalid = await fastify.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { authorization: 'Bearer invalid.token.here' },
+    });
+    expect(invalid.statusCode).toBe(401);
+
+    const wrongAudience = await fastify.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { authorization: `Bearer ${await makeToken('other-api')}` },
+    });
+    expect(wrongAudience.statusCode).toBe(401);
+    expect(wrongAudience.json()).toHaveProperty('error_code', 'authentication_required');
+
+    const expiredToken = await new SignJWT({ userId: 123 })
+      .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
+      .setIssuer('http://localhost:4646')
+      .setAudience('dmptool-api')
+      .setIssuedAt()
+      .setExpirationTime('-1m')
+      .sign(privateKey);
+    const expired = await fastify.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { authorization: `Bearer ${expiredToken}` },
+    });
+    expect(expired.statusCode).toBe(401);
+  });
+
+  it('rejects non-Bearer Authorization values', async () => {
+    const response = await fastify.inject({
+      method: 'GET',
+      url: '/test',
+      headers: { authorization: 'Basic abc' },
+    });
     expect(response.statusCode).toBe(401);
-    const body = JSON.parse(response.body);
-    expect(body).toHaveProperty('error_code', 'authentication_required');
-  });
-
-  it('should ignore expired JWT tokens', async () => {
-    const token = fastify.jwt.sign(
-      { userId: 1, email: 'test@example.com' },
-      { expiresIn: '-1h' } // Token expires immediately
-    );
-
-    // Wait a bit to ensure token is expired
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    const response = await fastify.inject({
-      method: 'GET',
-      url: '/test',
-      cookies: {
-        "test-cookie": token
-      }
-    });
-
-    expect(response.statusCode).toBe(401);
-    const body = JSON.parse(response.body);
-    expect(body.user).toBeUndefined();
-  });
-
-  it('should set decoded JWT payload on request.user', async () => {
-    const payload = {
-      userId: 123,
-      email: 'user@example.com',
-      role: 'admin'
-    };
-    const token = fastify.jwt.sign(payload);
-
-    const response = await fastify.inject({
-      method: 'GET',
-      url: '/test',
-      cookies: {
-        "test-cookie": token
-      }
-    });
-
-    expect(response.statusCode).toBe(200);
-    const body = JSON.parse(response.body);
-    expect(body.user).toHaveProperty('userId', 123);
-    expect(body.user).toHaveProperty('email', 'user@example.com');
-    expect(body.user).toHaveProperty('role', 'admin');
   });
 });

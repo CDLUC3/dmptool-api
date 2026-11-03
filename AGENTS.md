@@ -110,7 +110,8 @@ Node **22** (see `.nvmrc`) and **npm**. Don't use yarn or pnpm, and don't create
 
 ## Testing and verification
 
-Before you call a task done, run these and make sure they pass (they're the same checks as `.husky/pre-commit`):
+- Before you call a task done, run these and make sure they pass (they're the same checks as `.husky/pre-commit`):
+- When possible, also update and ensure the `dmptool-api-tester` suite passes against your changes. This project is located in the `dmptool-api-tester` repo, which is adjacent to this repo. It contains a suite of tests that verify the functionality of the API endpoints. The tests use Playwright to make requests to the API endpoints and verify the responses. The tests are located in the `tests` directory and are organized by endpoint. The tests are run using the `npm test` command. If you add a new endpoint or change the behavior of an existing endpoint, you should add or update the tests accordingly. Create a feature/bug branch that matches the one you are working with in this repository.
 
 ```bash
 npm run lint

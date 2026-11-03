@@ -1,7 +1,8 @@
 FROM public.ecr.aws/amazonlinux/amazonlinux:2023 AS deps
 
 RUN rm -fr /var/cache/dnf/* && dnf clean all && dnf -y update && dnf -y install \
-    nodejs22 npm \
+    nodejs22 nodejs22-npm \
+    && alternatives --set node /usr/bin/node-22 \
     && dnf clean all
 
 WORKDIR /app

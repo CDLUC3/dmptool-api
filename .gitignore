@@ -1,3 +1,7 @@
+# OSX files
+.DS_Store
+src/.DS_Store
+
 # IDE files
 .idea
 

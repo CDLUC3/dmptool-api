@@ -26,13 +26,15 @@ jest.unstable_mockModule('../configuration.ts', () => {
     uiPort: 3000,
 
     applicationName: 'DMP Tool API',
-    defaultCaller: 'test-caller',
 
     domainName: 'localhost:4060',
     domainWithProtocol: `http://localhost:4060`,
 
     jwtSecret: 'test-secret',
     jwtCookieName: 'test-cookie',
+    authJwksUri: 'http://localhost:4646/jwks',
+    authIssuer: 'http://localhost:4646',
+    authAudience: 'dmptool-api',
 
     dmpIdBaseUrl: 'https://doi.org',
     dmpIdShoulder: '00.00000/A1',

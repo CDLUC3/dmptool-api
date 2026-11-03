@@ -3,6 +3,9 @@ import type { SwaggerOptions } from '@fastify/swagger';
 import { baseConfigurationOptions } from "../../configuration.js";
 import { FastifySwaggerUiOptions } from "@fastify/swagger-ui";
 
+const authIssuer = baseConfigurationOptions.authIssuer;
+const authTokenUrl = `${authIssuer}/token`;
+
 // Config for the fastify-swagger plugin which generates the OpenAPI spec
 export const v3SwaggerConfig: SwaggerOptions = {
   openapi: {
@@ -13,8 +16,8 @@ export const v3SwaggerConfig: SwaggerOptions = {
 Welcome to the DMP Tool Rest API Swagger UI. Please use this page to test the different REST API endpoints while building your integration.
 
 ### 🔒 Authentication and Authorization Notes
-- Any endpoint that requires authentication has a lock symbol next to it's expand/collapse arrow.
-- To authenticate, visit the DMP Tool UI and login. This will set the necessary cookies you need to access these endpoints.
+- Any endpoint that requires authentication has a lock symbol next to its expand/collapse arrow.
+- Use the OAuth2 client credentials flow for machine clients, or authorization code flow for interactive users. Send access tokens as \`Authorization: Bearer <token>\`.
 
 ### 💡 Content Negotiation Note
 This API supports both the **RDA Common Standard** and the **DMP Tool extended** schemas.
@@ -34,15 +37,19 @@ There are some properties that the RDA Common Standard allows but we do not curr
     tags: [{ name: 'DMP', description: 'DMP related end-points' }],
     components: {
       securitySchemes: {
-        apiKeyHeader: {
-          type: 'apiKey',
-          name: 'authorization',
-          in: 'header'
-        },
-        apiKeyCookie: {
-          type: 'apiKey',
-          name: 'dmspt',
-          in: 'cookie'
+        oauth2: {
+          type: 'oauth2',
+          flows: {
+            clientCredentials: {
+              tokenUrl: authTokenUrl,
+              scopes: {}
+            },
+            authorizationCode: {
+              authorizationUrl: `${authIssuer}/auth`,
+              tokenUrl: authTokenUrl,
+              scopes: { openid: 'Authenticate an interactive user' }
+            }
+          }
         }
       }
     },
@@ -59,6 +66,9 @@ export const v3SwaggerUIConfig: FastifySwaggerUiOptions = {
   uiConfig: {
     docExpansion: 'list',
     deepLinking: false
+  },
+  initOAuth: {
+    usePkceWithAuthorizationCodeGrant: true
   },
   uiHooks: {
     onRequest: function (_request: FastifyRequest, _reply: FastifyReply, next: HookHandlerDoneFunction) {

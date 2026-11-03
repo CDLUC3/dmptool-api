@@ -290,8 +290,6 @@ const v3RoutesPlugin = async function (
       // Process the incoming DMP id
       const parsedId: string = processDMPId(request.dmptoolConfig, id);
 
-console.log('LOOKING FOR DMP ID:', parsedId);
-
       // Replace the maDMP record
       const updatedDMP: DMPToolDMPType = await updateDmpWorkflow(request, parsedId, modCheck, payload['dmp']);
       request.log.debug({ dmpId: id, title: updatedDMP.dmp?.title }, 'PUT: maDMP has been replaced');
@@ -338,8 +336,6 @@ console.log('LOOKING FOR DMP ID:', parsedId);
       // Process the incoming DMP id
       const parsedId: string = processDMPId(request.dmptoolConfig, id);
 
-console.log('LOOKING FOR DMP ID:', parsedId);
-
       // Replace the maDMP record
       if (!(await deleteDmpWorkflow(request, parsedId, modCheck))) {
         request.log.error({ dmpId: id }, 'Unable to delete the maDMP');
@@ -371,6 +367,7 @@ console.log('LOOKING FOR DMP ID:', parsedId);
       // This one will return ALL errors, not just the first one.
       validatorCompiler: ({ schema }: FastifyRouteSchemaDef<NoInfer<FastifySchema>>) => {
         const validate = ajvWithFullErrors.compile(schema) as ValidationFunction;
+
         return (data: DMPToolDMPType) => {
           const isValid: boolean = validate(data);
           if (isValid) {

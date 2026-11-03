@@ -119,7 +119,7 @@ const graphQLPlugin = fp(async function (fastify: FastifyInstance): Promise<void
 
   const authLink: SetContextLink = new SetContextLink(({ headers }) => {
     return {
-      credentials: 'include',
+      credentials: 'omit',
       headers: {
         ...headers, // Pass the headers through to Apollo Server
         'CONTENT-TYPE': 'application/json', // Apollo doesn't understand the REST API headers

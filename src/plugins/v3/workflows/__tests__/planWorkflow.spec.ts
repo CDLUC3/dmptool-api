@@ -675,7 +675,7 @@ describe('createPlanWorkflow', () => {
     await createPlanWorkflow(request, body);
 
     const normalizedDmp = planSpy.mock.calls[0][1];
-    expect(normalizedDmp.provenance).toBe('default-caller');
+    expect(normalizedDmp.provenance).toBe(undefined);
     expect(normalizedDmp.alternate_identifier).toHaveLength(1);
     expect(normalizedDmp.alternate_identifier[0].identifier).toBe('external-id-1');
   });
