@@ -18,7 +18,7 @@ Welcome to the DMP Tool Rest API Swagger UI. Please use this page to test the di
 
 ### 🔒 Authentication and Authorization Notes
 - Any endpoint that requires authentication has a lock symbol next to its expand/collapse arrow.
-- Use the OAuth2 client credentials flow for machine clients, or authorization code flow for interactive users. Send access tokens as \`Authorization: Bearer <token>\`.
+- Use the OAuth2 client credentials flow for machine clients, or authorization code flow for interactive users.
 
 ### 💡 Content Negotiation Note
 This API supports both the **RDA Common Standard** and the **DMP Tool extended** schemas.
