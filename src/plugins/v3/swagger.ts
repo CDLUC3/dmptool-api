@@ -3,8 +3,9 @@ import type { SwaggerOptions } from '@fastify/swagger';
 import { baseConfigurationOptions } from "../../configuration.js";
 import { FastifySwaggerUiOptions } from "@fastify/swagger-ui";
 
-const authIssuer = baseConfigurationOptions.authIssuer;
-const authTokenUrl = `${authIssuer}/token`;
+const authIssuer = process.env.NODE_ENV === 'development'
+  ? 'http://localhost:4646'
+  : baseConfigurationOptions.authIssuer;
 
 // Config for the fastify-swagger plugin which generates the OpenAPI spec
 export const v3SwaggerConfig: SwaggerOptions = {
@@ -41,12 +42,12 @@ There are some properties that the RDA Common Standard allows but we do not curr
           type: 'oauth2',
           flows: {
             clientCredentials: {
-              tokenUrl: authTokenUrl,
+              tokenUrl: `${authIssuer}/token`,
               scopes: {}
             },
             authorizationCode: {
               authorizationUrl: `${authIssuer}/auth`,
-              tokenUrl: authTokenUrl,
+              tokenUrl: `${authIssuer}/token`,
               scopes: { openid: 'Authenticate an interactive user' }
             }
           }
@@ -78,7 +79,7 @@ export const v3SwaggerUIConfig: FastifySwaggerUiOptions = {
       next()
     }
   },
-  staticCSP: true,
+  staticCSP: process.env.NODE_ENV !== 'development',
   transformStaticCSP: (header: string): string => header,
   transformSpecification: (
     swaggerObject: Readonly<Record<string, unknown>>,
