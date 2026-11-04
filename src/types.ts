@@ -60,8 +60,6 @@ export interface ConfigurationOptions {
   domainWithProtocol: string;
   domainName: string;
 
-  jwtSecret: string;
-  jwtCookieName?: string;
   authJwksUri: string;
   authIssuer: string;
   authAudience: string;

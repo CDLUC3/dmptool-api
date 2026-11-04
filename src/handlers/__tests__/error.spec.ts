@@ -74,7 +74,6 @@ describe('errorHandler', () => {
       applicationName: 'test-app',
       domainWithProtocol: 'http://localhost',
       domainName: 'localhost',
-      jwtSecret: 'secret',
       authJwksUri: 'http://localhost:4646/jwks',
       authIssuer: 'http://localhost:4646',
       authAudience: 'dmptool-api',

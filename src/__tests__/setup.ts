@@ -30,8 +30,6 @@ jest.unstable_mockModule('../configuration.ts', () => {
     domainName: 'localhost:4060',
     domainWithProtocol: `http://localhost:4060`,
 
-    jwtSecret: 'test-secret',
-    jwtCookieName: 'test-cookie',
     authJwksUri: 'http://localhost:4646/jwks',
     authIssuer: 'http://localhost:4646',
     authAudience: 'dmptool-api',

@@ -102,7 +102,7 @@ describe('BaseGraphQLModel', () => {
 
   it('should throw if query is called without a graphQL client', async () => {
     const request = {
-      dmptoolConfig: { jwtCookieName: 'jwt' },
+      dmptoolConfig: {},
       cookies: {},
       log: {
         debug: jest.fn(),

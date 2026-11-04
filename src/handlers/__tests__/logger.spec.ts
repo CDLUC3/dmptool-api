@@ -63,7 +63,6 @@ describe("decorateLog", () => {
         port: 3000,
         domainWithProtocol: "http://test.com",
         domainName: "test.com",
-        jwtSecret: "secret",
         authJwksUri: 'http://localhost:4646/jwks',
         authIssuer: 'http://localhost:4646',
         authAudience: 'dmptool-api',

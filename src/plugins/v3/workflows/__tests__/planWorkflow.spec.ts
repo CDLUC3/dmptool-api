@@ -34,7 +34,6 @@ const makeRequest = (): FastifyRequest =>
       dmpIdShoulder: '10.99999/',
       dmpIdBaseUrl: '10.99999',
       applicationName: 'DMPTool',
-      jwtCookieName: 'jwt',
       graphqlUri: 'http://localhost:4000/graphql',
     },
     log: {

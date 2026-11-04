@@ -50,10 +50,6 @@ export const baseConfigurationOptions: ConfigurationOptions = {
   domainWithProtocol: API_DOMAIN_WITH_PROTOCOL,
   domainName: API_DOMAIN.replace(/https?:\/\//, ''),
 
-  // The secret required to decode the JWT token
-  jwtSecret: process.env.JWT_SECRET || 'secret',
-  // The name of the cookie that contains the JWT token
-  jwtCookieName: process.env.JWT_COOKIE_NAME,
   // The public JWKS endpoint used to verify tokens issued by dmptool-auth
   authJwksUri: AUTH_JWKS_URI,
   // The issuer claim expected in access tokens
