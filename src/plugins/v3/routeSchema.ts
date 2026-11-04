@@ -301,7 +301,7 @@ export const GET_DMP_OPTIONS: RouteShorthandOptions = {
     description: 'Get based on its DMP id.',
     tags: ['DMP'],
     // Security names are defined in the Swagger Plugin
-    security: [{ apiKeyHeader: [], apiKeyCookie: [] }],
+    security: [{ oauth2: [] }],
     params: {
       type: 'object',
       properties: {
@@ -363,7 +363,7 @@ export const GET_DMPS_OPTIONS: RouteShorthandOptions = {
       '        query string for each item.',
     tags: ['DMP'],
     // Security names are defined in the Swagger Plugin
-    security: [{ apiKeyHeader: [], apiKeyCookie: [] }],
+    security: [{ oauth2: [] }],
     querystring: allowableQueryParameters,
     response: {
       200: {
@@ -401,7 +401,7 @@ export const POST_DMP_OPTIONS: DMPToolRouteOptions = {
     description: 'Create or import a DMP from a JSON-formatted DMP object.',
     tags: ['DMP'],
     // Security names are defined in the Swagger Plugin
-    security: [{ apiKeyHeader: [], apiKeyCookie: [] }],
+    security: [{ oauth2: [] }],
     swaggerRequestBody: {
       description: 'DMP Object Data',
       required: true,
@@ -446,7 +446,7 @@ export const PUT_DMP_OPTIONS: DMPToolRouteOptions = {
     description: 'Completely overwrite a DMP with the specified data.',
     tags: ['DMP'],
     // Security names are defined in the Swagger Plugin
-    security: [{ apiKeyHeader: [], apiKeyCookie: [] }],
+    security: [{ oauth2: [] }],
     params: {
       type: 'object',
       properties: {
@@ -509,7 +509,7 @@ export const DELETE_DMP_OPTIONS: RouteShorthandOptions = {
     description: 'Delete a DMP based on its ID. The DMP will be tomb-stoned instead if the DMP id is a registered DOI.',
     tags: ['DMP'],
     // Security names are defined in the Swagger Plugin
-    security: [{ apiKeyHeader: [], apiKeyCookie: [] }],
+    security: [{ oauth2: [] }],
     params: {
       type: 'object',
       properties: {

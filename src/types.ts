@@ -20,6 +20,8 @@ declare module 'fastify' {
     dmptoolConfig: ConfigurationOptions;
     graphQLClient?: ApolloClient;
     caller?: string;
+    authorizationToken?: string;
+    user?: object;
   }
 }
 
@@ -54,13 +56,13 @@ export interface ConfigurationOptions {
   port: number;
 
   applicationName: string;
-  defaultCaller: string;
 
   domainWithProtocol: string;
   domainName: string;
 
-  jwtSecret: string;
-  jwtCookieName?: string;
+  authJwksUri: string;
+  authIssuer: string;
+  authAudience: string;
 
   dmpIdBaseUrl: string;
   dmpIdShoulder: string;

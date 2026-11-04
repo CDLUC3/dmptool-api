@@ -35,6 +35,9 @@ services:
 
       - "GRAPHQL_URI=http://apollo-server:4000"
 
+      - "AUTH_JWKS_URI=http://auth:4646/.well-known/jwks"
+      - "TOKEN_ISSUER=http://auth:4646"
+
       # Using the Apollo server network's LocalStack resources for RDS, DYNAMODB, REDIS and SSM
       - "RDS_HOST=apollo-mysql"
       - "RDS_PORT=3306"

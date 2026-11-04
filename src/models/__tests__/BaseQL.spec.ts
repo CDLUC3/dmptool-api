@@ -15,8 +15,7 @@ class TestModel extends BaseGraphQLModel {
 
 const buildRequest = (): FastifyRequest =>
   ({
-    dmptoolConfig: { jwtCookieName: 'jwt' },
-    cookies: { jwt: 'token' },
+    authorizationToken: 'Bearer token',
     graphQLClient: {
       query: jest.fn(),
       mutate: jest.fn(),
@@ -103,7 +102,7 @@ describe('BaseGraphQLModel', () => {
 
   it('should throw if query is called without a graphQL client', async () => {
     const request = {
-      dmptoolConfig: { jwtCookieName: 'jwt' },
+      dmptoolConfig: {},
       cookies: {},
       log: {
         debug: jest.fn(),
@@ -132,7 +131,7 @@ describe('BaseGraphQLModel', () => {
         context: {
           headers: {
             'Content-Type': 'application/json',
-            cookie: 'jwt=token',
+            authorization: 'Bearer token',
           },
         },
         fetchPolicy: 'no-cache',

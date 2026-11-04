@@ -55,7 +55,7 @@ export const normalizeIncomingDMP = (
   const dmp = structuredClone(body.dmp);
 
   // Make sure we have the provenance set
-  dmp.provenance = request.caller || request.dmptoolConfig.defaultCaller;
+  dmp.provenance = request.caller || request.dmptoolConfig.authAudience;
 
   // Move the specified `dmp_id` value into the `alternate_identifier` array
   dmp.alternate_identifier ??= [];

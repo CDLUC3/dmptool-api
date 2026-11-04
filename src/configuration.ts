@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import { Logger } from 'pino';
 import { stringToInteger } from "./utils.js";
-import {FastifyInstance, LogLevel} from 'fastify';
+import { FastifyInstance, LogLevel } from 'fastify';
 import { ConfigurationOptions } from "./types.js";
 import { EnvironmentEnum, getSSMParameter, SsmConnectionParams } from "@dmptool/utils";
 
@@ -19,6 +19,8 @@ const API_DOMAIN_WITH_PROTOCOL: string = API_DOMAIN.startsWith('http')
 
 const NARRATIVE_DOWNLOAD_PORT: number = stringToInteger(process.env.NARRATIVE_DOWNLOAD_PORT) || 4030;
 const LANDING_PAGE_PORT: number = stringToInteger(process.env.LANDING_PAGE_PORT) || 4020;
+const AUTH_JWKS_URI: string = process.env.AUTH_JWKS_URI || 'http://localhost:4646/.well-known/jwks';
+const AUTH_ISSUER: string = process.env.TOKEN_ISSUER || 'http://localhost:4646';
 
 export const LOG_LEVEL: string = process.env.LOG_LEVEL || 'info';
 
@@ -44,19 +46,16 @@ export const baseConfigurationOptions: ConfigurationOptions = {
   // The name of this application
   applicationName: process.env.APPLICATION_NAME || 'my-api',
 
-  // The identifier of the default system that will be used to set the provenance
-  // of data the system will use the true identifier of the system that is sending
-  // the request when possible
-  defaultCaller: process.env.DEFAULT_CALLER || 'some-system',
-
   // The domain of the API (e.g. https://api.example.com))
   domainWithProtocol: API_DOMAIN_WITH_PROTOCOL,
   domainName: API_DOMAIN.replace(/https?:\/\//, ''),
 
-  // The secret required to decode the JWT token
-  jwtSecret: process.env.JWT_SECRET || 'secret',
-  // The name of the cookie that contains the JWT token
-  jwtCookieName: process.env.JWT_COOKIE_NAME,
+  // The public JWKS endpoint used to verify tokens issued by dmptool-auth
+  authJwksUri: AUTH_JWKS_URI,
+  // The issuer claim expected in access tokens
+  authIssuer: AUTH_ISSUER,
+  // The OAuth audience this API accepts
+  authAudience: process.env.TOKEN_AUDIENCES || 'dmptool-api',
 
   // The base URL of registered DMP Ids (e.g. https://doi.org))
   dmpIdBaseUrl: process.env.DMP_ID_BASE_URL || 'https://doi.org',

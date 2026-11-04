@@ -33,10 +33,8 @@ const fastify: FastifyInstance = Fastify({
       'pwd',
       'token',
       'secret',
-      'jwtSecret',
       'cookie',
-      'cookieConfig',
-      'jwtCookieName'
+      'cookieConfig'
     ],
   },
   // Convert the specified size in MB to MiB

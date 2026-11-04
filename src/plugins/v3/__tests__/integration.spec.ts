@@ -1369,7 +1369,7 @@ describe('POST /dmps integration tests', () => {
     // Add authentication hook for authenticated requests
     fastify.addHook('preValidation', async (request): Promise<void> => {
       request.user = { id: 1, email: 'tester@example.com', role: 'RESEARCHER' };
-      request.cookies = {};
+      request.authorizationToken = 'Bearer integration-test-token';
       // Set GraphQL client on request for the routes to use
       request.graphQLClient = mockGraphQLClient as unknown as ApolloClient;
     });
@@ -1434,7 +1434,7 @@ describe('POST /dmps integration tests', () => {
       context: {
         headers: {
           "Content-Type": "application/json",
-          cookie: "test-cookie="
+          authorization: 'Bearer integration-test-token'
         },
       },
       errorPolicy: "all",
@@ -1465,7 +1465,7 @@ describe('POST /dmps integration tests', () => {
       context: {
         headers: {
           "Content-Type": "application/json",
-          cookie: "test-cookie="
+          authorization: 'Bearer integration-test-token'
         },
       },
       errorPolicy: "all",
