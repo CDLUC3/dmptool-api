@@ -55,7 +55,7 @@ export const baseConfigurationOptions: ConfigurationOptions = {
   // The issuer claim expected in access tokens
   authIssuer: AUTH_ISSUER,
   // The OAuth audience this API accepts
-  authAudience: process.env.AUTH_AUDIENCE || 'dmptool-api',
+  authAudience: process.env.TOKEN_AUDIENCES || 'dmptool-api',
 
   // The base URL of registered DMP Ids (e.g. https://doi.org))
   dmpIdBaseUrl: process.env.DMP_ID_BASE_URL || 'https://doi.org',
