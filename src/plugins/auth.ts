@@ -42,8 +42,8 @@ const authPlugin = fp(async function (
       });
       request.user = payload;
       request.authorizationToken = authorization;
-    } catch (error: unknown) {
-      fastify.log.debug({ error }, 'Bearer token verification failed');
+    } catch (err: unknown) {
+      fastify.log.debug({ err }, 'Bearer token verification failed');
       return reply.status(401).send({
         error_code: 'authentication_required',
         message: 'Authorization token verification failed'

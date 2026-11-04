@@ -16,11 +16,11 @@ Node **22** (see `.nvmrc`) and **npm**. Don't use yarn or pnpm, and don't create
 | Task | Command |
 | --- | --- |
 | Install deps | `npm ci` |
-| Dev server (http://localhost:4646) | `docker compose up` |
+| Dev server (http://localhost:4060) | `docker compose up` |
 | Generate GraphQL schema | `npm run generate` (requires `dmptool-apollo-server` to be running) |
 | Lint | `npm run lint` |
 | Unit tests + coverage | `npm test` |
-| Run a single test file | `npm run test path/to/__tests__/file.spec.tsx --coverage=false` |
+| Run a single test file | `npm run test path/to/__tests__/file.spec.ts --coverage=false` |
 | Production build | `npm run build` |
 | Vulnerability scan | `npm run trivy-high` (blocking), `npm run trivy-med` (report only) |
 
@@ -28,7 +28,7 @@ Node **22** (see `.nvmrc`) and **npm**. Don't use yarn or pnpm, and don't create
 
 **Never:**
 - Commit secrets, tokens, or `.env` files. If you add an env var, put it in `.env.example`, and mention in the PR that `buildspec.yaml` and `Dockerfile` and `Dockerfile.aws` need it too.
-- Lower the Jest `coverageThreshold` in `jest.config.cjs`, add coverage ignores to hide untested code, or skip or delete tests so a run passes.
+- Lower the Jest `coverageThreshold` in `jest.config.ts`, add coverage ignores to hide untested code, or skip or delete tests so a run passes.
 - Skip the husky pre-commit hook (`--no-verify`).
 - Hand-edit the version in `package.json`.
 - Run Prettier or a formatter on files you didn't change.
@@ -45,7 +45,7 @@ Node **22** (see `.nvmrc`) and **npm**. Don't use yarn or pnpm, and don't create
 
 ## Configuration
 
-- Configuration is in `.env` files, `docker-compose.yaml`, `src/configuration.ts`. Don't hardcode config values in code. Use `process.env` or the `config.ts` file to access them.
+- Configuration is in `.env` files, `docker-compose.yaml`, `src/plugins/config.ts` and `src/configuration.ts`. Don't hardcode config values in code. Use `process.env` or the `config.ts` file to access them.
 - When making changes, keep in mind that when this application is deployed into our production environment, it will be running in a Docker container with a read-only filesystem. The ENV variables from both the `docker-compose.yaml` and the `config/*.json` files will be fed into the container via ENV variables by our CI/CD pipeline. If you add or change any of these variables please note it in the PR so that they can be updated accordingly.
 - This app requires the `dmptool-apollo-server` service to be running on port `4000` because that service hosts the local MySQL database. You can check if the service is running by visiting `http://localhost:4000/up` in your browser. If you see a 404 error, the service is not running. If it is not running you may start it by navigating to the `dmptool-apollo-server` directory (which should be adjacent to this project) and run `docker compose up`. If you do not have access to the directory you should notify the development team so that they can either provide you with access or start it for you.
 - This app requires the `dmptool-auth` service to be running on port `4646` because that service provides OAuth2 and OIDC authentication. You can check if the service is running by visiting `http://localhost:4646/healthz` in your browser. If you see a 404 error, the service is not running. If it is not running you may start it by navigating to the `dmptool-auth` directory (which should be adjacent to this project) and run `docker compose up`. If you do not have access to the directory you should notify the development team so that they can either provide you with access or start it for you.
@@ -67,7 +67,7 @@ Node **22** (see `.nvmrc`) and **npm**. Don't use yarn or pnpm, and don't create
 
 ## GraphQL
 
-- The `src/graphql` directory contains the GraphQL queries and mutations that are used to interact with the `dmptool-apollo-server` service. The queries and mutations are written in `.graphql` files and are imported into the code using the `graphql-tag` package.
+- The `src/graphql` directory contains the GraphQL queries and mutations that are used to interact with the `dmptool-apollo-server` service. The queries and mutations are written in `.graphql` files and are imported into the code.
 - The application uses the `@apollo/client` package to interact with the `dmptool-apollo-server` service. The `src/plugins/graphql.ts` file contains the Apollo client configuration and is registered as a Fastify plugin.
 
 ## Models
@@ -80,7 +80,7 @@ Node **22** (see `.nvmrc`) and **npm**. Don't use yarn or pnpm, and don't create
 ## Machine actionable DMP (maDMP)
 
 - The REST API service is designed to support the DMP Tool extension to the RDA Common Metadata Standard for DMPs.
-- The Fastify server uses content negotiation to determine whether the request is for the plain RDA Common Metadata Standard for DMPs or the DMP Tool extension to the RDA Common Metadata Standard for DMPs. The `src/plugins/serialization.ts` file contains the logic for content negotiation and is registered as a Fastify plugin.
+- The Fastify server uses content negotiation to determine whether the request is for the plain RDA Common Metadata Standard for DMPs or the DMP Tool extension to the RDA Common Metadata Standard for DMPs. 
 - The application also makes use of the `@dmptool/types` package for JSON schemas and Zod validation. We also use the `@dmptool/utils` package for utility functions and types that help convert DB records into maDMP JSON.
 
 ## Authentication and authorization
@@ -119,7 +119,7 @@ npm run build
 npm test            # fails if coverage drops below the thresholds in jest.config.cjs
 ```
 
-- Put unit tests in a `__tests__/` folder next to the code, named `*.spec.tsx` or `*.spec.ts`.
+- Put unit tests in a `__tests__/` folder next to the code, named `*.spec.ts`.
 - Every new function or file needs tests
 - Coverage should be >= 90% for statements, branches, functions, and lines. If you add a new function or file, it must be covered by tests.
 - If a resolver or existing function you change does not have tests add them.

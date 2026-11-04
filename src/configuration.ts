@@ -19,7 +19,7 @@ const API_DOMAIN_WITH_PROTOCOL: string = API_DOMAIN.startsWith('http')
 
 const NARRATIVE_DOWNLOAD_PORT: number = stringToInteger(process.env.NARRATIVE_DOWNLOAD_PORT) || 4030;
 const LANDING_PAGE_PORT: number = stringToInteger(process.env.LANDING_PAGE_PORT) || 4020;
-const AUTH_JWKS_URI: string = process.env.AUTH_JWKS_URI || 'http://localhost:4646/jwks';
+const AUTH_JWKS_URI: string = process.env.AUTH_JWKS_URI || 'http://localhost:4646/.well-known/jwks';
 const AUTH_ISSUER: string = process.env.TOKEN_ISSUER || 'http://localhost:4646';
 
 export const LOG_LEVEL: string = process.env.LOG_LEVEL || 'info';
