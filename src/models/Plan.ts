@@ -208,7 +208,7 @@ export class Plan extends BaseGraphQLModel {
       request,
       {
         query: SearchDmPsDocument,
-        variables: options,
+        variables: { options },
         errorPolicy: "all"
       }
     );
