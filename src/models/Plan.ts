@@ -5,7 +5,8 @@ import { DMPToolDMPType } from "@dmptool/types";
 import { randomHex, removeNullAndUndefinedFromObject } from "@dmptool/utils";
 import {
   AddEntirePlanInput,
-  AddPlanDocument, EntirePlanAcceptedWorkFragment,
+  AddPlanDocument,
+  EntirePlanAcceptedWorkFragment,
   EntirePlanAnswerFragment,
   EntirePlanFundingFragment,
   EntirePlanMemberFragment,
@@ -15,6 +16,7 @@ import {
   PlanVisibility,
   RelationType,
   RemovePlanDocument,
+  SearchDmPsDocument,
   UpdateEntirePlanInput,
   UpdatePlanDocument,
   WorkType
@@ -94,6 +96,23 @@ export interface PlanByDMPIdResponse {
   planByDMPId: PlanQueryResponse
 }
 
+export interface SearchDMPsResponse {
+  planSearch: {
+    totalCount: number;
+    offset: number;
+    count: number;
+    items: {
+      dmpId: string;
+      planId: number;
+      projectId: number;
+      title?: string;
+      created: string;
+      modified: string;
+      registered?: string;
+    }[];
+  };
+}
+
 /**
  * The response from the planByAlternateIdentifier GraphQL query
  */
@@ -140,7 +159,6 @@ export class Plan extends BaseGraphQLModel {
 
   alternateIdentifiers?: string[];
   acceptedWorks?: EntirePlanAcceptedWorkFragment[];
-
   members?: ProjectMember[];
   funding?: ProjectFunding[];
   answers?: Answer[];
@@ -183,6 +201,19 @@ export class Plan extends BaseGraphQLModel {
     this.graphQLErrorsThatShouldBeWarnings = new Set<string>([
       'alternateIdentifiers',
     ]);
+  }
+
+  static async search(request: FastifyRequest, options: Map<string, unknown>): Promise<SearchDMPsResponse['planSearch']> {
+    const resp: GQLResponse<SearchDMPsResponse> = await this.query<SearchDMPsResponse>(
+      request,
+      {
+        query: SearchDmPsDocument,
+        variables: options,
+        errorPolicy: "all"
+      }
+    );
+    if (!resp.data?.planSearch) throw new Error('Unable to search DMPs');
+    return resp.data.planSearch;
   }
 
   static fromGraphQL(graphQLPlan: PlanByDMPIdResponse | PlanByAlternateIdentifierResponse): Plan {

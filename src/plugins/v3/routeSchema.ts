@@ -229,6 +229,15 @@ const allowableQueryParameters = {
         type: 'string'
       }
     },
+    alternate_identifier: { type: 'array', items: { type: 'string' } },
+    dataset_personal_data: { type: 'array', items: { type: 'string', enum: ['yes', 'no', 'unknown'] } },
+    dataset_sensitive_data: { type: 'array', items: { type: 'string', enum: ['yes', 'no', 'unknown'] } },
+    distribution_formats: { type: 'array', items: { type: 'string' } },
+    distribution_data_access: { type: 'array', items: { type: 'string', enum: ['open', 'shared', 'restricted', 'closed'] } },
+    host_ids: { type: 'array', items: { type: 'string' } },
+    host_titles: { type: 'array', items: { type: 'string' } },
+    license_refs: { type: 'array', items: { type: 'string', format: 'uri' } },
+    funding_status: { type: 'array', items: { type: 'string' } },
     query: {
       type: 'string'
     },
