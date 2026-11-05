@@ -1,5 +1,13 @@
 # dmptool-api Changelog
 
+## 2026-11-05
+- Added new GraphQL query for `planSearch`
+- Added `search` function to the Plan model
+- Added missing filter options to the OpenAPI schema
+- Removed old `TEST_DMP` from the `routes` file
+- Updated `search` route
+- Updated Swagger documentation about Authentication
+
 ## 2026-10-27
 - Update the `fast-uri` version override and remove other overrides that are no longer necessary.
 - Bump `@fastify/jwt` to latest version
