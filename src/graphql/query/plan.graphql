@@ -5,6 +5,26 @@ query Plans($projectId: Int!) {
   }
 }
 
+query SearchDMPs($options: PlanSearchOptions!) {
+  planSearch(options: $options) {
+    totalCount
+    offset
+    count
+    items {
+      dmpId
+      planId
+      projectId
+      title
+      projectTitle
+      visibility
+      created
+      modified
+      registered
+      language
+    }
+  }
+}
+
 fragment PlanDetails on Plan {
   id
   dmpId

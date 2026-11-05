@@ -40,50 +40,11 @@ import {
   getPlanWorkflow,
   updateDmpWorkflow
 } from "./workflows/planWorkflow.js";
+import { Plan } from "../../models/Plan.js";
 
 const isAuthenticatedUser = (request: FastifyRequest): boolean => {
   return !!request.user && typeof request.user === 'object' && Object.keys(request.user as object).length > 0;
 }
-
-// TODO: Delete this mock responses once the models and business logic are in place
-const TEST_DMP = {
-  // These are RDA Common Standard fields and should always be returned
-  title: 'Test DMP',
-  dmp_id: {
-    identifier: 'test-dmp-id',
-    type: 'other'
-  },
-  created: '2021-01-01 03:11:23Z',
-  modified: '2021-01-01 02:23:11Z',
-  ethical_issues_exist: 'unknown',
-  language: 'eng',
-  contact: {
-    name: 'Test Contact',
-    mbox: 'tester@example.com',
-    contact_id: [{
-      identifier: '123456789',
-      type: 'other'
-    }]
-  },
-  dataset: [{
-    title: 'Test Dataset',
-    dataset_id: {
-      identifier: '123',
-      type: 'other'
-    },
-    personal_data: 'unknown',
-    sensitive_data: 'no',
-  }],
-
-  // If the Accept header is `application/vnd.org.rd-alliance.dmp-common.v1.2+json` then
-  // these fields should not be returned, if it is `application/vnd.org.dmptool.v1.2+json`
-  // then these fields should be returned
-  rda_schema_version: "1.2",
-  provenance: 'dmptool',
-  status: 'draft',
-  privacy: 'public',
-  featured: 'no',
-};
 
 // Needed to use AJV directly for the `POST /dmps/validate` endpoint, otherwise
 // it just returns the first error.
@@ -165,15 +126,52 @@ const v3RoutesPlugin = async function (
         }
       }
     },
-    async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+      const query = request.query as Record<string, unknown>;
+      const toList = (value: unknown): string[] | undefined => {
+        if (value === undefined) return undefined;
+        return (Array.isArray(value) ? value : [value]).map(String);
+      };
+      const options = new Map<string, unknown>([
+        ['offset', query.offset ?? 0],
+        ['count', query.count ?? 20],
+        ['sort', toList(query.sort) ?? ['created,desc']],
+        ['createdBefore', query.created_before],
+        ['createdAfter', query.created_after],
+        ['modifiedBefore', query.modified_before],
+        ['modifiedAfter', query.modified_after],
+        ['alternateIdentifier', toList(query.alternate_identifier)],
+        ['languages', toList(query.languages)],
+        ['contactIds', toList(query.contact_ids)],
+        ['contributorIds', toList(query.contributor_ids)],
+        ['datasetIds', toList(query.dataset_ids)],
+        ['datasetPersonalData', toList(query.dataset_personal_data)],
+        ['datasetSensitiveData', toList(query.dataset_sensitive_data)],
+        ['metadataStandardIds', toList(query.metadata_standard_ids)],
+        ['distributionFormats', toList(query.distribution_formats)],
+        ['distributionDataAccess', toList(query.distribution_data_access)],
+        ['hostIds', toList(query.host_ids)],
+        ['hostTitles', toList(query.host_titles)],
+        ['dmpIds', toList(query.dmp_ids)],
+        ['licenseRefs', toList(query.license_refs)],
+        ['funderIds', toList(query.funder_ids)],
+        ['grantIds', toList(query.grant_ids)],
+        ['fundingStatus', toList(query.funding_status)],
+        ['ethicalIssuesExist', toList(query.ethical_issues_exist)],
+        ['query', toList(query.query)],
+      ]);
+      for (const key of Object.keys(options)) {
+        if (options.get(key) === undefined) options.delete(key);
+      }
 
-      // TODO: Query for DMPs matching the filters provided (use the Accept
-      //       header to determine whether we should return the RDA Common Standard
-      //       or the full DMP with DMP Tool extensions)
-      //       Only return "public" DMPs if the user is not authenticated
-      //       --
-      //       FOR NOW - just return a mock DMP based on the Accept header
-      await reply.code(200).send({ total_count: 1, items: [{ dmp: TEST_DMP }]})
+      const result = await Plan.search(request, options);
+      const items = await Promise.all(result.items.map(async (item) => {
+        const dmpId = item.dmpId;
+        if (!dmpId) return undefined;
+        const { maDMP } = await getPlanWorkflow(request, dmpId);
+        return maDMP ? { dmp: maDMP.dmp } : undefined;
+      }));
+      await reply.code(200).send({ total_count: result.totalCount, items: items.filter(Boolean) });
     }
   );
 
