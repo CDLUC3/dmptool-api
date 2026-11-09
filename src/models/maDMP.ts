@@ -13,6 +13,7 @@ import {
   randomHex,
   updateDMP
 } from "@dmptool/utils";
+import {isDmpId} from "../utils.js";
 
 /**
  * Generate a unique DMP ID for a Plan.
@@ -181,12 +182,12 @@ export async function loadPlan(
   request: FastifyRequest,
   dmpId: string
 ): Promise<Plan | undefined> {
-  const isNumericId: boolean = Number.isInteger(Number.parseInt(dmpId));
-  const sql: string = isNumericId
-    ? 'SELECT id, dmpId, modified, visibility FROM plans WHERE id = ?'
-    : 'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?';
+  const isADMPId: boolean = isDmpId(request.dmptoolConfig, dmpId);
+  const sql: string = isADMPId
+    ? 'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?'
+    : 'SELECT id, dmpId, modified, visibility FROM plans WHERE id = ?';
 
-  const fullDmpId = isNumericId || dmpId.toString().startsWith('http')
+  const fullDmpId = isADMPId || dmpId.toString().startsWith('http')
     ? dmpId
     : `${request.dmptoolConfig.dmpIdBaseUrl}/${dmpId}`;
 
