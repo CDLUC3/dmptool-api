@@ -90,6 +90,9 @@ export const getPlanWorkflow = async (
 ): Promise<{ maDMP: DMPToolDMPType | undefined; plan: PlanRDS | undefined }> => {
   // First: load high-level info about the DMP from the MySQL database
   const plan: PlanRDS | undefined = await maDMPHelpers.loadPlan(request, dmpId);
+
+console.log('LOADED HIGH LEVEL PLAN INFO', { plan, dmpId, version });
+
   if (!plan) {
     request.log.warn({ dmpId }, "No Plan found");
     throw newFastifyError(ERROR_CODE_NOT_FOUND, 'DMP not found');
@@ -101,6 +104,9 @@ export const getPlanWorkflow = async (
     plan.dmpId,
     version || DMP_LATEST_VERSION
   );
+
+console.log('LOADED MA-DMP FROM DYNAMODB', { maDMP });
+
   request.log.debug({ dmpId, maDMPModified: maDMP?.dmp?.modified }, 'Retrieved maDMP metadata from DynamoDB');
 
   // Third: Determine if the maDMP was missing or is out of date or missing the narrative.
@@ -116,6 +122,8 @@ export const getPlanWorkflow = async (
   if (!maDMP || !maDMP.dmp || rdsDate !== maDMP.dmp.modified || !maDMP.dmp.narrative) {
     const outdated: boolean = maDMP?.dmp?.modified && rdsDate !== maDMP?.dmp?.modified
     request.log.debug({ dmpId }, `DMP metadata is ${outdated ? 'outdated' : 'missing'}`);
+
+console.log('MA-DMP IS MISSING OR OUTDATED', { maDMP, rdsDate, outdated });
 
     try {
       maDMP = await maDMPHelpers.handleMissingMaDMP(request, plan, outdated);
@@ -135,6 +143,8 @@ export const getPlanWorkflow = async (
     request.log.error({ dmpId }, "Unable to generate narrative for DMP");
     return { maDMP: undefined, plan: undefined };
   }
+
+console.log('SUCCESS. RETURNING MA-DMP')
 
   return { maDMP, plan };
 }

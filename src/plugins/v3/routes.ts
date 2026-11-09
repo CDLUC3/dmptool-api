@@ -163,6 +163,9 @@ const v3RoutesPlugin = async function (
       for (const key of Object.keys(options)) {
         if (options.get(key) === undefined) options.delete(key);
       }
+      request.log.debug({ options: Object.fromEntries(options) }, 'GET /dmps called.');
+
+console.log('SEARCHING FOR DMPS', { options: Object.fromEntries(options) });
 
       const result = await Plan.search(request, options);
       const items = await Promise.all(result.items.map(async (item) => {
@@ -171,6 +174,8 @@ const v3RoutesPlugin = async function (
         const { maDMP } = await getPlanWorkflow(request, dmpId);
         return maDMP ? { dmp: maDMP.dmp } : undefined;
       }));
+      request.log.debug({ itemCount: items.length }, 'GET /dmps results.');
+
       await reply.code(200).send({ total_count: result.totalCount, items: items.filter(Boolean) });
     }
   );
@@ -238,6 +243,8 @@ const v3RoutesPlugin = async function (
 
       // Process the incoming DMP id
       const parsedId: string = processDMPId(request.dmptoolConfig, id);
+
+console.log('FETCHING DMP', { parsedId, version });
 
       // Fetch the requested maDMP record
       const { maDMP } = await getPlanWorkflow(request, parsedId, version);
