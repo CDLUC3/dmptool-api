@@ -187,9 +187,9 @@ export async function loadPlan(
     ? 'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?'
     : 'SELECT id, dmpId, modified, visibility FROM plans WHERE id = ?';
 
-  const fullDmpId = isADMPId || dmpId.toString().startsWith('http')
+  const fullDmpId = dmpId.toString().startsWith('http')
     ? dmpId
-    : `${request.dmptoolConfig.dmpIdBaseUrl}/${dmpId}`;
+    : `${request.dmptoolConfig.dmpIdBaseUrl}${dmpId.startsWith('/') ? '' : '/'}${dmpId}`;
 
 console.log('EXECUTING SQL', { sql, fullDmpId });
 console.log('CONN PARAMS', request.dmptoolConfig.rds);
