@@ -190,6 +190,9 @@ export async function loadPlan(
     ? dmpId
     : `${request.dmptoolConfig.dmpIdBaseUrl}/${dmpId}`;
 
+console.log('EXECUTING SQL', { sql, fullDmpId });
+console.log('CONN PARAMS', request.dmptoolConfig.rds);
+
   // Fetch the list of DMPs the user has access to
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plans: { results: any[], fields: any[] } = await queryTable(
@@ -197,6 +200,9 @@ export async function loadPlan(
     sql,
     [fullDmpId]
   );
+
+console.log('RESULTS', plans);
+
   return Array.isArray(plans.results) ? plans.results[0] : undefined;
 }
 
