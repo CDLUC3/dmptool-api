@@ -13,6 +13,7 @@ import {
   randomHex,
   updateDMP
 } from "@dmptool/utils";
+import {isDmpId} from "../utils.js";
 
 /**
  * Generate a unique DMP ID for a Plan.
@@ -181,25 +182,29 @@ export async function loadPlan(
   request: FastifyRequest,
   dmpId: string
 ): Promise<Plan | undefined> {
-  const isNumericId: boolean = Number.isInteger(Number.parseInt(dmpId));
-  const sql: string = isNumericId
+  const isDMPId: boolean = isDmpId(request.dmptoolConfig, dmpId);
+  if (!isDMPId) return undefined;
+
+  const isPlanId: boolean = dmpId.includes('projects/');
+  const sql: string = isPlanId
     ? 'SELECT id, dmpId, modified, visibility FROM plans WHERE id = ?'
     : 'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?';
 
-  const fullDmpId = isNumericId || dmpId.toString().startsWith('http')
-    ? dmpId
-    : `${request.dmptoolConfig.dmpIdBaseUrl}/${dmpId}`;
+  const id: string = isPlanId
+    // A DMP Tool (non-published) DMP id was sent, so extract the plan id from the end of the path;
+    ? dmpId.split('/').reverse()[0]
+    // A DOI was sent, so just use it as is
+    : dmpId.includes('http') ? dmpId : `${request.dmptoolConfig.dmpIdBaseUrl}${dmpId.startsWith('/') ? '' : '/'}${dmpId}`;
 
   // Fetch the list of DMPs the user has access to
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plans: { results: any[], fields: any[] } = await queryTable(
     request.dmptoolConfig.rds as ConnectionParams,
     sql,
-    [fullDmpId]
+    [id]
   );
   return Array.isArray(plans.results) ? plans.results[0] : undefined;
 }
-
 
 /**
  * Helper function to fetch a mADMP from Dynamo based on the DMP id

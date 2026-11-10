@@ -135,7 +135,6 @@ export const getPlanWorkflow = async (
     request.log.error({ dmpId }, "Unable to generate narrative for DMP");
     return { maDMP: undefined, plan: undefined };
   }
-
   return { maDMP, plan };
 }
 

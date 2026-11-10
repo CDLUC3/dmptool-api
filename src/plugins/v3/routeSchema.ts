@@ -160,8 +160,7 @@ const allowableQueryParameters = {
       type: 'string',
       default: 'public',
       enum: [
-        'affiliation',
-        'mine',
+        'private',
         'public'
       ]
     },
