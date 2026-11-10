@@ -2,6 +2,7 @@
 
 ## 2026-11-10
 - Fixed bug in `maDMP.loadPlan` which was incorrectly handling DMP ids
+- Added unit tests for the maDMP model
 
 ## 2026-11-05
 - Added new GraphQL query for `planSearch`
