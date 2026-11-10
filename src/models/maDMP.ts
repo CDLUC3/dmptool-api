@@ -14,6 +14,7 @@ import {
   updateDMP
 } from "@dmptool/utils";
 import {isDmpId} from "../utils.js";
+import {options} from "fastify-cli/templates/app-ts/src/app.js";
 
 /**
  * Generate a unique DMP ID for a Plan.
@@ -183,6 +184,7 @@ export async function loadPlan(
   dmpId: string
 ): Promise<Plan | undefined> {
   const isDMPId: boolean = isDmpId(request.dmptoolConfig, dmpId);
+  request.log.debug({ dmpId, isDMPId }, 'Validating DMP id');
   if (!isDMPId) return undefined;
 
   const isPlanId: boolean = dmpId.includes('projects/');

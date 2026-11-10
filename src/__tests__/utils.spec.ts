@@ -20,6 +20,11 @@ describe('isDmpId', () => {
       expect(isDmpId(mockOptions, id)).toBe(true);
     });
 
+    it('should match when ID starts with the projects path', () => {
+      const id = 'projects/123/dmp/abc123';
+      expect(isDmpId(mockOptions, id)).toBe(true);
+    });
+
     it('should match when ID starts with encoded shoulder', () => {
       const id = '10.12345/abc123';
       expect(isDmpId(mockOptions, id)).toBe(true);
