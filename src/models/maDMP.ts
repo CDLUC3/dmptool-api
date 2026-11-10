@@ -13,8 +13,7 @@ import {
   randomHex,
   updateDMP
 } from "@dmptool/utils";
-import {isDmpId} from "../utils.js";
-import {options} from "fastify-cli/templates/app-ts/src/app.js";
+import { isDmpId } from "../utils.js";
 
 /**
  * Generate a unique DMP ID for a Plan.
