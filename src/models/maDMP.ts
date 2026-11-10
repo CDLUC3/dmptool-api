@@ -184,17 +184,18 @@ export async function loadPlan(
 ): Promise<Plan | undefined> {
   const decodedDmpId = decodeURIComponent(dmpId);
   const isDMPId: boolean = isDmpId(request.dmptoolConfig, decodedDmpId);
-  request.log.debug({ decodedDmpId, isDMPId }, 'Validating DMP id');
-  if (!isDMPId) return undefined;
+  const isInteger: boolean = /^\d+$/.test(decodedDmpId);
+  request.log.debug({ decodedDmpId, isDMPId, isInteger }, 'Validating DMP id');
+  if (!isDMPId && !isInteger) return undefined;
 
-  const isPlanId: boolean = decodedDmpId.includes('projects/');
+  const isPlanId: boolean = isInteger || decodedDmpId.includes('projects/');
   const sql: string = isPlanId
     ? 'SELECT id, dmpId, modified, visibility FROM plans WHERE id = ?'
     : 'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?';
 
   const id: string = isPlanId
     // A DMP Tool (non-published) DMP id was sent, so extract the plan id from the end of the path;
-    ? decodedDmpId.split('/').reverse()[0]
+    ? isInteger ? decodedDmpId : decodedDmpId.split('/').reverse()[0]
     // A DOI was sent, so just use it as is
     : decodedDmpId.includes('http')
       ? decodedDmpId
