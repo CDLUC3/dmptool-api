@@ -197,6 +197,7 @@ export async function loadPlan(
     : dmpId.includes('http') ? dmpId : `${request.dmptoolConfig.dmpIdBaseUrl}${dmpId.startsWith('/') ? '' : '/'}${dmpId}`;
 
   // Fetch the list of DMPs the user has access to
+  request.log.debug({ isPlanId, id, sql }, 'DMP load plan...');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plans: { results: any[], fields: any[] } = await queryTable(
     request.dmptoolConfig.rds as ConnectionParams,
