@@ -165,11 +165,7 @@ const v3RoutesPlugin = async function (
       }
       request.log.debug({ options: Object.fromEntries(options) }, 'GET /dmps called.');
 
-console.log('SEARCHING FOR DMPS', { options: Object.fromEntries(options) });
-
       const result = await Plan.search(request, options);
-
-console.log('SEARCH RESULTS', { totalCount: result.totalCount, items: result.items.map(item => item.dmpId) });
 
       const items = await Promise.all(result.items.map(async (item) => {
         const dmpId = item.dmpId;

@@ -1,5 +1,8 @@
 # dmptool-api Changelog
 
+## 2026-11-10
+- Fixed bug in `maDMP.loadPlan` which was incorrectly handling DMP ids
+
 ## 2026-11-05
 - Added new GraphQL query for `planSearch`
 - Added `search` function to the Plan model
