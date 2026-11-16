@@ -6,7 +6,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
  *
  * @param {FastifyInstance} fastify  Encapsulated Fastify Instance
  */
-export const linksetPlugin = async function (
+const linksetPlugin = async function (
   fastify: FastifyInstance
 ): Promise<void> {
   fastify.get(
@@ -51,4 +51,11 @@ export const linksetPlugin = async function (
         });
     }
   );
+
+  // Simple status check to make sure the plugin is registered
+  fastify.addHook('onReady', async () => {
+    fastify.log.info('Linkset Plugin has been registered.');
+  });
 }
+
+export default linksetPlugin;

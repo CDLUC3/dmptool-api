@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
-import { authPlugin } from '../auth.js';
-import { configPlugin } from "../config.js";
-import { errorPlugin } from "../error.js";
+import authPlugin from '../auth.js';
+import configPlugin from "../config.js";
 
 describe('authPlugin', () => {
   let fastify: FastifyInstance;
@@ -11,7 +10,6 @@ describe('authPlugin', () => {
     fastify = Fastify();
 
     await fastify.register(configPlugin);
-    await fastify.register(errorPlugin);
     await fastify.register(authPlugin);
 
     // Add a test route to verify authentication

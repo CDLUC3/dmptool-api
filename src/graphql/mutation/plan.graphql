@@ -1,0 +1,54 @@
+mutation AddPlan($input: AddEntirePlanInput!) {
+  addEntirePlan(input: $input) {
+    id
+    created
+    createdById
+    modified
+    modifiedById
+    dmpId
+    errors {
+      general
+      versionedTemplateId
+      projectId
+      title
+      visibility
+      status
+      languageId
+      members
+      funding
+      alternateIdentifiers
+      acceptedWorks
+    }
+  }
+}
+
+mutation UpdatePlan($input: UpdateEntirePlanInput!) {
+  updateEntirePlan(input: $input) {
+    id
+    dmpId
+    modified
+    modifiedById
+    title
+    status
+    visibility
+    languageId
+    errors {
+      general
+      title
+      status
+      visibility
+      languageId
+      projectId
+      versionedTemplateId
+      members
+      funding
+      alternateIdentifiers
+      acceptedWorks
+    }
+  }
+}
+
+mutation RemovePlan($dmpId: String!) {
+  removeEntirePlanByDMPId(dmpId: $dmpId)
+}
+

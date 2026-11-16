@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
-import { rateLimitPlugin } from '../rateLimit.js';
+import rateLimitPlugin from '../rateLimit.js';
 
 describe('rateLimitPlugin', () => {
   let fastify: FastifyInstance;

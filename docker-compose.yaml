@@ -1,10 +1,11 @@
 # NOTE::
-# The services, settings and environment setup in this compose file is for DEVELOPMENT ONLY!
+# The workflows, settings and environment setup in this compose file is for DEVELOPMENT ONLY!
 #
 # It is intended to run the Apollo server in an "offline" mode. All data will be mocked.
 #
 networks:
-  dmptool-apollo-server-dmptool-network:
+  # The Apollo server network
+  dmptool-apollo-server_dmptool-network:
     external: true
 
 services:
@@ -16,7 +17,7 @@ services:
     ports:
       - "4060:4060"
     networks:
-      - dmptool-apollo-server-dmptool-network
+      - dmptool-apollo-server_dmptool-network
     expose:
       - 4060
     env_file:
@@ -25,10 +26,16 @@ services:
       - "AWS_ACCESS_KEY_ID=DUMMYIDEXAMPLE"
       - "AWS_SECRET_ACCESS_KEY=DUMMYEXAMPLEKEY"
       - "REGION=us-west-2"
+
       - "ENV=dev"
       - "NODE_ENV=development"
       - "PORT=4060"
 
+      - "EZID_BASE_URL=https://doi.org"
+
+      - "GRAPHQL_URI=http://apollo-server:4000"
+
+      # Using the Apollo server network's LocalStack resources for RDS, DYNAMODB, REDIS and SSM
       - "RDS_HOST=apollo-mysql"
       - "RDS_PORT=3306"
       - "RDS_DATABASE=dmptool"
@@ -37,10 +44,16 @@ services:
       - "DYNAMODB_TABLE_NAME=localDMPTable"
       - "MAX_ATTEMPTS=3"
 
-      - "EZID_BASE_URL=https://doi.org"
+      - "CACHE_HOST=apollo-redis"
+      - "CACHE_PORT=6379"
+      - "CACHE_CONNECT_TIMEOUT=10000"
 
       # Using the Apollo server network's LocalStack endpoint
       - "SSM_ENDPOINT=http://localstack:4566"
 
     volumes:
-      - ".:/app"
+      - .:/app
+      # ES Modules are very picky and get confused with the node_modules in the
+      # project root which are based on the local device (e.g. Mac M2) and the
+      # Docker container needs to be Linux. This is a workaround to get around that.
+      - /app/node_modules

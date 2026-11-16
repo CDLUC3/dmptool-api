@@ -1,0 +1,30 @@
+{
+  "dmp": {
+    "contact": {
+      "contact_id": [{
+        "identifier": "http://example.com/contacts/123",
+        "type": "url"
+      }],
+      "mbox": "tester@example.com",
+      "name": "Test Contact"
+    },
+    "created": "2021-01-01 03:11:23Z",
+    "dataset": [{
+      "title": "Test Dataset",
+      "dataset_id": {
+        "identifier": "http://example.com/datasets/123",
+        "type": "other"
+      },
+      "personal_data": "unknown",
+      "sensitive_data": "no"
+    }],
+    "dmp_id": {
+      "identifier": "http://example.com/dmps/123",
+      "type": "other"
+    },
+    "ethical_issues_exist": "unknown",
+    "language": "eng",
+    "modified": "2021-01-01 02:23:11Z",
+    "title": "Test DMP"
+  }
+}

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
-import { linksetPlugin } from '../linkset.js';
-import { configPlugin } from "../config.js";
+import linksetPlugin from '../linkset.js';
+import configPlugin from "../config.js";
 
 describe('routesPlugin', () => {
   let fastify: FastifyInstance;
