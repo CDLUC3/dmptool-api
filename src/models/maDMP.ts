@@ -13,7 +13,7 @@ import {
   randomHex,
   updateDMP
 } from "@dmptool/utils";
-import {isDmpId} from "../utils.js";
+import { isDmpId } from "../utils.js";
 
 /**
  * Generate a unique DMP ID for a Plan.
@@ -182,21 +182,27 @@ export async function loadPlan(
   request: FastifyRequest,
   dmpId: string
 ): Promise<Plan | undefined> {
-  const isDMPId: boolean = isDmpId(request.dmptoolConfig, dmpId);
-  if (!isDMPId) return undefined;
+  const decodedDmpId = decodeURIComponent(dmpId);
+  const isDMPId: boolean = isDmpId(request.dmptoolConfig, decodedDmpId);
+  const isInteger: boolean = /^\d+$/.test(decodedDmpId);
+  request.log.debug({ decodedDmpId, isDMPId, isInteger }, 'Validating DMP id');
+  if (!isDMPId && !isInteger) return undefined;
 
-  const isPlanId: boolean = dmpId.includes('projects/');
+  const isPlanId: boolean = isInteger || decodedDmpId.includes('projects/');
   const sql: string = isPlanId
     ? 'SELECT id, dmpId, modified, visibility FROM plans WHERE id = ?'
     : 'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?';
 
   const id: string = isPlanId
     // A DMP Tool (non-published) DMP id was sent, so extract the plan id from the end of the path;
-    ? dmpId.split('/').reverse()[0]
+    ? isInteger ? decodedDmpId : decodedDmpId.split('/').reverse()[0]
     // A DOI was sent, so just use it as is
-    : dmpId.includes('http') ? dmpId : `${request.dmptoolConfig.dmpIdBaseUrl}${dmpId.startsWith('/') ? '' : '/'}${dmpId}`;
+    : decodedDmpId.includes('http')
+      ? decodedDmpId
+      : `${request.dmptoolConfig.dmpIdBaseUrl}${decodedDmpId.startsWith('/') ? '' : '/'}${decodedDmpId}`;
 
   // Fetch the list of DMPs the user has access to
+  request.log.debug({ isPlanId, id, sql }, 'DMP load plan...');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plans: { results: any[], fields: any[] } = await queryTable(
     request.dmptoolConfig.rds as ConnectionParams,

@@ -211,9 +211,12 @@ describe('plan loaders', () => {
     queryTable.mockResolvedValue({ results: [plan], fields: [] });
     const request = buildRequest();
 
+    await expect(loadPlan(request, '123')).resolves.toEqual(plan);
     await expect(loadPlan(request, 'projects/123')).resolves.toEqual(plan);
+    await expect(loadPlan(request, 'projects%2F123')).resolves.toEqual(plan);
     await expect(loadPlan(request, 'https://doi.org/10.1234/dmp-1')).resolves.toEqual(plan);
     await expect(loadPlan(request, '10.1234/dmp-1')).resolves.toEqual(plan);
+    await expect(loadPlan(request, '10.1234%2Fdmp-1')).resolves.toEqual(plan);
 
     expect(queryTable).toHaveBeenNthCalledWith(
       1,
@@ -224,11 +227,29 @@ describe('plan loaders', () => {
     expect(queryTable).toHaveBeenNthCalledWith(
       2,
       config.rds,
+      'SELECT id, dmpId, modified, visibility FROM plans WHERE id = ?',
+      ['123'],
+    );
+    expect(queryTable).toHaveBeenNthCalledWith(
+      3,
+      config.rds,
+      'SELECT id, dmpId, modified, visibility FROM plans WHERE id = ?',
+      ['123'],
+    );
+    expect(queryTable).toHaveBeenNthCalledWith(
+      4,
+      config.rds,
       'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?',
       ['https://doi.org/10.1234/dmp-1'],
     );
     expect(queryTable).toHaveBeenNthCalledWith(
-      3,
+      5,
+      config.rds,
+      'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?',
+      ['https://doi.org/10.1234/dmp-1'],
+    );
+    expect(queryTable).toHaveBeenNthCalledWith(
+      6,
       config.rds,
       'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?',
       ['https://doi.org/10.1234/dmp-1'],
