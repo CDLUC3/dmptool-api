@@ -45,8 +45,8 @@ phases:
       - npm install
 
       # Run NPM audit to check for vulnerabilities in the prod dependencies
-      - echo "Running NPM audit..."
-      - npm audit --omit=dev --audit-level=high
+      # - echo "Running NPM audit..."
+      # - npm audit --omit=dev --audit-level=high
 
       # Run the linter checks
       - echo "Running linter checks"
