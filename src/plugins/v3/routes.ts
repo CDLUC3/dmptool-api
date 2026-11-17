@@ -165,6 +165,9 @@ const v3RoutesPlugin = async function (
       ]);
       for (const key of Object.keys(options)) {
         if (options.get(key) === undefined) options.delete(key);
+
+console.log({ key, value: options.get(key) }, 'GET /dmps option.');
+
       }
       console.log(options);
       request.log.debug({ options: Object.fromEntries(options) }, 'GET /dmps options.');
