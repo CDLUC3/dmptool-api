@@ -166,7 +166,6 @@ const v3RoutesPlugin = async function (
       for (const [key, value] of options.entries()) {
         if (value === undefined) options.delete(key);
       }
-      request.log.debug({ options: Object.fromEntries(options) }, 'GET /dmps options.');
 
       const result = await Plan.search(request, options);
       const items = await Promise.all(result.items.map(async (item) => {
@@ -176,7 +175,7 @@ const v3RoutesPlugin = async function (
         return maDMP ? { dmp: maDMP.dmp } : undefined;
       }));
 
-      console.log(items[0]);
+      console.log('RESULTS FROM APOLLO', items[0]);
       request.log.debug({ itemCount: items.length }, 'GET /dmps results.');
 
       await reply.code(200).send({ total_count: result.totalCount, items: items.filter(Boolean) });
