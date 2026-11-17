@@ -132,6 +132,8 @@ const v3RoutesPlugin = async function (
         if (value === undefined) return undefined;
         return (Array.isArray(value) ? value : [value]).map(String);
       };
+      request.log.debug({ query }, 'GET /dmps called.');
+
       const options = new Map<string, unknown>([
         ['offset', query.offset ?? 0],
         ['count', query.count ?? 20],
@@ -140,6 +142,7 @@ const v3RoutesPlugin = async function (
         ['createdAfter', query.created_after],
         ['modifiedBefore', query.modified_before],
         ['modifiedAfter', query.modified_after],
+        ['visibility', toList(query.scope)],
         ['alternateIdentifier', toList(query.alternate_identifier)],
         ['languages', toList(query.languages)],
         ['contactIds', toList(query.contact_ids)],
@@ -163,16 +166,18 @@ const v3RoutesPlugin = async function (
       for (const key of Object.keys(options)) {
         if (options.get(key) === undefined) options.delete(key);
       }
-      request.log.debug({ options: Object.fromEntries(options) }, 'GET /dmps called.');
+      console.log(options);
+      request.log.debug({ options: Object.fromEntries(options) }, 'GET /dmps options.');
 
       const result = await Plan.search(request, options);
-
       const items = await Promise.all(result.items.map(async (item) => {
         const dmpId = item.dmpId;
         if (!dmpId) return undefined;
         const { maDMP } = await getPlanWorkflow(request, dmpId);
         return maDMP ? { dmp: maDMP.dmp } : undefined;
       }));
+
+      console.log(items[0]);
       request.log.debug({ itemCount: items.length }, 'GET /dmps results.');
 
       await reply.code(200).send({ total_count: result.totalCount, items: items.filter(Boolean) });
