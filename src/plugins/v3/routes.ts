@@ -129,7 +129,7 @@ const v3RoutesPlugin = async function (
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       const query = request.query as Record<string, unknown>;
       const toList = (value: unknown): string[] | undefined => {
-        if (value === undefined) return undefined;
+        if (value === undefined || value === null) return undefined;
         return (Array.isArray(value) ? value : [value]).map(String);
       };
       request.log.debug({ query }, 'GET /dmps called.');
@@ -163,13 +163,9 @@ const v3RoutesPlugin = async function (
         ['ethicalIssuesExist', toList(query.ethical_issues_exist)],
         ['query', toList(query.query)],
       ]);
-      for (const key of Object.keys(options)) {
-        if (options.get(key) === undefined) options.delete(key);
-
-console.log({ key, value: options.get(key) }, 'GET /dmps option.');
-
+      for (const [key, value] of options.entries()) {
+        if (value === undefined) options.delete(key);
       }
-      console.log(options);
       request.log.debug({ options: Object.fromEntries(options) }, 'GET /dmps options.');
 
       const result = await Plan.search(request, options);
