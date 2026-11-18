@@ -204,11 +204,12 @@ export class Plan extends BaseGraphQLModel {
   }
 
   static async search(request: FastifyRequest, options: Map<string, unknown>): Promise<SearchDMPsResponse['planSearch']> {
+    request.log.debug({ options: Object.fromEntries(options) }, 'Plan.search called.');
     const resp: GQLResponse<SearchDMPsResponse> = await this.query<SearchDMPsResponse>(
       request,
       {
         query: SearchDmPsDocument,
-        variables: { options },
+        variables: { options: Object.fromEntries(options) },
         errorPolicy: "all"
       }
     );

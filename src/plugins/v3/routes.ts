@@ -129,9 +129,11 @@ const v3RoutesPlugin = async function (
     async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
       const query = request.query as Record<string, unknown>;
       const toList = (value: unknown): string[] | undefined => {
-        if (value === undefined) return undefined;
+        if (value === undefined || value === null) return undefined;
         return (Array.isArray(value) ? value : [value]).map(String);
       };
+      request.log.debug({ query }, 'GET /dmps called.');
+
       const options = new Map<string, unknown>([
         ['offset', query.offset ?? 0],
         ['count', query.count ?? 20],
@@ -140,6 +142,7 @@ const v3RoutesPlugin = async function (
         ['createdAfter', query.created_after],
         ['modifiedBefore', query.modified_before],
         ['modifiedAfter', query.modified_after],
+        ['scope', query.scope ?? 'public'],
         ['alternateIdentifier', toList(query.alternate_identifier)],
         ['languages', toList(query.languages)],
         ['contactIds', toList(query.contact_ids)],
@@ -160,13 +163,11 @@ const v3RoutesPlugin = async function (
         ['ethicalIssuesExist', toList(query.ethical_issues_exist)],
         ['query', toList(query.query)],
       ]);
-      for (const key of Object.keys(options)) {
-        if (options.get(key) === undefined) options.delete(key);
+      for (const [key, value] of options.entries()) {
+        if (value === undefined) options.delete(key);
       }
-      request.log.debug({ options: Object.fromEntries(options) }, 'GET /dmps called.');
 
       const result = await Plan.search(request, options);
-
       const items = await Promise.all(result.items.map(async (item) => {
         const dmpId = item.dmpId;
         if (!dmpId) return undefined;
