@@ -142,7 +142,7 @@ const v3RoutesPlugin = async function (
         ['createdAfter', query.created_after],
         ['modifiedBefore', query.modified_before],
         ['modifiedAfter', query.modified_after],
-        ['scope', toList(query.scope)],
+        ['scope', query.scope ?? 'public'],
         ['alternateIdentifier', toList(query.alternate_identifier)],
         ['languages', toList(query.languages)],
         ['contactIds', toList(query.contact_ids)],
