@@ -3,6 +3,7 @@
 # 2026-11-18
 - The Search endpoint was not properly passing query/filter options to Apollo server
 - Fixed issue with handling of both DOI and DMP Tool URL values in the DMP ID field
+- Updated dependencies
 
 ## 2026-11-10
 - Fixed bug in `maDMP.loadPlan` which was incorrectly handling DMP ids

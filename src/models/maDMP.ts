@@ -182,34 +182,39 @@ export async function loadPlan(
   request: FastifyRequest,
   dmpId: string
 ): Promise<Plan | undefined> {
-  const decodedDmpId = decodeURIComponent(dmpId);
-  const isDMPId: boolean = isDmpId(request.dmptoolConfig, decodedDmpId);
-  const isInteger: boolean = /^\d+$/.test(decodedDmpId);
-  request.log.debug({ decodedDmpId, isDMPId, isInteger }, 'Validating DMP id');
-  if (!isDMPId && !isInteger) return undefined;
+  try {
+    const decodedDmpId = decodeURIComponent(dmpId);
+    const isDMPId: boolean = isDmpId(request.dmptoolConfig, decodedDmpId);
+    const isInteger: boolean = /^\d+$/.test(decodedDmpId);
+    request.log.debug({ decodedDmpId, isDMPId, isInteger }, 'Validating DMP id');
+    if (!isDMPId && !isInteger) return undefined;
 
-  const isPlanId: boolean = isInteger || decodedDmpId.includes('projects/');
-  const sql: string = isPlanId
-    ? 'SELECT id, dmpId, modified, visibility FROM plans WHERE id = ?'
-    : 'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?';
+    const isPlanId: boolean = isInteger || decodedDmpId.includes('projects/');
+    const sql: string = isPlanId
+      ? 'SELECT id, dmpId, modified, visibility FROM plans WHERE id = ?'
+      : 'SELECT id, dmpId, modified, visibility FROM plans WHERE dmpId = ?';
 
-  const id: string = isPlanId
-    // A DMP Tool (non-published) DMP id was sent, so extract the plan id from the end of the path;
-    ? isInteger ? decodedDmpId : decodedDmpId.split('/').reverse()[0]
-    // A DOI was sent, so just use it as is
-    : decodedDmpId.includes('http')
-      ? decodedDmpId
-      : `${request.dmptoolConfig.dmpIdBaseUrl}${decodedDmpId.startsWith('/') ? '' : '/'}${decodedDmpId}`;
+    const id: string = isPlanId
+      // A DMP Tool (non-published) DMP id was sent, so extract the plan id from the end of the path;
+      ? isInteger ? decodedDmpId : decodedDmpId.split('/').reverse()[0]
+      // A DOI was sent, so just use it as is
+      : decodedDmpId.includes('http')
+        ? decodedDmpId
+        : `${request.dmptoolConfig.dmpIdBaseUrl}${decodedDmpId.startsWith('/') ? '' : '/'}${decodedDmpId}`;
 
-  // Fetch the list of DMPs the user has access to
-  request.log.debug({ isPlanId, id, sql }, 'DMP load plan...');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const plans: { results: any[], fields: any[] } = await queryTable(
-    request.dmptoolConfig.rds as ConnectionParams,
-    sql,
-    [id]
-  );
-  return Array.isArray(plans.results) ? plans.results[0] : undefined;
+    // Fetch the list of DMPs the user has access to
+    request.log.debug({ isPlanId, id, sql }, 'DMP load plan...');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const plans: { results: any[], fields: any[] } = await queryTable(
+      request.dmptoolConfig.rds as ConnectionParams,
+      sql,
+      [id]
+    );
+    return Array.isArray(plans.results) ? plans.results[0] : undefined;
+  } catch (error) {
+    request.log.error(error, 'Error occurred while loading plan');
+    return undefined;
+  }
 }
 
 /**
