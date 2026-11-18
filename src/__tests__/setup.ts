@@ -85,3 +85,9 @@ jest.unstable_mockModule('../configuration.ts', () => {
     }))
   }
 });
+
+// Swagger UI is not part of the route behavior under test. Its dependency
+// chain currently includes an ESM-only package that Jest loads through CJS.
+jest.unstable_mockModule('@fastify/swagger-ui', () => ({
+  default: jest.fn(async () => undefined),
+}));

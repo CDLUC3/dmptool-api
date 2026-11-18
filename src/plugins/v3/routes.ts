@@ -142,7 +142,7 @@ const v3RoutesPlugin = async function (
         ['createdAfter', query.created_after],
         ['modifiedBefore', query.modified_before],
         ['modifiedAfter', query.modified_after],
-        ['visibility', toList(query.scope)],
+        ['scope', toList(query.scope)],
         ['alternateIdentifier', toList(query.alternate_identifier)],
         ['languages', toList(query.languages)],
         ['contactIds', toList(query.contact_ids)],
@@ -174,8 +174,6 @@ const v3RoutesPlugin = async function (
         const { maDMP } = await getPlanWorkflow(request, dmpId);
         return maDMP ? { dmp: maDMP.dmp } : undefined;
       }));
-
-      console.log('RESULTS FROM APOLLO', items[0]);
       request.log.debug({ itemCount: items.length }, 'GET /dmps results.');
 
       await reply.code(200).send({ total_count: result.totalCount, items: items.filter(Boolean) });
