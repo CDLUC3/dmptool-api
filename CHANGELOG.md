@@ -1,5 +1,8 @@
 # dmptool-api Changelog
 
+# 2026-11-24
+- Added HEAD route for .well-known/api-catalog
+
 # 2026-11-18
 - The Search endpoint was not properly passing query/filter options to Apollo server
 - Fixed issue with handling of both DOI and DMP Tool URL values in the DMP ID field

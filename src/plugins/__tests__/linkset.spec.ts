@@ -16,6 +16,21 @@ describe('routesPlugin', () => {
     await fastify.close();
   });
 
+  describe('HEAD /.well-known/api-catalog', () => {
+    it('should return 200 status code', async () => {
+      const response = await fastify.inject({
+        method: 'HEAD',
+        url: '/.well-known/api-catalog',
+      });
+
+      expect(response.statusCode).toBe(200);
+      const expectedHdr = "application/linkset+json;profile=\"https://www.rfc-editor.org/info/rfc9727\""
+      expect(response.headers['content-type']).toEqual(expectedHdr);
+      const expectedLinkHdr = `<http://localhost:4060/.well-known/api-catalog>; rel="api-catalog"`;
+      expect(response.headers['link']).toEqual(expectedLinkHdr);
+    });
+  });
+
   describe('GET /.well-known/api-catalog', () => {
     it('should return 200 status code', async () => {
       const response = await fastify.inject({
@@ -24,7 +39,7 @@ describe('routesPlugin', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      const expectedHdr = 'application/linkset+json; charset=utf-8'
+      const expectedHdr = "application/linkset+json; profile=\"https://www.rfc-editor.org/info/rfc9727\"; charset=utf-8";
       expect(response.headers['content-type']).toEqual(expectedHdr);
       const json = JSON.parse(response.body);
       const expected = {
