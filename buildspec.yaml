@@ -42,7 +42,7 @@ phases:
 
       # CI deletes the node_modules folder and installs the dependencies as defined in package-lock.json
       - echo "Installing dependencies..."
-      - npm ci
+      - npm install
 
       # Run NPM audit to check for vulnerabilities in the prod dependencies
       - echo "Running NPM audit..."
@@ -54,7 +54,7 @@ phases:
 
       # Run the tests
       - echo "Running tests"
-      - npm run test-no-db
+      - npm run test
 
       # The code is good, so build the Docker image
       - echo "Building the Docker image..."

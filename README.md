@@ -6,17 +6,18 @@ This is the REST API for the DMP Tool system. It follows the [RDA Common API Spe
 
 See the [CHANGELOG.md](CHANGELOG.md) for details
 
-To access the Swagger UI: `<COMING SOON>`.
+To test out the API, please visit the [Swagger UI](http://dmptool-stg.uc3stg.cdlib.net/api/v3/documentation).
 
 ## Table of Contents
 - [Authentication](#authentication)
-- [DMP Ids](#dmp-ids)
+- [Content Negotiation](#content-negotiation)
 - [Endpoints](#endpoints)
   - [Query/List DMPs](#query--search-for-dmps)
   - [Get a DMP](#get-a-specific-dmp)
   - [Create a DMP](#create-a-dmp)
   - [Update/Replace a DMP](#replace-a-dmp)
   - [Delete a DMP](#delete-a-dmp)
+  - [Validate maDMP JSON](#validate-madmp-json)
 - [Errors](#errors)
 - [DMP Examples](#dmp-format-examples)
 - [DMP Tool Exceptions to the RDA Common Standard](#exceptions-to-the-rda-common-standard-format)
@@ -45,6 +46,24 @@ DMP ids can be in one of 2 formats:
 
 The only time when it is acceptable to specify your own DMP id is when creating a new DMP. In that scenario, you should include a name spaced value that is relevant to your system/organization. For example `{ "identifier": "example.edu/1253526245", "type": "other" }` or `{ "identifier": "https://example.edu/dmps/1253526245", "type": "url" }`. The value you provide will be added to the new DMP's list of `alternate_identifiers`. This can be used to help you tie the DMP back into a record within your system.
 
+TODO: Add info about how to authenticate with the API.
+
+## Authorization
+
+TODO: Add info about what a particular user can see/do based on whether they are logged in and what theire role is.
+
+## Content Negotiation
+
+This API allows you to return maDMP metadata in either the RDA Common Standard format or the DMP Tool format. You can manage which format you receive through content negotiation.
+
+If you want the DMP Tool format, you must specify it explicitly in the `Accept` header with the value `application/vnd.org.dmptool.v1.2+json`.
+
+If you want the RDA Common Standard format, you can omit the `Accept` header entirely or specify either `application/json` or `application/vnd.org.rd-alliance.dmp-common.v1.2+json`.
+
+![Content negotiation diagram](docs/content-negotiation.png)
+
+See below for examples of what each format looks like.
+
 ## Endpoints
 
 For the majority of endpoints, you can specify the format you would like to receive. See below for examples of each format. 
@@ -59,7 +78,7 @@ For the majority of endpoints, you can specify the format you would like to rece
 
 #### List/Search DMPs
 
-The `GET /api/v3/dmps` endpoint lists all DMPs or allows for creating a filtered list of DMPs.
+The `GET /api/routes/dmps` endpoint lists all DMPs or allows for creating a filtered list of DMPs.
 
 **Public access:**
 When an authorization token is NOT provided, the API will only return DMPs who's privacy setting is "public".
@@ -101,18 +120,18 @@ The `scope` argument determines what type of DMPs will appear in the results. `p
 Examples:
 ```bash
 # Query for all public DMPs modified after January 1, 2026
-curl -v "http://localhost:4060/api/v3/dmps?modified_after=2026-01-01T00:00:00"
+curl -v "http://localhost:4060/api/routes/dmps?modified_after=2026-01-01T00:00:00"
 
 # Query for all public DMPs modified after January 1, 2026 that are associated with a specific contributor and are about particle physics
-curl -v "http://localhost:4060/api/v3/dmps?modified_after=2026-01-01T00:00:00&contriutor_ids=0000-0000-0000-0000&query=particle+physics"
+curl -v "http://localhost:4060/api/routes/dmps?modified_after=2026-01-01T00:00:00&contriutor_ids=0000-0000-0000-0000&query=particle+physics"
 
 # Query for you DMPs 
-curl -v "http://localhost:4060/api/v3/dmps?scope=mine" -H "Authorization: Bearer <token>"
+curl -v "http://localhost:4060/api/routes/dmps?scope=mine" -H "Authorization: Bearer <token>"
 ```
 
 #### Get a specific DMP
 
-The `GET /api/v3/dmps/:id` endpoint returns a DMP.
+The `GET /api/routes/dmps/:id` endpoint returns a DMP.
 
 **Public access:**
 When an authorization token is NOT provided, the API will only return DMPs who's privacy setting is "public". If you request a DMP that exists but that you do not have access to, you will receive a 404 Not Found error.
@@ -127,21 +146,21 @@ You can also request historical versions of a DMP by including the `?version=202
 Examples:
 ```bash
 # Query for a public DMP and receive the RDA Common Standard format without DMP Tool extensions
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123"
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1123"
 # OR
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123" -H "Accept: application/vnd.org.rd-alliance.dmp-common.v1.2+json"
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1123" -H "Accept: application/vnd.org.rd-alliance.dmp-common.v1.2+json"
 
 # Query for a public DMP and receive the RDA Common Standard format with DMP Tool extensions
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123" -H "Accept: application/vnd.org.dmptool.v1.2+json"
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1123" -H "Accept: application/vnd.org.dmptool.v1.2+json"
 
 # Query for a private DMP you own
 # Query for you DMPs 
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1987" -H "Authorization: Bearer <token>"
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1987" -H "Authorization: Bearer <token>"
 ```
 
 #### Create a DMP
 
-The `POST /api/v3/dmps` endpoint allows you to create a DMP.
+The `POST /api/routes/dmps` endpoint allows you to create a DMP.
 
 You must provide a DMP as JSON metadata that conforms to the RDA Common Standard for maDMPs. The JSON metadata should include DMP Tool extensions if possible. 
 
@@ -153,7 +172,7 @@ Note that you must include the `dmp_id` in this request. See the [DMP Ids](#dmp-
 
 Example:
 ```bash
-curl -v "http://localhost:4060/api/v3/dmps" \
+curl -v "http://localhost:4060/api/routes/dmps" \
      -X POST
      -H "Authorization: Bearer <token>" \
      -H "Content-Type: application/vnd.org.dmptool.v1.2+json" \
@@ -190,7 +209,7 @@ Some notes about the DMP format above:
 
 #### Replace a DMP
 
-The `PUT /api/v3/dmps/:id` endpoint allows you to replace the current DMP with the metadata you provide. If you just want to update a portion of a DMP record, you should call the `GET /api/v3/dmps/:id` endpoint first to retrieve the full DMP record. Then modify it as needed and send the update JSON record to this endpoint. 
+The `PUT /api/routes/dmps/:id` endpoint allows you to replace the current DMP with the metadata you provide. If you just want to update a portion of a DMP record, you should call the `GET /api/routes/dmps/:id` endpoint first to retrieve the full DMP record. Then modify it as needed and send the update JSON record to this endpoint. 
 
 You must provide a DMP as JSON metadata that conforms to the RDA Common Standard for maDMPs. The JSON metadata should include DMP Tool extensions if possible.
 
@@ -202,7 +221,7 @@ You also need to supply the `If-Unmodified-Since` header. The value of this head
 
 Example:
 ```bash
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123" \
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1123" \
      -X PUT \
      -H "Authorization: Bearer <token>" \
      -H "If-Unmodified-Since: 2021-01-01 02:23:11Z" \
@@ -232,7 +251,7 @@ curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123" \
 
 #### Delete a DMP
 
-The `DELETE /api/v3/dmps` endpoint allows you to replace the current DMP with the metadata you provide. If you just want to update a portion of a DMP record, you should call the `GET /api/v3/dmps/:id` endpoint first to retrieve the full DMP record. Then modify it as needed and send the update JSON record to this endpoint.
+The `DELETE /api/routes/dmps` endpoint allows you to replace the current DMP with the metadata you provide. If you just want to update a portion of a DMP record, you should call the `GET /api/routes/dmps/:id` endpoint first to retrieve the full DMP record. Then modify it as needed and send the update JSON record to this endpoint.
 
 You must be either the owner/creator of the DMP or an administrator at the affiliation associated with the DMP in order to delete it. 
 
@@ -246,10 +265,45 @@ You also need to supply the `If-Unmodified-Since` header. The value of this head
 
 Example:
 ```bash
-curl -v "http://localhost:4060/api/v3/dmps/00.00000%2FA1123" \
+curl -v "http://localhost:4060/api/routes/dmps/00.00000%2FA1123" \
      -X DELETE
      -H "Authorization: Bearer <token>" \
      -H "If-Unmodified-Since: 2021-01-01 02:23:11Z"
+```
+
+#### Validate maDMP JSON
+
+The `POST /api/routes/dmps/validate` endpoint allows you to check if a maDMP JSON is valid. This endpoint will report back any errors that are found in the JSON. 
+
+**Success Response:** 200
+
+Example:
+```bash
+curl -v "http://localhost:4060/api/routes/dmps/validate" \
+     -X POST
+     -H "Accept: application/vnd.org.rd-alliance.dmp-common.v1.2+json" \
+     -H "Content-Type: application/vnd.org.rd-alliance.dmp-common.v1.2+json" \
+     -D '{ 
+           "dmp": { 
+             "title": "Test title",
+             "dmp_id": { "identifier": "local-system-id", "type": "other" },
+             "created": "2021-01-01 03:11:23Z",
+             "modified": "2021-01-01 02:23:11Z",
+             "ethical_issues_exist": "no",
+             "language": "eng",
+             "contact": {
+               "name": "Test Contact",
+               "mbox": "tester@example.com",
+               "contact_id": [{ "identifier": "123456789", "type": "other" }]
+             },
+             "dataset": [{
+               "title": "Test Dataset",
+               "dataset_id": { "identifier": "123", "type": "other" },
+               "personal_data": "unknown",
+               "sensitive_data": "no"
+             }]
+           }
+         }'
 ```
 
 ## Errors
@@ -265,121 +319,9 @@ The API returns the following error codes:
 
 ## DMP Format Examples
 
-```json
-{ 
-  "dmp": { 
-    "title": "Test DMP",
-    "dmp_id": { "identifier": "local-system-id", "type": "other" },
-    "created": "2021-01-01 03:11:23Z",
-    "modified": "2021-01-01 02:23:11Z",
-    "ethical_issues_exist": "unknown",
-    "language": "eng",
-    "contact": {
-      "name": "Test Contact",
-      "mbox": "tester@example.com",
-      "contact_id": [{ "identifier": "123456789", "type": "other" }]
-    },
-    "dataset": [{
-      "title": "Test Dataset",
-      "dataset_id": { "identifier": "123", "type": "other" },
-      "personal_data": "unknown",
-      "sensitive_data": "no"
-    }]
-  }
-}
-```
+See the [sample JSON files](docs/jsonSamples) for examples of both the RDA Common Standard and DMP Tool JSON formats. Please note that the sample files contain `alternate_identifier` and `dmp_id` examples that may conflict with existing record in the system. You should update these values to something more meaningful for your use cases. 
 
-DMP Tool extensions to the RDA Common Standard. 
-The example here includes ALL the properties (see below for descriptions) from the RDA Common Standard record below along with:
-```json
-{
-  "rda_schema_version": "1.2",
-  "provenance": "your-system-id",
-  "status": "complete",
-  "privacy": "private",
-  "featured": "no",
-  "registered": "2026-01-01T10:32:45Z",
-  "research_domain": {
-    "name": "biology",
-    "research_domain_identifier": {
-      "identifier": "https://example.com/01234567",
-      "type": "url"
-    }
-  },
-  "research_facility": [{
-    "name": "Ocean buoy 2345325",
-    "type": "field_station",
-    "research_facility_identifier": {
-      "identifier": "https://example.com/01234567",
-      "type": "url"
-    }
-  }],
-  "funding_opportunity": [{
-    "project_id": {
-      "identifier": "local-system-project-id",
-      "type": "other"
-    },
-    "funder_id": {
-      "identifier": "https://ror.org/0987654321",
-      "type": "ror"
-    },
-    "opportunity_identifier": {
-      "identifier": "https://example.com/01234567",
-      "type": "url"
-    }
-  }],
-  "funding_project": [{
-    "project_id": {
-      "identifier": "local-system-project-id",
-      "type": "other"
-    },
-    "funder_id": {
-      "identifier": "https://ror.org/0987654321",
-      "type": "ror"
-    },
-    "project_identifier": {
-      "identifier": "https://example.com/erbgierg",
-      "type": "url"
-    }
-  }],
-  "version": [{
-    "access_url": "https://example.com/api/v3/dmps/123456789?version=2026-01-01T10:32:45Z",
-    "version": "2026-01-01T10:32:45Z"
-  }],
-  "narrative": {
-    "download_url": "https://example.com/dmps/123456789/narrative",
-    "template": {
-      "id": 1234567,
-      "title": "Funder Template",
-      "description": "This is a test funder template for a DMP narrative",
-      "version": "v1",
-      "section": [{
-        "id": 9876,
-        "title": "Section one",
-        "description": "The first section of the narrative",
-        "order": 1,
-        "question": [{
-          "id": 1234,
-          "text": "Where will you deposit this output?",
-          "order": 1,
-          "answer": {
-            "id": 543,
-            "json": {
-              "type": "repositorySearch",
-              "answer": [{
-                "repositoryId": "https://example.com/repository/123456789",
-                "repositoryName": "Example Repository"
-              }],
-              "meta": { "schemaVersion": "1.0" }
-            }
-          }
-        }]
-      }]
-    }
-  }
-}
-```
-Explanation:
+The DMP Tool specific extensions are as follows:
 - `rda_schema_version` the RDA standard that the record conforms to
 - `provenance` the system that created the DMP
 - `status` the current status of the DMP `["draft","complete","archived"]`
@@ -394,251 +336,6 @@ Explanation:
 - `narrative` the DMP narrative content including a URL to access a PDF version.
 
 **Note:** The `narrative`, `status`, `research_facility` list, `funding_opportunity` and `funding_project` information are only accessible if the DMP's `privacy` is public OR you have access to the DMP!
-
-Full RDA Common Standard WITH DMP Tool extensions.
-
-```json
-{
-  "dmp": {
-    "title": "Test DMP",
-    "description": "Abstract for the DMP",
-    "dmp_id": {
-      "identifier": "local-system-id",
-      "type": "other"
-    },
-    "created": "2021-01-01 03:11:23Z",
-    "modified": "2021-01-01 02:23:11Z",
-    "ethical_issues_exist": "yes",
-    "ethical_issues_description": "This DMP contains ethical issues",
-    "ethical_issues_report": "https://example.com/ethical-issues-report",
-    "language": "eng",
-    "contact": {
-      "name": "Test Contact",
-      "mbox": "tester@example.com",
-      "affiliation": [
-        {
-          "name": "Test University",
-          "affiliation_id": {
-            "identifier": "https://ror.org/01234567890",
-            "type": "ror"
-          }
-        }
-      ],
-      "contact_id": [
-        {
-          "identifier": "https://orcid.org/0000-0000-0000-0000",
-          "type": "orcid"
-        }
-      ]
-    },
-    "contributor": [
-      {
-        "name": "Test Contact",
-        "contributor_id": [
-          {
-            "identifier": "https://orcid.org/0000-0000-0000-0000",
-            "type": "orcid"
-          }
-        ],
-        "affiliation": [
-          {
-            "name": "Test University",
-            "affiliation_id": {
-              "identifier": "https://ror.org/01234567890",
-              "type": "ror"
-            }
-          }
-        ],
-        "role": [
-          "https://example.com/roles/investigation",
-          "https://example.com/roles/other"
-        ]
-      },
-      {
-        "name": "Someone else",
-        "contributor_id": [
-          {
-            "identifier": "852486334534",
-            "type": "other"
-          }
-        ],
-        "affiliation": [
-          {
-            "name": "Test University",
-            "affiliation_id": {
-              "identifier": "https://ror.org/01234567890",
-              "type": "ror"
-            }
-          }
-        ],
-        "role": [
-          "https://example.com/roles/data_curation"
-        ]
-      }
-    ],
-    "dataset": [
-      {
-        "title": "Test Dataset",
-        "type": "dataset",
-        "description": "This is our first dataset for the project",
-        "dataset_id": {
-          "identifier": "123",
-          "type": "other"
-        },
-        "personal_data": "unknown",
-        "sensitive_data": "no",
-        "issued": "2026-01-03",
-        "metadata": [
-          {
-            "description": "Description of metadata",
-            "language": "eng",
-            "metadata_standard_id": [
-              {
-                "identifier": "https://example.com/metadata-standards/123",
-                "type": "url"
-              }
-            ]
-          }
-        ],
-        "distribution": [{
-          "title": "Test Distribution",
-          "byte_size": 1234567890,
-          "issued": "2026-01-03",
-          "data_access": "open",
-          "license": [{
-            "license_ref": "https://spdx.org/licenses/CC-BY-4.0.html",
-            "start_date": "2026-04-01"
-          }],
-          "host": {
-            "title": "Zenodo",
-            "url": "https://zenodo.org",
-            "host_id": [{ 
-              "identifier": "https://www.re3data.org/repository/r3d100010468", 
-              "type": "url"
-            }]
-          }
-        }]
-      }
-    ],
-    "related_identifier": [{
-      "identifier": "https://doi.org/00.0000/dataset.123456789",
-      "relation_type": "cites",
-      "resource_type": "dataset",
-      "type": "doi"
-    }],
-    "alternate_identifier": [{
-      "identifier": "https://example.com/id-from-your-system",
-      "type": "url"
-    }],
-    "project": [{
-      "title": "test research project",
-      "description": "Project abstract ...",
-      "project_id": [{
-        "identifier": "local-system-project-id",
-        "type": "other"
-      }],
-      "start": "2025-01-01",
-      "end": "2028-12-31",
-      "funding": [{
-        "name": "Funder Organization",
-        "funding_status": "granted",
-        "funder_id": {
-          "identifier": "https://ror.org/0987654321",
-          "type": "ror"
-        },
-        "grant_id": [{
-          "identifier": "1234567890",
-          "type": "other"
-        }]
-      }]
-    }]
-  },
-  "rda_schema_version": "1.2",
-  "provenance": "your-system-id",
-  "status": "complete",
-  "privacy": "private",
-  "featured": "no",
-  "registered": "2026-01-01T10:32:45Z",
-  "research_domain": {
-    "name": "biology",
-    "research_domain_identifier": {
-      "identifier": "https://example.com/01234567",
-      "type": "url"
-    }
-  },
-  "research_facility": [{
-    "name": "Ocean buoy 2345325",
-    "type": "field_station",
-    "research_facility_identifier": {
-      "identifier": "https://example.com/01234567",
-      "type": "url"
-    }
-  }],
-  "funding_opportunity": [{
-    "project_id": {
-      "identifier": "local-system-project-id",
-      "type": "other"
-    },
-    "funder_id": {
-      "identifier": "https://ror.org/0987654321",
-      "type": "ror"
-    },
-    "opportunity_identifier": {
-      "identifier": "https://example.com/01234567",
-      "type": "url"
-    }
-  }],
-  "funding_project": [{
-    "project_id": {
-      "identifier": "local-system-project-id",
-      "type": "other"
-    },
-    "funder_id": {
-      "identifier": "https://ror.org/0987654321",
-      "type": "ror"
-    },
-    "project_identifier": {
-      "identifier": "https://example.com/erbgierg",
-      "type": "url"
-    }
-  }],
-  "version": [{
-    "access_url": "https://example.com/api/v3/dmps/123456789?version=2026-01-01T10:32:45Z",
-    "version": "2026-01-01T10:32:45Z"
-  }],
-  "narrative": {
-    "download_url": "https://example.com/dmps/123456789/narrative",
-    "template": {
-      "id": 1234567,
-      "title": "Funder Template",
-      "description": "This is a test funder template for a DMP narrative",
-      "version": "v1",
-      "section": [{
-        "id": 9876,
-        "title": "Section one",
-        "description": "The first section of the narrative",
-        "order": 1,
-        "question": [{
-          "id": 1234,
-          "text": "Where will you deposit this output?",
-          "order": 1,
-          "answer": {
-            "id": 543,
-            "json": {
-              "type": "repositorySearch",
-              "answer": [{
-                "repositoryId": "https://example.com/repository/123456789",
-                "repositoryName": "Example Repository"
-              }],
-              "meta": { "schemaVersion": "1.0" }
-            }
-          }
-        }]
-      }]
-    }
-  }
-}
-```
 
 ## Exceptions to the RDA Common Standard format
 
@@ -733,16 +430,33 @@ This API uses the [Fastify](https://fastify.dev) framework, a low-overhead web f
 - Node.js 22.x
 - npm 11.x
 
-### Temporary prerequisites
-The following repositories are required to generate an access token which can be used to test out the JWT logic in the AuthPlugin. This will be replaced with logic to work with the cookie/token generated by the Rails app. We may need to modify the Rails app to generate the information needed.
-- The DMP Tool Apollo server backend (see [dmptool-apollo-server](https://github.com/CDLUC3/dmptool-apollo-server))
-- The DMP Tool UI (see [dmptool-ui](https://github.com/CDLUC3/dmptool-ui))
+### GraphQL Server and application UI
+The following repositories are required. 
+- The GraphQL server (Apollo Server), (see [dmptool-apollo-server](https://github.com/CDLUC3/dmptool-apollo-server)), performs the majority of the API's business logic and interacts with data sources. It establishes a Docker Compose network that is shared with the DMP Tool UI and this REST API.
+- The UI, (see [dmptool-ui](https://github.com/CDLUC3/dmptool-ui)), is needed to generate an access token. An access token is needed to perform most write operations and to also scope what DMPs a user can access.
+
+### Configuration
+- Copy the `.env.example` file to `.env` and update the values as needed. Note that the `docker-compose.yml` file contains some of the same values.
+- Follow the instructions in the [dmptool-apollo-server](https://github.com/CDLUC3/dmptool-apollo-server) repository to configure the Apollo server.
+- Follow the instructions in the [dmptool-ui](https://github.com/CDLUC3/dmptool-ui) repository to configure the UI.
+
+### Starting the REST API
+- Start the Apollo server by running `docker compose up` in that `dmptool-apollo-server` directory. This also creates a MySQL database, DynamoDB table, and an Elasticache instance.
+- Start the UI by running `docker compose up` in the `dmptool-ui` directory.
+- Navigate to the UI at `http://localhost:3000` and login (see the UI repo's documentation for the sample usernames and passwords).
+- Start this REST API by running `docker compose up`.
+- Navigate to the Swagger UI at `http://localhost:4060/api/v3/documentation`.
+- Navigate to the endpoint you want to test and click the `Try it out!` button.
+- You can make use of the files in the `docs/jsonSamples` directory when testing out the POST and PUT requests.
+
+### Testing
+We strive to have 100% test coverage. We have unit tests for the individual functions and integration tests for the API endpoints. (COMING SOON: The integration tests run against a test instance of the API that is spun up using `docker compose` before the tests run and then is torn down after the tests are complete).
 
 ## Development
 
 A Husky pre-commit hook is configured to run the linter and tests and security audits before each commit.
 
-To start up the application for local development `npm run dev`.
+To start up the application for local development `docker compose up`. Note that the Apollo server and the UI are started in separate Docker containers.
 
 To run the linter `npm run lint`.
 
@@ -782,7 +496,7 @@ Sunset: Sat, 31 Dec 2026 23:59:59 GMT
 Once the sunset date is reached, we should change the default content type and remove the old content type from the list of supported `accept` headers.
 
 #### API Versions
-We use a major-version-only scheme for versioning the API. We do this through the path (e.g. `/api/v3/dmps`).
+We use a major-version-only scheme for versioning the API. We do this through the path (e.g. `/api/routes/dmps`).
 The version number is only incremented when one of the following occurs:
 - Change to the format of an existing endpoint
 - Change to the format of the response body

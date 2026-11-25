@@ -1,4 +1,4 @@
-import { RouteShorthandOptions } from 'fastify';
+import { FastifySchema, RouteShorthandOptions } from 'fastify';
 import {
   DMPToolDMPJSONSchema,
   RDACommonStandardDMPJSONSchema
@@ -6,6 +6,21 @@ import {
 
 export const RDA_COMMON_STANDARD_CONTENT_TYPE = 'application/vnd.org.rd-alliance.dmp-common.v1.2+json';
 export const DMP_TOOL_CONTENT_TYPE = 'application/vnd.org.dmptool.v1.2+json';
+
+// Custom request body structure for Swagger
+interface SwaggerRequestBodySpec {
+  description?: string;
+  required?: boolean;
+  content: typeof negotiatedDmpContent; // Explicitly matches your content object
+}
+
+// Extend the base FastifySchema with an intersection type so we can include
+// swaggerRequestBody which allows use to get content negotiation working in the Swagger UI
+export interface DMPToolRouteOptions extends RouteShorthandOptions {
+  schema?: FastifySchema & {
+    swaggerRequestBody?: SwaggerRequestBodySpec;
+  };
+}
 
 // The RDA Common Standard supports a large number of languages.
 const getDmpLanguageEnum = () => {
@@ -27,12 +42,12 @@ const errorObjectSchema = {
   type: 'object',
   properties: {
     status_code: {
-      type: 'string'
+      type: 'number'
     },
     error_code: {
       type: 'string'
     },
-    message: {
+    error_message: {
       type: 'string'
     }
   },
@@ -40,9 +55,7 @@ const errorObjectSchema = {
 }
 
 // The internal `dmp` object from the RDA Common Standard and DMP Tool JSON schemas
-const baseRDADmpProps = RDACommonStandardDMPJSONSchema.properties?.dmp || {};
 const baseRDADmpDefs = RDACommonStandardDMPJSONSchema.$defs || {};
-const baseDMPToolDmpProps = DMPToolDMPJSONSchema.properties?.dmp || {};
 const baseDMPToolDmpDefs = DMPToolDMPJSONSchema.$defs || {};
 
 // The standard error responses for the DMP Tool API
@@ -67,17 +80,17 @@ const standardErrors = {
 // The `Accept` header is used to negotiate the response format. The default is
 // the RDA Common Standard format (NO DMP Tool extensions).
 //
-export const negotiatedDmpResponseContent = {
+export const negotiatedDmpContent = {
   [RDA_COMMON_STANDARD_CONTENT_TYPE]: {
     $defs: baseRDADmpDefs,
     type: 'object',
     properties: {
       dmp: {
-        type: 'object',
-        ...baseRDADmpProps,
-        additionalProperties: false
-      }
+        $ref: '#/$defs/DMPData',
+      },
+      unevaluatedProperties: false
     },
+    additionalProperties: false,
     required: ['dmp'],
   },
   [DMP_TOOL_CONTENT_TYPE]: {
@@ -85,11 +98,14 @@ export const negotiatedDmpResponseContent = {
     type: 'object',
     properties: {
       dmp: {
-        type: 'object',
-        ...baseDMPToolDmpProps,
-        additionalProperties: false
+        allOf: [
+          { $ref: '#/$defs/DMPData' },
+          { $ref: '#/$defs/DMPToolExtension' }
+        ],
+        unevaluatedProperties: false
       }
     },
+    additionalProperties: false,
     required: ['dmp'],
   }
 }
@@ -118,7 +134,7 @@ const maDMPBody = {
         dmp: { $ref: '#/$defs/DMPData' }
       },
       required: ['dmp'],
-      additionalProperties: false // Note that this will reject DMP Tool extensions
+      // additionalProperties: false // Note that this will reject DMP Tool extensions
     },
     // RDA Common Standard with DMP Tool extensions
     {
@@ -128,11 +144,12 @@ const maDMPBody = {
           allOf: [
             { $ref: '#/$defs/DMPData' },
             { $ref: '#/$defs/DMPToolExtension' }
-          ]
+          ],
+          unevaluatedProperties: false
         },
       },
       required: ['dmp']
-    }
+    },
   ]
 };
 
@@ -261,6 +278,10 @@ const allowableQueryParameters = {
   }
 };
 
+// The preSerialization hooks handle content negotiation and the ultimate
+// structure of the response. This is here because Fastify has difficulty
+// working with non-standard MIME types so we give it just the top level
+// structure of the response which is the same regardless of the MIME type
 const genericDmpResponse = {
   type: 'object',
   properties: {
@@ -286,7 +307,7 @@ export const GET_DMP_OPTIONS: RouteShorthandOptions = {
       properties: {
         id: {
           type: 'string',
-          description: 'The DMP Id'
+          description: 'The DMP Id (e.g. `11.22222/abc123`)'
         }
       }
     },
@@ -295,7 +316,8 @@ export const GET_DMP_OPTIONS: RouteShorthandOptions = {
       properties: {
         version: {
           type: 'string',
-          format: 'date-time'
+          format: 'date-time',
+          description: 'A timestamp in the `YYYY-MM-DD hh:mm:ss.SSSZ` format'
         }
       }
     },
@@ -304,6 +326,16 @@ export const GET_DMP_OPTIONS: RouteShorthandOptions = {
         // Define the generic type here, the serializationPlugin will return the
         // correct object
         ...genericDmpResponse,
+
+        // This content block helps the Swagger UI display the correct MIME types we support
+        content: {
+          [RDA_COMMON_STANDARD_CONTENT_TYPE]: {
+            schema: negotiatedDmpContent[RDA_COMMON_STANDARD_CONTENT_TYPE]
+          },
+          [DMP_TOOL_CONTENT_TYPE]: {
+            schema: negotiatedDmpContent[DMP_TOOL_CONTENT_TYPE]
+          }
+        },
         headers: {
           'Last-Modified': {
             description: 'The last modified date of the DMP',
@@ -362,7 +394,7 @@ export const GET_DMPS_OPTIONS: RouteShorthandOptions = {
 }
 
 // POST /dmps
-export const POST_DMP_OPTIONS: RouteShorthandOptions = {
+export const POST_DMP_OPTIONS: DMPToolRouteOptions = {
   schema: {
     operationId: 'createDMP',
     summary: 'Create a DMP',
@@ -370,12 +402,27 @@ export const POST_DMP_OPTIONS: RouteShorthandOptions = {
     tags: ['DMP'],
     // Security names are defined in the Swagger Plugin
     security: [{ apiKeyHeader: [], apiKeyCookie: [] }],
+    swaggerRequestBody: {
+      description: 'DMP Object Data',
+      required: true,
+      content: negotiatedDmpContent
+    },
     body: maDMPBody,
     response: {
       201: {
         // Define the generic type here, the serializationPlugin will return the
         // correct object
         ...genericDmpResponse,
+
+        // This content block helps the Swagger UI display the correct MIME types we support
+        content: {
+          [RDA_COMMON_STANDARD_CONTENT_TYPE]: {
+            schema: negotiatedDmpContent[RDA_COMMON_STANDARD_CONTENT_TYPE]
+          },
+          [DMP_TOOL_CONTENT_TYPE]: {
+            schema: negotiatedDmpContent[DMP_TOOL_CONTENT_TYPE]
+          }
+        },
         headers: {
           'Last-Modified': {
             description: 'The last modified date of the DMP',
@@ -392,7 +439,7 @@ export const POST_DMP_OPTIONS: RouteShorthandOptions = {
 };
 
 // PUT /dmps/:id
-export const PUT_DMP_OPTIONS: RouteShorthandOptions = {
+export const PUT_DMP_OPTIONS: DMPToolRouteOptions = {
   schema: {
     operationId: 'updateDMP',
     summary: 'Overwrite a DMP',
@@ -419,12 +466,27 @@ export const PUT_DMP_OPTIONS: RouteShorthandOptions = {
       },
       required: ['If-Unmodified-Since']
     },
+    swaggerRequestBody: {
+      description: 'DMP Object Data',
+      required: true,
+      content: negotiatedDmpContent
+    },
     body: maDMPBody,
     response: {
       200: {
         // Define the generic type here, the serializationPlugin will return the
         // correct object
         ...genericDmpResponse,
+
+        // This content block helps the Swagger UI display the correct MIME types we support
+        content: {
+          [RDA_COMMON_STANDARD_CONTENT_TYPE]: {
+            schema: negotiatedDmpContent[RDA_COMMON_STANDARD_CONTENT_TYPE]
+          },
+          [DMP_TOOL_CONTENT_TYPE]: {
+            schema: negotiatedDmpContent[DMP_TOOL_CONTENT_TYPE]
+          }
+        },
         headers: {
           'Last-Modified': {
             description: 'The last modified date of the DMP',
@@ -469,6 +531,69 @@ export const DELETE_DMP_OPTIONS: RouteShorthandOptions = {
     },
     response: {
       204: emptyObjectSchema,
+      ...standardErrors
+    }
+  }
+};
+
+// POST /dmps/validate
+export const POST_VALIDATE_OPTIONS: RouteShorthandOptions = {
+  schema: {
+    operationId: 'validateDMP',
+    summary: 'Validate a DMP\'s JSON',
+    description: 'Verify that a JSON document is a valid DMP object.',
+    tags: ['DMP'],
+    body: {
+      content: {
+        'application/json': {
+          schema: {
+            $defs: baseRDADmpDefs,
+            type: 'object',
+            properties: {
+              dmp: {
+                $ref: '#/$defs/DMPData'
+              }
+            },
+            required: ['dmp'],
+          }
+        },
+        [RDA_COMMON_STANDARD_CONTENT_TYPE]: {
+          schema: {
+            $defs: baseRDADmpDefs,
+            type: 'object',
+            properties: {
+              dmp: {
+                $ref: '#/$defs/DMPData'
+              }
+            },
+            required: ['dmp'],
+          }
+        },
+        [DMP_TOOL_CONTENT_TYPE]: {
+          schema: {
+            $defs: baseDMPToolDmpDefs,
+            type: 'object',
+            properties: {
+              dmp: {
+                allOf: [
+                  { $ref: '#/$defs/DMPData' },
+                  { $ref: '#/$defs/DMPToolExtension' }
+                ],
+                unevaluatedProperties: false
+              }
+            },
+            required: ['dmp'],
+          }
+        }
+      }
+    },
+    response: {
+      200: {
+        status_code: 200,
+        message: {
+          type: 'string'
+        }
+      },
       ...standardErrors
     }
   }

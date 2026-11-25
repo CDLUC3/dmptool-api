@@ -1,0 +1,23 @@
+
+query affiliationByURI($uri: String!) {
+  affiliationByURI(uri: $uri) {
+    id
+    uri
+    name
+    funder
+    provenance
+  }
+}
+
+query Affiliations($name: String!, $funderOnly: Boolean!) {
+  affiliations(name: $name, funderOnly: $funderOnly) {
+    items {
+      id
+      uri
+      name
+      aliases
+      acronyms
+      funder
+    }
+  }
+}

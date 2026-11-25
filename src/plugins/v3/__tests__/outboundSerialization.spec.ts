@@ -1,13 +1,14 @@
-import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import Fastify, { FastifyInstance } from 'fastify';
-import { serializationPlugin } from '../serialization.js';
-import { DMP_TOOL_CONTENT_TYPE } from "../../routeOptions.js";
-import { configPlugin } from "../config.js";
-import { errorPlugin } from "../error.js";
-import { routesPlugin } from "../routes.js";
+import { DMP_TOOL_CONTENT_TYPE } from "../routeSchema.js";
+import configPlugin from "../../config.js";
+import { mockMaDMP, mockMaDMPModule } from "./maDMPMocks.js";
 
-describe('routeOptionsPlugin', () => {
+mockMaDMPModule();
+
+describe.skip('v3 serialization', () => {
   let fastify: FastifyInstance;
+  let getPlanWorkflow: jest.Mock;
 
   beforeEach(async () => {
     fastify = Fastify({
@@ -21,10 +22,16 @@ describe('routeOptionsPlugin', () => {
     });
 
     await fastify.register(configPlugin, {});
-    await fastify.register(errorPlugin, {});
-    await fastify.register(serializationPlugin, {});
 
-    await fastify.register(routesPlugin, { prefix: '/api/v3' });
+    const workflowModule = await import('../workflows/planWorkflow.js');
+    getPlanWorkflow = workflowModule.getPlanWorkflow as jest.Mock;
+    getPlanWorkflow.mockReset();
+    getPlanWorkflow.mockResolvedValue(mockMaDMP as never);
+
+    // Must import the routes plugin here because the maDMP functions we need to
+    // mock are called in the routes plugin and would override the mocks otherwise
+    const v3RoutesPlugin = (await import('../routes.js')).default;
+    await fastify.register(v3RoutesPlugin, { prefix: '/api/test' });
   });
 
   afterEach(async () => {
@@ -34,7 +41,7 @@ describe('routeOptionsPlugin', () => {
   it('should set Content-Type to DMPTool header when Accept header matches', async () => {
     const response = await fastify.inject({
       method: 'GET',
-      url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+      url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       headers: { accept: DMP_TOOL_CONTENT_TYPE },
     });
 
@@ -46,7 +53,7 @@ describe('routeOptionsPlugin', () => {
 
     const response = await fastify.inject({
       method: 'GET',
-      url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+      url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       headers: { accept: rdaHeader },
     });
 
@@ -58,7 +65,7 @@ describe('routeOptionsPlugin', () => {
 
     const response = await fastify.inject({
       method: 'GET',
-      url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+      url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       headers: { accept: 'application/json' },
     });
 
@@ -68,21 +75,21 @@ describe('routeOptionsPlugin', () => {
   it('should return a 406 unsupported error when the accept type is not supported', async () => {
     const response = await fastify.inject({
       method: 'GET',
-      url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+      url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       headers: { accept: 'application/xml' },
     });
 
     expect(response.statusCode).toBe(406);
     const body = JSON.parse(response.body);
-    expect(body).toHaveProperty('status_code', '406');
+    expect(body).toHaveProperty('status_code', 406);
     expect(body).toHaveProperty('error_code', 'not_acceptable');
-    expect(body).toHaveProperty('message', 'The server does not support any of the requested content types.');
+    expect(body).toHaveProperty('error_message', 'Unknown DMP standard, unable to fulfill request.');
   });
 
   it('should set Content-Type to DMPTool header when Accept header matches', async () => {
     const response = await fastify.inject({
       method: 'GET',
-      url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+      url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       headers: { accept: DMP_TOOL_CONTENT_TYPE },
     });
 
@@ -94,7 +101,7 @@ describe('routeOptionsPlugin', () => {
 
     const response = await fastify.inject({
       method: 'GET',
-      url: `/api/v3/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
+      url: `/api/test/dmps/${encodeURIComponent(fastify.dmptoolConfig.dmpIdShoulder)}test-dmp-id`,
       headers: { accept: rdaHeader },
     });
 

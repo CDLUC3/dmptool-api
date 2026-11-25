@@ -1,0 +1,121 @@
+query Plans($projectId: Int!) {
+  plansByProjectId(projectId: $projectId) {
+    id
+    title
+  }
+}
+
+fragment PlanDetails on Plan {
+  id
+  dmpId
+  title
+  visibility
+  status
+  created
+  createdById
+  modified
+  modifiedById
+  registered
+  project {
+    id
+    title
+    abstractText
+    startDate
+    endDate
+    isTestProject
+    researchDomain {
+      id
+      uri
+    }
+    members {
+      id
+      isPrimaryContact
+      affiliation {
+        uri
+      }
+      givenName
+      surName
+      orcid
+      email
+      memberRoles {
+        id
+        uri
+      }
+    }
+    fundings {
+      id
+      affiliation {
+        uri
+      }
+      status
+      funderProjectNumber
+      funderOpportunityNumber
+      grantId
+    }
+  }
+  members {
+    projectMember {
+      id
+    }
+    memberRoles {
+      id
+      uri
+    }
+  }
+  fundings {
+    id
+    projectFunding {
+      id
+    }
+  }
+  answers {
+    id
+    versionedSection{
+      id
+    }
+    versionedQuestion {
+      id
+    }
+    json
+  }
+  versionedTemplate {
+    id
+    name
+    description
+    version
+    template {
+      id
+    }
+    versionedSections {
+      id
+      name
+      displayOrder
+      versionedQuestions {
+        id
+        questionText
+        json
+      }
+    }
+  }
+  alternateIdentifiers {
+    id
+    alternateIdentifier
+  }
+  acceptedWorks {
+    doi
+    workType
+    relationType
+  }
+}
+
+query PlanByDmpId($dmpId: String!) {
+  planByDMPId(dmpId: $dmpId) {
+    ...PlanDetails
+  }
+}
+
+query PlanByAlternateIdentifier($alternateIdentifier: String!) {
+  planByAlternateIdentifier(alternateIdentifier: $alternateIdentifier) {
+    ...PlanDetails
+  }
+}

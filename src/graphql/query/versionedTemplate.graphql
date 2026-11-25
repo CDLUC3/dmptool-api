@@ -1,0 +1,63 @@
+query VersionedTemplates($id: Int!) {
+  versionedTemplate(id: $id) {
+    id
+    name
+    version
+    active
+    template {
+      id
+    }
+    versionedSections {
+      id
+      section {
+        id
+      }
+      name
+      displayOrder
+      tags {
+        id
+        slug
+      }
+      versionedQuestions {
+        id
+        questionId
+        versionedSectionId
+        questionText
+        displayOrder
+        json
+      }
+    }
+  }
+}
+
+query DefaultTemplate {
+  defaultTemplate {
+    id
+    name
+    version
+    active
+    template {
+      id
+    }
+    versionedSections {
+      id
+      section {
+        id
+      }
+      name
+      displayOrder
+      tags {
+        id
+        slug
+      }
+      versionedQuestions {
+        id
+        questionId
+        versionedSectionId
+        questionText
+        displayOrder
+        json
+      }
+    }
+  }
+}

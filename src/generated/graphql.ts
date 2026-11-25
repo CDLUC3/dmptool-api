@@ -1,0 +1,324 @@
+/* eslint-disable */
+/** Internal type. DO NOT USE DIRECTLY. */
+type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
+/** Internal type. DO NOT USE DIRECTLY. */
+export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
+import { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-node/core';
+/** Input to create an entire Plan (and Project if applicable) */
+export type AddEntirePlanInput = {
+  /** Related Works associated with the plan */
+  acceptedWorks?: Array<EntirePlanAcceptedWorkFragment> | null | undefined;
+  /** External identifiers for the plan (for use when integrating with external systems) */
+  alternateIdentifiers?: Array<string> | null | undefined;
+  /** The answers to the questions in the plan's narrative */
+  answers?: Array<EntirePlanAnswerFragment> | null | undefined;
+  /** The funding sources associated with the data described in the plan */
+  funding?: Array<EntirePlanFundingFragment> | null | undefined;
+  /** The language of the plan */
+  languageId: string;
+  /** The project members involved with the data described in the plan */
+  members?: Array<EntirePlanMemberFragment> | null | undefined;
+  /** The research project this plan is associated with */
+  project: EntirePlanProjectFragment;
+  /** The status of the plan */
+  status: PlanStatus;
+  /** The title of the plan */
+  title: string;
+  /** The id of the template being used (the default template will be used if not provided) */
+  versionedTemplateId?: number | null | undefined;
+  /** The visibility of the plan */
+  visibility: PlanVisibility;
+};
+
+/** Input to create/replace an Accepted Work */
+export type EntirePlanAcceptedWorkFragment = {
+  doi: string;
+  relationType: RelationType;
+  workType: WorkType;
+};
+
+/** Input to create/replace a Plan answer */
+export type EntirePlanAnswerFragment = {
+  json: string;
+  versionedCustomQuestion?: number | null | undefined;
+  versionedCustomSectionId?: number | null | undefined;
+  versionedQuestionId?: number | null | undefined;
+  versionedSectionId?: number | null | undefined;
+};
+
+/** Input to create/replace a Project/Plan funding */
+export type EntirePlanFundingFragment = {
+  funder: string;
+  funderOpportunityNumber?: string | null | undefined;
+  funderProjectNumber?: string | null | undefined;
+  grantId?: string | null | undefined;
+  projectFundingId?: number | null | undefined;
+  status?: ProjectFundingStatus | null | undefined;
+};
+
+/** Input to create/replace a Project/Plan member */
+export type EntirePlanMemberFragment = {
+  affiliation?: string | null | undefined;
+  email?: string | null | undefined;
+  givenName?: string | null | undefined;
+  isPrimaryContact?: boolean | null | undefined;
+  memberRoles?: Array<string> | null | undefined;
+  orcid?: string | null | undefined;
+  projectMemberId?: number | null | undefined;
+  surname?: string | null | undefined;
+};
+
+/** Input to create/replace a research Project */
+export type EntirePlanProjectFragment = {
+  abstractText?: string | null | undefined;
+  endDate?: string | null | undefined;
+  isTestProject?: boolean | null | undefined;
+  researchDomainUrl?: string | null | undefined;
+  startDate?: string | null | undefined;
+  title: string;
+};
+
+/** The status/state of the plan */
+export type PlanStatus =
+  /** The Plan has been archived */
+  | 'ARCHIVED'
+  /** The Plan is ready for submission or download */
+  | 'COMPLETE'
+  /** The Plan is still being written and reviewed */
+  | 'DRAFT';
+
+/** The visibility/privacy setting for the plan */
+export type PlanVisibility =
+  /** Visible only to people at the user's (or editor's) affiliation */
+  | 'ORGANIZATIONAL'
+  /** Visible only to people who have been invited to collaborate (or provide feedback) */
+  | 'PRIVATE'
+  /** Visible to anyone */
+  | 'PUBLIC';
+
+/** The status of the funding */
+export type ProjectFundingStatus =
+  /** The funder did not award the project */
+  | 'DENIED'
+  /** The funding has been awarded to the project */
+  | 'GRANTED'
+  /** The project will be submitting a grant, or has not yet heard back from the funder */
+  | 'PLANNED';
+
+export type RelationType =
+  | 'CITES'
+  | 'COLLECTS'
+  | 'COMPILES'
+  | 'CONTINUES'
+  | 'DESCRIBES'
+  | 'DOCUMENTS'
+  | 'HAS_METADATA'
+  | 'HAS_PART'
+  | 'HAS_VERSION'
+  | 'IS_CITED_BY'
+  | 'IS_COLLECTED_BY'
+  | 'IS_COMPILED_BY'
+  | 'IS_CONTINUED_BY'
+  | 'IS_DERIVED_FROM'
+  | 'IS_DESCRIBED_BY'
+  | 'IS_DOCUMENTED_BY'
+  | 'IS_IDENTICAL_TO'
+  | 'IS_METADATA_FOR'
+  | 'IS_NEW_VERSION_OF'
+  | 'IS_OBSOLETED_BY'
+  | 'IS_ORIGINAL_FORM_OF'
+  | 'IS_PART_OF'
+  | 'IS_PREVIOUS_VERSION_OF'
+  | 'IS_PUBLISHED_IN'
+  | 'IS_REFERENCED_BY'
+  | 'IS_REQUIRED_BY'
+  | 'IS_REVIEWED_BY'
+  | 'IS_SOURCE_OF'
+  | 'IS_SUPPLEMENTED_BY'
+  | 'IS_SUPPLEMENT_TO'
+  | 'IS_VARIANT_FORM_OF'
+  | 'IS_VERSION_OF'
+  | 'OBSOLETES'
+  | 'REFERENCES'
+  | 'REQUIRES'
+  | 'REVIEWS';
+
+/** Input to update an entire Project and Plan */
+export type UpdateEntirePlanInput = {
+  /** Related Works associated with the plan */
+  acceptedWorks?: Array<EntirePlanAcceptedWorkFragment> | null | undefined;
+  /** External identifiers for the plan (for use when integrating with external systems) */
+  alternateIdentifiers?: Array<string> | null | undefined;
+  /** The answers to the questions in the plan's narrative */
+  answers?: Array<EntirePlanAnswerFragment> | null | undefined;
+  /** The DMP id of the plan (required if no 'id' is provided) */
+  dmpId?: string | null | undefined;
+  /** The funding sources associated with the data described in the plan */
+  funding?: Array<EntirePlanFundingFragment> | null | undefined;
+  /** The id of the plan (required if no 'dmpId' is provided) */
+  id?: number | null | undefined;
+  /** The language of the plan */
+  languageId?: string | null | undefined;
+  /** The project members involved with the data described in the plan */
+  members?: Array<EntirePlanMemberFragment> | null | undefined;
+  /** The research project this plan is associated with */
+  project: EntirePlanProjectFragment;
+  /** The status of the plan */
+  status?: PlanStatus | null | undefined;
+  /** The title of the plan */
+  title: string;
+  /** The visibility of the plan */
+  visibility?: PlanVisibility | null | undefined;
+};
+
+/** The type of work */
+export type WorkType =
+  | 'ARTICLE'
+  | 'AUDIO_VISUAL'
+  | 'BOOK'
+  | 'BOOK_CHAPTER'
+  | 'COLLECTION'
+  | 'DATASET'
+  | 'DATA_PAPER'
+  | 'DISSERTATION'
+  | 'EDITORIAL'
+  | 'ERRATUM'
+  | 'EVENT'
+  | 'GRANT'
+  | 'IMAGE'
+  | 'INTERACTIVE_RESOURCE'
+  | 'LETTER'
+  | 'LIBGUIDES'
+  | 'MODEL'
+  | 'OTHER'
+  | 'PARATEXT'
+  | 'PEER_REVIEW'
+  | 'PHYSICAL_OBJECT'
+  | 'PREPRINT'
+  | 'PRE_REGISTRATION'
+  | 'PROTOCOL'
+  | 'REFERENCE_ENTRY'
+  | 'REPORT'
+  | 'RETRACTION'
+  | 'REVIEW'
+  | 'SERVICE'
+  | 'SOFTWARE'
+  | 'SOUND'
+  | 'STANDARD'
+  | 'SUPPLEMENTARY_MATERIALS'
+  | 'TEXT'
+  | 'TRADITIONAL_KNOWLEDGE'
+  | 'WORKFLOW';
+
+export type AddPlanMutationVariables = Exact<{
+  input: AddEntirePlanInput;
+}>;
+
+
+export type AddPlanMutation = { addEntirePlan: { id: number | null, created: string | null, createdById: number | null, modified: string | null, modifiedById: number | null, dmpId: string | null, errors: { general: string | null, versionedTemplateId: string | null, projectId: string | null, title: string | null, visibility: string | null, status: string | null, languageId: string | null, members: string | null, funding: string | null, alternateIdentifiers: string | null, acceptedWorks: string | null } | null } | null };
+
+export type UpdatePlanMutationVariables = Exact<{
+  input: UpdateEntirePlanInput;
+}>;
+
+
+export type UpdatePlanMutation = { updateEntirePlan: { id: number | null, dmpId: string | null, modified: string | null, modifiedById: number | null, title: string | null, status: PlanStatus | null, visibility: PlanVisibility | null, languageId: string | null, errors: { general: string | null, title: string | null, status: string | null, visibility: string | null, languageId: string | null, projectId: string | null, versionedTemplateId: string | null, members: string | null, funding: string | null, alternateIdentifiers: string | null, acceptedWorks: string | null } | null } | null };
+
+export type RemovePlanMutationVariables = Exact<{
+  dmpId: string;
+}>;
+
+
+export type RemovePlanMutation = { removeEntirePlanByDMPId: boolean | null };
+
+export type AffiliationByUriQueryVariables = Exact<{
+  uri: string;
+}>;
+
+
+export type AffiliationByUriQuery = { affiliationByURI: { id: number | null, uri: string, name: string, funder: boolean, provenance: string } | null };
+
+export type AffiliationsQueryVariables = Exact<{
+  name: string;
+  funderOnly: boolean;
+}>;
+
+
+export type AffiliationsQuery = { affiliations: { items: Array<{ id: number, uri: string, name: string, aliases: Array<string> | null, acronyms: Array<string> | null, funder: boolean } | null> | null } | null };
+
+export type MemberRolesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type MemberRolesQuery = { memberRoles: Array<{ id: number | null, uri: string, label: string, description: string | null, isDefault: boolean | null } | null> | null };
+
+export type PlansQueryVariables = Exact<{
+  projectId: number;
+}>;
+
+
+export type PlansQuery = { plansByProjectId: Array<{ id: number | null, title: string | null } | null> | null };
+
+export type PlanDetailsFragment = { id: number | null, dmpId: string | null, title: string | null, visibility: PlanVisibility | null, status: PlanStatus | null, created: string | null, createdById: number | null, modified: string | null, modifiedById: number | null, registered: string | null, project: { id: number | null, title: string, abstractText: string | null, startDate: string | null, endDate: string | null, isTestProject: boolean | null, researchDomain: { id: number | null, uri: string } | null, members: Array<{ id: number | null, isPrimaryContact: boolean | null, givenName: string | null, surName: string | null, orcid: string | null, email: string | null, affiliation: { uri: string } | null, memberRoles: Array<{ id: number | null, uri: string }> | null }> | null, fundings: Array<{ id: number | null, status: ProjectFundingStatus | null, funderProjectNumber: string | null, funderOpportunityNumber: string | null, grantId: string | null, affiliation: { uri: string } | null }> | null } | null, members: Array<{ projectMember: { id: number | null } | null, memberRoles: Array<{ id: number | null, uri: string }> | null }> | null, fundings: Array<{ id: number | null, projectFunding: { id: number | null } | null }> | null, answers: Array<{ id: number | null, json: string | null, versionedSection: { id: number | null } | null, versionedQuestion: { id: number | null } | null }> | null, versionedTemplate: { id: number | null, name: string, description: string | null, version: string, template: { id: number | null } | null, versionedSections: Array<{ id: number | null, name: string, displayOrder: number, versionedQuestions: Array<{ id: number | null, questionText: string | null, json: string | null }> | null }> | null } | null, alternateIdentifiers: Array<{ id: number | null, alternateIdentifier: string | null }> | null, acceptedWorks: Array<{ doi: string, workType: WorkType | null, relationType: RelationType | null }> | null } & { ' $fragmentName'?: 'PlanDetailsFragment' };
+
+export type PlanByDmpIdQueryVariables = Exact<{
+  dmpId: string;
+}>;
+
+
+export type PlanByDmpIdQuery = { planByDMPId: { ' $fragmentRefs'?: { 'PlanDetailsFragment': PlanDetailsFragment } } | null };
+
+export type PlanByAlternateIdentifierQueryVariables = Exact<{
+  alternateIdentifier: string;
+}>;
+
+
+export type PlanByAlternateIdentifierQuery = { planByAlternateIdentifier: { ' $fragmentRefs'?: { 'PlanDetailsFragment': PlanDetailsFragment } } | null };
+
+export type ProjectQueryVariables = Exact<{
+  projectId: number;
+}>;
+
+
+export type ProjectQuery = { project: { id: number | null, created: string | null, createdById: number | null, modified: string | null, modifiedById: number | null, title: string, abstractText: string | null, startDate: string | null, endDate: string | null, isTestProject: boolean | null, researchDomain: { id: number | null, uri: string, name: string } | null, plans: Array<{ id: number | null, title: string | null }> | null, members: Array<{ id: number | null, givenName: string | null, surName: string | null, email: string | null, orcid: string | null, isPrimaryContact: boolean | null, affiliation: { uri: string, name: string } | null, memberRoles: Array<{ id: number | null, uri: string }> | null }> | null, fundings: Array<{ id: number | null, status: ProjectFundingStatus | null, funderOpportunityNumber: string | null, funderProjectNumber: string | null, grantId: string | null, affiliation: { uri: string, name: string } | null }> | null } | null };
+
+export type MyProjectsQueryVariables = Exact<{
+  term?: string | null | undefined;
+}>;
+
+
+export type MyProjectsQuery = { myProjects: { items: Array<{ id: number | null, title: string | null, abstractText: string | null, endDate: string | null, startDate: string | null, researchDomain: string | null, created: string | null, createdById: number | null, modified: string | null, modifiedById: number | null } | null> | null } | null };
+
+export type ResearchDomainByUriQueryVariables = Exact<{
+  uri: string;
+}>;
+
+
+export type ResearchDomainByUriQuery = { researchDomainByURI: { id: number | null, uri: string, name: string } | null };
+
+export type VersionedTemplatesQueryVariables = Exact<{
+  id: number;
+}>;
+
+
+export type VersionedTemplatesQuery = { versionedTemplate: { id: number | null, name: string, version: string, active: boolean, template: { id: number | null } | null, versionedSections: Array<{ id: number | null, name: string, displayOrder: number, section: { id: number | null } | null, tags: Array<{ id: number | null, slug: string } | null> | null, versionedQuestions: Array<{ id: number | null, questionId: number, versionedSectionId: number, questionText: string | null, displayOrder: number | null, json: string | null }> | null }> | null } | null };
+
+export type DefaultTemplateQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type DefaultTemplateQuery = { defaultTemplate: { id: number | null, name: string, version: string, active: boolean, template: { id: number | null } | null, versionedSections: Array<{ id: number | null, name: string, displayOrder: number, section: { id: number | null } | null, tags: Array<{ id: number | null, slug: string } | null> | null, versionedQuestions: Array<{ id: number | null, questionId: number, versionedSectionId: number, questionText: string | null, displayOrder: number | null, json: string | null }> | null }> | null } | null };
+
+export const PlanDetailsFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PlanDetails"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Plan"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"dmpId"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"created"}},{"kind":"Field","name":{"kind":"Name","value":"createdById"}},{"kind":"Field","name":{"kind":"Name","value":"modified"}},{"kind":"Field","name":{"kind":"Name","value":"modifiedById"}},{"kind":"Field","name":{"kind":"Name","value":"registered"}},{"kind":"Field","name":{"kind":"Name","value":"project"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"abstractText"}},{"kind":"Field","name":{"kind":"Name","value":"startDate"}},{"kind":"Field","name":{"kind":"Name","value":"endDate"}},{"kind":"Field","name":{"kind":"Name","value":"isTestProject"}},{"kind":"Field","name":{"kind":"Name","value":"researchDomain"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}},{"kind":"Field","name":{"kind":"Name","value":"members"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"isPrimaryContact"}},{"kind":"Field","name":{"kind":"Name","value":"affiliation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}},{"kind":"Field","name":{"kind":"Name","value":"givenName"}},{"kind":"Field","name":{"kind":"Name","value":"surName"}},{"kind":"Field","name":{"kind":"Name","value":"orcid"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"memberRoles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"fundings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"affiliation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"funderProjectNumber"}},{"kind":"Field","name":{"kind":"Name","value":"funderOpportunityNumber"}},{"kind":"Field","name":{"kind":"Name","value":"grantId"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"members"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectMember"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"memberRoles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"fundings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"projectFunding"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"answers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"versionedSection"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedQuestion"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"json"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedTemplate"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"version"}},{"kind":"Field","name":{"kind":"Name","value":"template"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedSections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"displayOrder"}},{"kind":"Field","name":{"kind":"Name","value":"versionedQuestions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"questionText"}},{"kind":"Field","name":{"kind":"Name","value":"json"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"alternateIdentifiers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"alternateIdentifier"}}]}},{"kind":"Field","name":{"kind":"Name","value":"acceptedWorks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"doi"}},{"kind":"Field","name":{"kind":"Name","value":"workType"}},{"kind":"Field","name":{"kind":"Name","value":"relationType"}}]}}]}}]} as unknown as DocumentNode<PlanDetailsFragment, unknown>;
+export const AddPlanDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"AddPlan"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"AddEntirePlanInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"addEntirePlan"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"created"}},{"kind":"Field","name":{"kind":"Name","value":"createdById"}},{"kind":"Field","name":{"kind":"Name","value":"modified"}},{"kind":"Field","name":{"kind":"Name","value":"modifiedById"}},{"kind":"Field","name":{"kind":"Name","value":"dmpId"}},{"kind":"Field","name":{"kind":"Name","value":"errors"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"general"}},{"kind":"Field","name":{"kind":"Name","value":"versionedTemplateId"}},{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"languageId"}},{"kind":"Field","name":{"kind":"Name","value":"members"}},{"kind":"Field","name":{"kind":"Name","value":"funding"}},{"kind":"Field","name":{"kind":"Name","value":"alternateIdentifiers"}},{"kind":"Field","name":{"kind":"Name","value":"acceptedWorks"}}]}}]}}]}}]} as unknown as DocumentNode<AddPlanMutation, AddPlanMutationVariables>;
+export const UpdatePlanDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdatePlan"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateEntirePlanInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateEntirePlan"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"dmpId"}},{"kind":"Field","name":{"kind":"Name","value":"modified"}},{"kind":"Field","name":{"kind":"Name","value":"modifiedById"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"languageId"}},{"kind":"Field","name":{"kind":"Name","value":"errors"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"general"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"languageId"}},{"kind":"Field","name":{"kind":"Name","value":"projectId"}},{"kind":"Field","name":{"kind":"Name","value":"versionedTemplateId"}},{"kind":"Field","name":{"kind":"Name","value":"members"}},{"kind":"Field","name":{"kind":"Name","value":"funding"}},{"kind":"Field","name":{"kind":"Name","value":"alternateIdentifiers"}},{"kind":"Field","name":{"kind":"Name","value":"acceptedWorks"}}]}}]}}]}}]} as unknown as DocumentNode<UpdatePlanMutation, UpdatePlanMutationVariables>;
+export const RemovePlanDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"RemovePlan"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"dmpId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"removeEntirePlanByDMPId"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"dmpId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"dmpId"}}}]}]}}]} as unknown as DocumentNode<RemovePlanMutation, RemovePlanMutationVariables>;
+export const AffiliationByUriDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"affiliationByURI"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"uri"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"affiliationByURI"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"uri"},"value":{"kind":"Variable","name":{"kind":"Name","value":"uri"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"funder"}},{"kind":"Field","name":{"kind":"Name","value":"provenance"}}]}}]}}]} as unknown as DocumentNode<AffiliationByUriQuery, AffiliationByUriQueryVariables>;
+export const AffiliationsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Affiliations"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"name"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"funderOnly"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Boolean"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"affiliations"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"name"},"value":{"kind":"Variable","name":{"kind":"Name","value":"name"}}},{"kind":"Argument","name":{"kind":"Name","value":"funderOnly"},"value":{"kind":"Variable","name":{"kind":"Name","value":"funderOnly"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"aliases"}},{"kind":"Field","name":{"kind":"Name","value":"acronyms"}},{"kind":"Field","name":{"kind":"Name","value":"funder"}}]}}]}}]}}]} as unknown as DocumentNode<AffiliationsQuery, AffiliationsQueryVariables>;
+export const MemberRolesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MemberRoles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"memberRoles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"isDefault"}}]}}]}}]} as unknown as DocumentNode<MemberRolesQuery, MemberRolesQueryVariables>;
+export const PlansDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Plans"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"plansByProjectId"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}}]}}]}}]} as unknown as DocumentNode<PlansQuery, PlansQueryVariables>;
+export const PlanByDmpIdDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PlanByDmpId"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"dmpId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"planByDMPId"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"dmpId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"dmpId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PlanDetails"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PlanDetails"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Plan"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"dmpId"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"created"}},{"kind":"Field","name":{"kind":"Name","value":"createdById"}},{"kind":"Field","name":{"kind":"Name","value":"modified"}},{"kind":"Field","name":{"kind":"Name","value":"modifiedById"}},{"kind":"Field","name":{"kind":"Name","value":"registered"}},{"kind":"Field","name":{"kind":"Name","value":"project"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"abstractText"}},{"kind":"Field","name":{"kind":"Name","value":"startDate"}},{"kind":"Field","name":{"kind":"Name","value":"endDate"}},{"kind":"Field","name":{"kind":"Name","value":"isTestProject"}},{"kind":"Field","name":{"kind":"Name","value":"researchDomain"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}},{"kind":"Field","name":{"kind":"Name","value":"members"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"isPrimaryContact"}},{"kind":"Field","name":{"kind":"Name","value":"affiliation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}},{"kind":"Field","name":{"kind":"Name","value":"givenName"}},{"kind":"Field","name":{"kind":"Name","value":"surName"}},{"kind":"Field","name":{"kind":"Name","value":"orcid"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"memberRoles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"fundings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"affiliation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"funderProjectNumber"}},{"kind":"Field","name":{"kind":"Name","value":"funderOpportunityNumber"}},{"kind":"Field","name":{"kind":"Name","value":"grantId"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"members"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectMember"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"memberRoles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"fundings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"projectFunding"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"answers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"versionedSection"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedQuestion"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"json"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedTemplate"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"version"}},{"kind":"Field","name":{"kind":"Name","value":"template"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedSections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"displayOrder"}},{"kind":"Field","name":{"kind":"Name","value":"versionedQuestions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"questionText"}},{"kind":"Field","name":{"kind":"Name","value":"json"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"alternateIdentifiers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"alternateIdentifier"}}]}},{"kind":"Field","name":{"kind":"Name","value":"acceptedWorks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"doi"}},{"kind":"Field","name":{"kind":"Name","value":"workType"}},{"kind":"Field","name":{"kind":"Name","value":"relationType"}}]}}]}}]} as unknown as DocumentNode<PlanByDmpIdQuery, PlanByDmpIdQueryVariables>;
+export const PlanByAlternateIdentifierDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"PlanByAlternateIdentifier"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"alternateIdentifier"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"planByAlternateIdentifier"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"alternateIdentifier"},"value":{"kind":"Variable","name":{"kind":"Name","value":"alternateIdentifier"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PlanDetails"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PlanDetails"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"Plan"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"dmpId"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"visibility"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"created"}},{"kind":"Field","name":{"kind":"Name","value":"createdById"}},{"kind":"Field","name":{"kind":"Name","value":"modified"}},{"kind":"Field","name":{"kind":"Name","value":"modifiedById"}},{"kind":"Field","name":{"kind":"Name","value":"registered"}},{"kind":"Field","name":{"kind":"Name","value":"project"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"abstractText"}},{"kind":"Field","name":{"kind":"Name","value":"startDate"}},{"kind":"Field","name":{"kind":"Name","value":"endDate"}},{"kind":"Field","name":{"kind":"Name","value":"isTestProject"}},{"kind":"Field","name":{"kind":"Name","value":"researchDomain"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}},{"kind":"Field","name":{"kind":"Name","value":"members"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"isPrimaryContact"}},{"kind":"Field","name":{"kind":"Name","value":"affiliation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}},{"kind":"Field","name":{"kind":"Name","value":"givenName"}},{"kind":"Field","name":{"kind":"Name","value":"surName"}},{"kind":"Field","name":{"kind":"Name","value":"orcid"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"memberRoles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"fundings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"affiliation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"funderProjectNumber"}},{"kind":"Field","name":{"kind":"Name","value":"funderOpportunityNumber"}},{"kind":"Field","name":{"kind":"Name","value":"grantId"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"members"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"projectMember"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"memberRoles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"fundings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"projectFunding"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"answers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"versionedSection"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedQuestion"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"json"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedTemplate"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"version"}},{"kind":"Field","name":{"kind":"Name","value":"template"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedSections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"displayOrder"}},{"kind":"Field","name":{"kind":"Name","value":"versionedQuestions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"questionText"}},{"kind":"Field","name":{"kind":"Name","value":"json"}}]}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"alternateIdentifiers"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"alternateIdentifier"}}]}},{"kind":"Field","name":{"kind":"Name","value":"acceptedWorks"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"doi"}},{"kind":"Field","name":{"kind":"Name","value":"workType"}},{"kind":"Field","name":{"kind":"Name","value":"relationType"}}]}}]}}]} as unknown as DocumentNode<PlanByAlternateIdentifierQuery, PlanByAlternateIdentifierQueryVariables>;
+export const ProjectDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"Project"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"project"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"projectId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"projectId"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"created"}},{"kind":"Field","name":{"kind":"Name","value":"createdById"}},{"kind":"Field","name":{"kind":"Name","value":"modified"}},{"kind":"Field","name":{"kind":"Name","value":"modifiedById"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"abstractText"}},{"kind":"Field","name":{"kind":"Name","value":"startDate"}},{"kind":"Field","name":{"kind":"Name","value":"endDate"}},{"kind":"Field","name":{"kind":"Name","value":"isTestProject"}},{"kind":"Field","name":{"kind":"Name","value":"researchDomain"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"plans"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}}]}},{"kind":"Field","name":{"kind":"Name","value":"members"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"affiliation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"uri"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"givenName"}},{"kind":"Field","name":{"kind":"Name","value":"surName"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"orcid"}},{"kind":"Field","name":{"kind":"Name","value":"isPrimaryContact"}},{"kind":"Field","name":{"kind":"Name","value":"memberRoles"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"fundings"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"affiliation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"uri"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"funderOpportunityNumber"}},{"kind":"Field","name":{"kind":"Name","value":"funderProjectNumber"}},{"kind":"Field","name":{"kind":"Name","value":"grantId"}}]}}]}}]}}]} as unknown as DocumentNode<ProjectQuery, ProjectQueryVariables>;
+export const MyProjectsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"MyProjects"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"term"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"myProjects"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"term"},"value":{"kind":"Variable","name":{"kind":"Name","value":"term"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"items"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"title"}},{"kind":"Field","name":{"kind":"Name","value":"abstractText"}},{"kind":"Field","name":{"kind":"Name","value":"endDate"}},{"kind":"Field","name":{"kind":"Name","value":"startDate"}},{"kind":"Field","name":{"kind":"Name","value":"researchDomain"}},{"kind":"Field","name":{"kind":"Name","value":"created"}},{"kind":"Field","name":{"kind":"Name","value":"createdById"}},{"kind":"Field","name":{"kind":"Name","value":"modified"}},{"kind":"Field","name":{"kind":"Name","value":"modifiedById"}}]}}]}}]}}]} as unknown as DocumentNode<MyProjectsQuery, MyProjectsQueryVariables>;
+export const ResearchDomainByUriDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"ResearchDomainByURI"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"uri"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"researchDomainByURI"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"uri"},"value":{"kind":"Variable","name":{"kind":"Name","value":"uri"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"uri"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}}]} as unknown as DocumentNode<ResearchDomainByUriQuery, ResearchDomainByUriQueryVariables>;
+export const VersionedTemplatesDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"VersionedTemplates"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"id"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"Int"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"versionedTemplate"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"id"},"value":{"kind":"Variable","name":{"kind":"Name","value":"id"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"version"}},{"kind":"Field","name":{"kind":"Name","value":"active"}},{"kind":"Field","name":{"kind":"Name","value":"template"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedSections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"section"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"displayOrder"}},{"kind":"Field","name":{"kind":"Name","value":"tags"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"slug"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedQuestions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"questionId"}},{"kind":"Field","name":{"kind":"Name","value":"versionedSectionId"}},{"kind":"Field","name":{"kind":"Name","value":"questionText"}},{"kind":"Field","name":{"kind":"Name","value":"displayOrder"}},{"kind":"Field","name":{"kind":"Name","value":"json"}}]}}]}}]}}]}}]} as unknown as DocumentNode<VersionedTemplatesQuery, VersionedTemplatesQueryVariables>;
+export const DefaultTemplateDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"DefaultTemplate"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"defaultTemplate"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"version"}},{"kind":"Field","name":{"kind":"Name","value":"active"}},{"kind":"Field","name":{"kind":"Name","value":"template"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedSections"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"section"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"displayOrder"}},{"kind":"Field","name":{"kind":"Name","value":"tags"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"slug"}}]}},{"kind":"Field","name":{"kind":"Name","value":"versionedQuestions"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"questionId"}},{"kind":"Field","name":{"kind":"Name","value":"versionedSectionId"}},{"kind":"Field","name":{"kind":"Name","value":"questionText"}},{"kind":"Field","name":{"kind":"Name","value":"displayOrder"}},{"kind":"Field","name":{"kind":"Name","value":"json"}}]}}]}}]}}]}}]} as unknown as DocumentNode<DefaultTemplateQuery, DefaultTemplateQueryVariables>;
